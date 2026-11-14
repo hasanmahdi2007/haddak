@@ -1,0 +1,21 @@
+# Local development database: Postgres with PostGIS.
+# Port 5433 on the host so it does not clash with any Postgres already installed.
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: haddak
+      POSTGRES_PASSWORD: haddak
+      POSTGRES_DB: haddak
+    ports:
+      - "5433:5432"
+    volumes:
+      - haddak_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U haddak -d haddak"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  haddak_db:
