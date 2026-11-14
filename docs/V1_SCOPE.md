@@ -21,7 +21,9 @@
 
 - Search: providers within the chosen radius, ordered featured first, then by rating weighted by number of reviews, then by distance.
 - Every profile view, WhatsApp tap and call tap is counted per provider.
-- Approval, founding-member and featured status are set by the admin (by hand, through an admin key on the API or the database dashboard).
+- Approval, founding-member and featured status are set by the admin through a simple approval page served by the API at `/admin` (protected by the admin key).
+- Search by provider name (plain text match, no AI) alongside category and radius.
+- Protection for the numbers: rate limits on write routes, and a repeated tap from the same phone counts once per 10 minutes.
 
 ## Not in version 1
 
@@ -29,7 +31,7 @@
 - In-app chat
 - Payments, subscriptions, commission
 - Third-party ads
-- Admin panel app
+- Full admin panel app (version 1 has only the one approval page)
 - Booking and calendars
 - App store publishing (v1 runs through Expo Go and test builds first)
 - iOS-specific work beyond what Expo gives for free
