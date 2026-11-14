@@ -8,22 +8,22 @@ Status: `todo`, `doing`, `done`, `blocked`. Update the status when a task change
 | # | Task | Status | Check |
 |---|---|---|---|
 | S1 | Project docs: PROJECT, V1_SCOPE, SCHEMA, API, TASKS, CLAUDE.md | done | Files exist in `docs/` |
-| S2 | Repo skeleton, `.gitignore`, local database via Docker | doing | `docker compose up -d db` gives a Postgres with PostGIS |
-| S3 | Private GitHub repo `haddak`, first push | todo | Repo visible on GitHub |
+| S2 | Repo skeleton, `.gitignore`, local database via Docker | done | `docker compose up -d db` gives a Postgres with PostGIS |
+| S3 | Private GitHub repo `haddak`, first push | done | Repo visible on GitHub |
 | S4 | Integrate app with real backend, end-to-end check | todo | Verification list in the plan passes |
 
 ## Backend (backend subagent) — works in `backend/` only
 
 | # | Task | Status | Check |
 |---|---|---|---|
-| B1 | FastAPI project: settings, database session, SQLAlchemy models matching `SCHEMA.md` | todo | App starts; `/api/v1/health` returns ok |
-| B2 | Alembic initial migration + development seed script | todo | Fresh database migrates and seeds without errors |
-| B3 | Categories and search endpoints | todo | Tests: radius edges, child categories, ranking order |
-| B4 | Provider detail, by-slug, contact events | todo | Tests: pending profiles are 404 publicly |
-| B5 | Token verification, `/me/provider` create, update, stats | todo | Tests: 401 without token, 409 on second profile |
-| B6 | Reviews: upsert, delete, list, rating recalculation | todo | Tests: average updates; cannot review own profile |
-| B7 | Admin endpoints with admin key | todo | Tests: wrong key is 401; status change makes profile public |
-| B8 | Lint (ruff), GitHub Actions workflow for lint + tests, backend README | todo | `ruff check` and `pytest` pass locally |
+| B1 | FastAPI project: settings, database session, SQLAlchemy models matching `SCHEMA.md` | done | App starts; `/api/v1/health` returns ok |
+| B2 | Alembic initial migration + development seed script | done | Fresh database migrates and seeds without errors |
+| B3 | Categories and search endpoints | done | Tests: radius edges, child categories, ranking order |
+| B4 | Provider detail, by-slug, contact events | done | Tests: pending profiles are 404 publicly |
+| B5 | Token verification, `/me/provider` create, update, stats | done | Tests: 401 without token, 409 on second profile |
+| B6 | Reviews: upsert, delete, list, rating recalculation | done | Tests: average updates; cannot review own profile |
+| B7 | Admin endpoints with admin key | done | Tests: wrong key is 401; status change makes profile public |
+| B8 | Lint (ruff), GitHub Actions workflow for lint + tests, backend README | done | `ruff check` and `pytest` pass locally |
 
 ## Mobile (mobile subagent) — works in `mobile/` only
 

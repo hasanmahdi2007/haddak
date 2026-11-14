@@ -1,0 +1,53 @@
+name: backend
+
+on:
+  push:
+    branches: [main]
+    paths: ["backend/**", ".github/workflows/backend.yml"]
+  pull_request:
+    paths: ["backend/**", ".github/workflows/backend.yml"]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend
+
+    # A throwaway Postgres + PostGIS, same image and port as docker-compose.yml.
+    services:
+      db:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: haddak
+          POSTGRES_PASSWORD: haddak
+          POSTGRES_DB: haddak
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U haddak -d haddak"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        # The tests create the haddak_test database themselves and migrate it.
+        env:
+          TEST_DATABASE_URL: postgresql+psycopg://haddak:haddak@localhost:5433/haddak_test
+        run: pytest

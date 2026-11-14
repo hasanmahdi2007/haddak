@@ -1,0 +1,10 @@
+# Runtime dependencies (exact versions so every machine installs the same thing).
+fastapi==0.163.0
+uvicorn[standard]==0.54.0
+SQLAlchemy==2.1.8
+psycopg[binary]==3.3.9
+GeoAlchemy2==0.21.0
+pydantic==2.14.3
+pydantic-settings==2.16.3
+alembic==1.20.1
+PyJWT[crypto]==2.15.1

@@ -98,6 +98,21 @@ Phone numbers must be in international format (`+` and 8 to 15 digits).
 | `GET /admin/providers?status=pending` | List `OwnProvider` items by status. |
 | `PATCH /admin/providers/{id}` | Body: any of `status`, `founding_member`, `featured_until`. |
 
+Both admin routes return `OwnProvider` items; the list is `{"items": [...], "total": n}`, oldest first, `status` defaulting to `pending`.
+
+## Details settled during the backend build
+
+- Validation errors (422) return one string in `detail`, not FastAPI's default list.
+- `whatsapp` in responses falls back to `phone` when none was stored, so the app always has a number.
+- Reviews and contact events on a profile that is not verified return 404. Reviewing your own profile is 403.
+- `DELETE /providers/{id}/reviews/mine` returns 204 even if there was no review.
+- An unknown `category_id` is 400 on profile create or update, and an empty result in search.
+- `category_id` in search includes direct children only (one level).
+- Tokens must carry `aud: "authenticated"` (Supabase's default). A bad token on the public reviews list is treated as anonymous.
+- "Today" (featured expiry) and the stats month are in UTC.
+- Limits: name and area 100 characters, description and comment 2000, 10 photos, `author_name` required, up to 80.
+- **Open decision:** `PATCH /me/provider` keeps the current `status`, so a verified provider can change name or category without a new review.
+
 ## Photos and proof documents
 
 The app uploads files straight to Supabase Storage using the user's login, then sends the resulting URLs to the API:

@@ -1,0 +1,26 @@
+# Tool configuration only. Dependencies live in requirements.txt.
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+# E/W: style, F: real mistakes (unused imports, undefined names),
+# I: import order, B: common bugs, UP: outdated syntax.
+select = ["E", "W", "F", "I", "B", "UP"]
+# B008 complains about `Depends(...)` in function defaults, which is the
+# normal FastAPI way of declaring dependencies.
+ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+# The seed data is written as wide table rows; wrapping them hurts readability.
+"scripts/seed.py" = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+known-third-party = ["alembic"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
