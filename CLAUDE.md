@@ -8,7 +8,9 @@ Mobile app for finding verified professionals and shops nearby in Lebanon. Solo 
 - `docs/V1_SCOPE.md` — what version 1 includes and the roadmap
 - `docs/SCHEMA.md` — database schema and search ranking (source of truth)
 - `docs/API.md` — contract between app and backend (source of truth)
+- `docs/SYSTEM_DESIGN.md` — architecture, technology choices, security, hosting plan
 - `docs/TASKS.md` — task board; update statuses as work changes
+- `docs/PROGRESS.md` — dated log of what was built and how it was verified; add an entry after each milestone
 
 Keep these docs current. When a decision, endpoint or table changes, change the doc first.
 

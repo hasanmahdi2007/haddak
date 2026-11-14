@@ -24,6 +24,13 @@ Status: `todo`, `doing`, `done`, `blocked`. Update the status when a task change
 | B6 | Reviews: upsert, delete, list, rating recalculation | done | Tests: average updates; cannot review own profile |
 | B7 | Admin endpoints with admin key | done | Tests: wrong key is 401; status change makes profile public |
 | B8 | Lint (ruff), GitHub Actions workflow for lint + tests, backend README | done | `ruff check` and `pytest` pass locally |
+| B9 | Name search (`q`) on the search endpoint | doing | Tests: substring match, wildcards escaped |
+| B10 | `/health` checks the database | doing | Test: 503 when the database is down |
+| B11 | Rate limits and contact-event de-duplication | doing | Tests: 429, `Retry-After`, repeat tap not stored |
+| B12 | Admin approval page at `/admin` | doing | Page loads; approve and reject work |
+| B13 | Request logging | doing | One line per request, no secrets |
+| B14 | Dockerfile and deploy notes | doing | Image builds and answers `/health` |
+| B15 | Refuse to start in production with placeholder secrets | doing | Test |
 
 ## Mobile (mobile subagent) — works in `mobile/` only
 
@@ -31,9 +38,9 @@ Design comes first and uses the installed design plugins (`impeccable`, `design:
 
 | # | Task | Status | Check |
 |---|---|---|---|
-| M1 | Expo project (TypeScript, Expo Router), typed API client matching `API.md`, mock data mode | todo | App starts in Expo; typecheck passes |
-| M2 | Design direction with `impeccable`: `mobile/DESIGN.md` (color, type, spacing, components, right-to-left) | todo | `DESIGN.md` exists and screens use its tokens only |
-| M3 | Home, Results list, Provider profile built from the design system | todo | Search flow works on mock data |
+| M1 | Expo project (TypeScript, Expo Router), typed API client matching `API.md`, mock data mode | doing | App starts in Expo; typecheck passes |
+| M2 | Design direction with `impeccable`: `mobile/DESIGN.md` (color, type, spacing, components, right-to-left) | doing | `DESIGN.md` exists and screens use its tokens only |
+| M3 | Home, Results list, Provider profile built from the design system | doing | Search flow works on mock data |
 | M4 | **Founder reviews the design direction** | todo | Founder approves or asks for changes |
 | M5 | Results map view with pins | todo | Pins match the list; tapping a pin opens the profile |
 | M6 | Sign-in, provider sign-up with pin drop and proof upload, edit, stats | todo | Works against the backend |

@@ -49,7 +49,7 @@ Admin routes use the header `X-Admin-Key: <ADMIN_API_KEY>` instead.
 
 | Method and path | Purpose |
 |---|---|
-| `GET /health` | `{"status": "ok"}` |
+| `GET /health` | `{"status": "ok"}`. Also checks the database connection; 503 if it is down. |
 | `GET /categories` | All categories, ordered by `sort_order`. Flat list; the app builds the tree from `parent_id`. |
 | `GET /providers/search` | Radius search. See below. |
 | `GET /providers/{id}` | `ProviderDetail`. Optional `lat`, `lng` to get `distance_m`. 404 unless verified. |
@@ -64,6 +64,7 @@ Admin routes use the header `X-Admin-Key: <ADMIN_API_KEY>` instead.
 | `lat`, `lng` | float | required |
 | `radius_m` | int | required, 100 to 50000. App chips: 500, 1000, 5000, 20000 ("city") |
 | `category_id` | int | optional; includes child categories |
+| `q` | string | optional, 2 to 60 characters; keeps providers whose name contains it (case-insensitive). Works together with `category_id`. |
 | `limit` | int | default 30, max 100 |
 | `offset` | int | default 0 |
 
@@ -112,6 +113,17 @@ Both admin routes return `OwnProvider` items; the list is `{"items": [...], "tot
 - "Today" (featured expiry) and the stats month are in UTC.
 - Limits: name and area 100 characters, description and comment 2000, 10 photos, `author_name` required, up to 80.
 - **Open decision:** `PATCH /me/provider` keeps the current `status`, so a verified provider can change name or category without a new review.
+
+## Rate limits
+
+Write routes are limited per client IP, in the API process's memory (no extra service). Over the limit returns 429 with `{"detail": "..."}` and a `Retry-After` header.
+
+- `POST /providers/{id}/contact-events`: 30 per minute per IP. In addition, the same IP, provider and type is counted at most once per 10 minutes; repeats still return 204 but are not stored. This keeps provider stats honest.
+- `PUT /providers/{id}/reviews/mine`, `POST` and `PATCH /me/provider`: 20 per minute per IP.
+
+## Admin page
+
+`GET /admin` (outside `/api/v1`) serves one static HTML page for the founder: enter the admin key, see pending profiles with their proof link, approve or reject, set founding member and featured-until. It only calls the admin endpoints above; the key is kept in the browser tab's memory, never stored.
 
 ## Photos and proof documents
 
