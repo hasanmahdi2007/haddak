@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Haddak admin</title>
+<!--
+  One self-contained page: no build step, no external files.
+  It only calls GET and PATCH /api/v1/admin/providers.
+  The admin key lives in a JavaScript variable: it is gone when the tab is
+  closed or reloaded, and is never written to storage or cookies.
+-->
+<style>
+  :root {
+    --page: #f4f2ee; --card: #ffffff; --ink: #1d1b18; --muted: #6a655d; --line: #dcd7ce;
+    --accent: #0f6b5c; --accent-ink: #ffffff; --danger: #a3301f; --warn-bg: #fdf1d6; --warn-ink: #6b4a00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #161513; --card: #211f1c; --ink: #efebe4; --muted: #a8a196; --line: #3a3732;
+      --accent: #4fb8a4; --accent-ink: #10201d; --danger: #ef8a78; --warn-bg: #3b3013; --warn-ink: #f1d48a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--page); color: var(--ink);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  h1 { font-size: 20px; margin: 0; }
+  h2 { font-size: 18px; margin: 0; overflow-wrap: anywhere; }
+  button, input { font: inherit; color: inherit; }
+  button {
+    min-height: 44px; padding: 8px 16px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--card);
+  }
+  button:disabled { opacity: 0.5; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  button.danger { color: var(--danger); border-color: var(--danger); }
+  input[type="password"], input[type="date"] {
+    min-height: 44px; padding: 8px 12px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--card);
+  }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .panel, .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .key-form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .key-form input { flex: 1 1 200px; min-width: 0; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+  .tabs button { flex: 1; padding: 8px 4px; }
+  .tabs button[aria-pressed="true"] { background: var(--ink); color: var(--page); border-color: var(--ink); font-weight: 600; }
+  #message { min-height: 24px; margin: 8px 0; }
+  #message.error { color: var(--danger); font-weight: 600; }
+  .card { margin-bottom: 12px; }
+  .card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+  .badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--warn-bg); color: var(--warn-ink); }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 12px 0; }
+  dt { color: var(--muted); font-size: 14px; }
+  dd { margin: 0; overflow-wrap: anywhere; }
+  .description { margin: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .links { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 8px 0 12px; }
+  a { color: var(--accent); }
+  .links a { padding: 8px 0; }
+  .actions, .settings { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .settings { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .settings label { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+  .settings input[type="checkbox"] { width: 22px; height: 22px; }
+  .spacer { flex: 1 1 100%; height: 0; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Haddak admin</h1>
+    <button id="lock-button" type="button" hidden>Lock</button>
+  </header>
+
+  <section id="key-panel" class="panel">
+    <label for="key-input"><strong>Admin key</strong></label>
+    <form id="key-form" class="key-form">
+      <input id="key-input" type="password" autocomplete="off" required>
+      <button class="primary" type="submit">Unlock</button>
+    </form>
+    <p class="muted">Kept only in this tab's memory. Reloading the page asks for it again.</p>
+  </section>
+
+  <p id="message" role="status" aria-live="polite"></p>
+
+  <section id="list-panel" hidden>
+    <div class="tabs" id="tabs">
+      <button type="button" data-status="pending">Pending</button>
+      <button type="button" data-status="verified">Verified</button>
+      <button type="button" data-status="rejected">Rejected</button>
+    </div>
+    <div id="list"></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+// The admin key. Memory only: never saved to browser storage or cookies.
+let adminKey = "";
+let currentStatus = "pending";
+
+const keyPanel = document.getElementById("key-panel");
+const keyForm = document.getElementById("key-form");
+const keyInput = document.getElementById("key-input");
+const lockButton = document.getElementById("lock-button");
+const listPanel = document.getElementById("list-panel");
+const list = document.getElementById("list");
+const message = document.getElementById("message");
+const tabButtons = Array.from(document.querySelectorAll("#tabs button"));
+
+// ---------- small helpers ----------
+
+// Creates an element. Text always goes in through textContent, so provider
+// data (which is untrusted) can never be interpreted as HTML.
+function element(tag, text, className) {
+  const node = document.createElement(tag);
+  if (text !== undefined && text !== null) node.textContent = String(text);
+  if (className) node.className = className;
+  return node;
+}
+
+// Provider URLs are untrusted too: a "javascript:..." link would run code
+// when clicked. Only real web links are allowed.
+function safeWebUrl(value) {
+  try {
+    const url = new URL(String(value));
+    return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function link(label, value) {
+  const href = safeWebUrl(value);
+  if (!href) return element("span", label + " (invalid link)", "muted");
+  const anchor = element("a", label);
+  anchor.href = href;
+  anchor.target = "_blank";
+  anchor.rel = "noopener noreferrer";
+  return anchor;
+}
+
+function showMessage(text, isError) {
+  message.textContent = text;
+  message.className = isError ? "error" : "";
+}
+
+function formatDate(isoText) {
+  const date = new Date(isoText);
+  return isNaN(date) ? "" : date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+// ---------- talking to the API ----------
+
+async function callApi(method, path, body) {
+  const options = { method: method, headers: { "X-Admin-Key": adminKey } };
+  if (body !== undefined) {
+    options.headers["Content-Type"] = "application/json";
+    options.body = JSON.stringify(body);
+  }
+  const response = await fetch("/api/v1/admin/providers" + path, options);
+  if (response.status === 401) {
+    lock();
+    throw new Error("Wrong admin key.");
+  }
+  const data = await response.json().catch(function () { return {}; });
+  if (!response.ok) {
+    throw new Error(typeof data.detail === "string" ? data.detail : "Request failed (" + response.status + ").");
+  }
+  return data;
+}
+
+async function loadList() {
+  showMessage("Loading…", false);
+  try {
+    const data = await callApi("GET", "?status=" + encodeURIComponent(currentStatus));
+    keyPanel.hidden = true;
+    listPanel.hidden = false;
+    lockButton.hidden = false;
+    renderList(data.items);
+    showMessage(data.total === 0 ? "No " + currentStatus + " profiles." : data.total + " " + currentStatus + ".", false);
+  } catch (error) {
+    showMessage(error.message, true);
+  }
+}
+
+async function updateProvider(provider, changes, doneText) {
+  try {
+    await callApi("PATCH", "/" + encodeURIComponent(provider.id), changes);
+    await loadList();
+    showMessage(doneText, false);
+  } catch (error) {
+    showMessage(error.message, true);
+  }
+}
+
+// ---------- drawing ----------
+
+function addRow(table, label, valueNode) {
+  table.appendChild(element("dt", label));
+  const cell = element("dd");
+  cell.appendChild(valueNode);
+  table.appendChild(cell);
+}
+
+function renderProvider(provider) {
+  const card = element("article", null, "card");
+
+  const head = element("div", null, "card-head");
+  head.appendChild(element("h2", provider.name));
+  if (provider.founding_member) head.appendChild(element("span", "Founding member", "badge"));
+  if (provider.featured) head.appendChild(element("span", "Featured", "badge"));
+  card.appendChild(head);
+
+  const table = element("dl");
+  addRow(table, "Category", element("span", provider.category ? provider.category.name_en : ""));
+  addRow(table, "Area", element("span", provider.area_name));
+  addRow(table, "Phone", element("span", provider.phone));
+  if (provider.whatsapp && provider.whatsapp !== provider.phone) {
+    addRow(table, "WhatsApp", element("span", provider.whatsapp));
+  }
+  if (provider.price_text) addRow(table, "Price", element("span", provider.price_text));
+  addRow(table, "Created", element("span", formatDate(provider.created_at)));
+  card.appendChild(table);
+
+  if (provider.description) card.appendChild(element("p", provider.description, "description"));
+
+  const links = element("div", null, "links");
+  if (provider.verification_doc_url) {
+    links.appendChild(link("Verification document", provider.verification_doc_url));
+  } else {
+    links.appendChild(element("span", "No verification document", "muted"));
+  }
+  (provider.photos || []).forEach(function (photoUrl, index) {
+    links.appendChild(link("Photo " + (index + 1), photoUrl));
+  });
+  const lat = Number(provider.lat);
+  const lng = Number(provider.lng);
+  if (isFinite(lat) && isFinite(lng)) {
+    links.appendChild(link("Map", "https://www.google.com/maps?q=" + lat + "," + lng));
+  }
+  card.appendChild(links);
+
+  // Approve / Reject
+  const actions = element("div", null, "actions");
+  if (provider.status !== "verified") {
+    const approve = element("button", "Approve", "primary");
+    approve.type = "button";
+    approve.addEventListener("click", function () {
+      updateProvider(provider, { status: "verified" }, "Approved " + provider.name + ".");
+    });
+    actions.appendChild(approve);
+  }
+  if (provider.status !== "rejected") {
+    const reject = element("button", "Reject", "danger");
+    reject.type = "button";
+    reject.addEventListener("click", function () {
+      if (window.confirm("Reject " + provider.name + "? It will be hidden from the public.")) {
+        updateProvider(provider, { status: "rejected" }, "Rejected " + provider.name + ".");
+      }
+    });
+    actions.appendChild(reject);
+  }
+  card.appendChild(actions);
+
+  // Founding member and featured-until
+  const settings = element("div", null, "settings");
+
+  const foundingLabel = element("label");
+  const founding = element("input");
+  founding.type = "checkbox";
+  founding.checked = provider.founding_member === true;
+  founding.addEventListener("change", function () {
+    updateProvider(provider, { founding_member: founding.checked }, "Saved founding member for " + provider.name + ".");
+  });
+  foundingLabel.appendChild(founding);
+  foundingLabel.appendChild(element("span", "Founding member"));
+  settings.appendChild(foundingLabel);
+  settings.appendChild(element("div", null, "spacer"));
+
+  const featuredLabel = element("label");
+  featuredLabel.appendChild(element("span", "Featured until"));
+  const featured = element("input");
+  featured.type = "date";
+  featured.value = provider.featured_until || "";
+  featuredLabel.appendChild(featured);
+  settings.appendChild(featuredLabel);
+
+  const saveFeatured = element("button", "Save date");
+  saveFeatured.type = "button";
+  saveFeatured.addEventListener("click", function () {
+    if (!featured.value) {
+      showMessage("Pick a date first, or use Clear.", true);
+      return;
+    }
+    updateProvider(provider, { featured_until: featured.value }, "Saved featured date for " + provider.name + ".");
+  });
+  settings.appendChild(saveFeatured);
+
+  const clearFeatured = element("button", "Clear");
+  clearFeatured.type = "button";
+  clearFeatured.disabled = !provider.featured_until;
+  clearFeatured.addEventListener("click", function () {
+    updateProvider(provider, { featured_until: null }, "Removed featured date for " + provider.name + ".");
+  });
+  settings.appendChild(clearFeatured);
+
+  card.appendChild(settings);
+  return card;
+}
+
+function renderList(providers) {
+  list.replaceChildren();
+  providers.forEach(function (provider) {
+    list.appendChild(renderProvider(provider));
+  });
+  tabButtons.forEach(function (button) {
+    button.setAttribute("aria-pressed", String(button.dataset.status === currentStatus));
+  });
+}
+
+// ---------- locking and events ----------
+
+function lock() {
+  adminKey = "";
+  list.replaceChildren();
+  listPanel.hidden = true;
+  lockButton.hidden = true;
+  keyPanel.hidden = false;
+  keyInput.value = "";
+}
+
+keyForm.addEventListener("submit", function (event) {
+  event.preventDefault();
+  adminKey = keyInput.value.trim();
+  keyInput.value = "";
+  loadList();
+});
+
+lockButton.addEventListener("click", function () {
+  lock();
+  showMessage("Locked.", false);
+});
+
+tabButtons.forEach(function (button) {
+  button.addEventListener("click", function () {
+    currentStatus = button.dataset.status;
+    loadList();
+  });
+});
+</script>
+</body>
+</html>

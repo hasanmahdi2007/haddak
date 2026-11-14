@@ -9,7 +9,7 @@ What has been built, how it was checked, and what is still open. Newest entry fi
 | Project docs | Written: PROJECT, V1_SCOPE, SCHEMA, API, SYSTEM_DESIGN, TASKS, this log |
 | GitHub | Private repo https://github.com/hasanmahdi2007/haddak, CI running |
 | Local database | Postgres 16 + PostGIS in Docker, port 5433, seeded |
-| Backend | All version 1 endpoints built and tested |
+| Backend | All version 1 endpoints built, hardened and tested (103 tests); Docker image ready |
 | Mobile app | In progress |
 | Hosting | Not started (plan in `SYSTEM_DESIGN.md` section 6) |
 
@@ -24,6 +24,20 @@ The app is judged in the first area by this, not by code:
 Current: 0 real providers (app not released). Seed data only.
 
 ## Log
+
+### 2026-11-15 — backend hardened and ready to deploy
+
+**Built** (`backend/`): search by name (`q`), `/health` that checks the database, rate limits and contact-tap de-duplication (`app/rate_limit.py`), an approval page at `/admin` (`app/static/admin.html`), one log line per request without query strings or headers, a `Dockerfile`, and a startup check that refuses to run in production with placeholder secrets.
+
+**Checked by the coordinating session:**
+
+- `ruff check .` → all checks passed. `pytest` → 103 passed.
+- Admin page opened in Chrome against the local API: unlocked with the development key, listed the 2 pending sample profiles with proof, photo and map links, "Approve" moved one to verified with the message "Approved Zen Yoga Studio.", no console errors. The sample profile was then set back to pending.
+- Found and fixed in review: the client IP was read from the first entry of `X-Forwarded-For`, which a client can write itself to get a fresh rate-limit allowance. It is now read `PROXY_HOPS` entries from the right, with a test that proves a faked entry does not help.
+
+**Reported by the backend agent, not re-run by the coordinator:** the Docker image builds, runs as a non-root user, answers `/health` against the local database, and refuses to start with a placeholder admin key.
+
+**Not yet verified:** a real hosting platform (including the right `PROXY_HOPS` value there), and Supabase token checking.
 
 ### 2026-11-15 — backend complete, CI green
 

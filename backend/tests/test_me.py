@@ -202,7 +202,7 @@ def test_patch_without_profile_is_404(client):
 # ---------- stats ----------
 
 
-def test_contact_events_show_up_in_stats(client, db):
+def test_contact_events_show_up_in_stats(client, db, clock):
     owner_id = uuid.uuid4()
     category = make_category(db, "laptop-repair")
     mine = make_provider(db, category, owner_user_id=owner_id)
@@ -211,6 +211,8 @@ def test_contact_events_show_up_in_stats(client, db):
     events = ["view", "view", "view", "whatsapp", "whatsapp", "call"]
     for event_type in events:
         client.post(f"/api/v1/providers/{mine.id}/contact-events", json={"type": event_type})
+        # Repeats within 10 minutes are not counted, so let 11 minutes pass.
+        clock.advance(11 * 60)
     client.post(f"/api/v1/providers/{someone_else.id}/contact-events", json={"type": "call"})
 
     response = client.get(ME_URL + "/stats", headers=auth_headers(owner_id))

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_user_id, get_optional_user_id
 from app.db import get_db
 from app.models import Provider, Review
+from app.rate_limit import limit_writes
 from app.routers.providers import get_verified_provider
 from app.schemas import ReviewIn, ReviewList, ReviewOut
 from app.services.ratings import recalculate_rating
@@ -75,7 +76,11 @@ def list_reviews(
     return ReviewList(items=items, total=total or 0)
 
 
-@router.put("/providers/{provider_id}/reviews/mine", response_model=ReviewOut)
+@router.put(
+    "/providers/{provider_id}/reviews/mine",
+    response_model=ReviewOut,
+    dependencies=[Depends(limit_writes)],
+)
 def upsert_my_review(
     provider_id: uuid.UUID,
     body: ReviewIn,

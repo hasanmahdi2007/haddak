@@ -2,12 +2,13 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import ContactEvent, Provider
+from app.rate_limit import is_repeated_contact_event, limit_contact_events
 from app.schemas import ContactEventIn, ProviderDetail, ProviderSearchResult
 from app.services.provider_views import current_date, to_detail, to_summary
 from app.services.search import distance_to_provider, search_providers
@@ -46,6 +47,7 @@ def search(
     lng: float = Query(ge=-180, le=180),
     radius_m: int = Query(ge=100, le=50000),
     category_id: int | None = None,
+    q: str | None = Query(default=None, min_length=2, max_length=60),
     limit: int = Query(default=30, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -57,6 +59,7 @@ def search(
         radius_m=radius_m,
         today=current_date(),
         category_id=category_id,
+        name_contains=q,
         limit=limit,
         offset=offset,
     )
@@ -88,12 +91,23 @@ def get_provider(
     return detail_response(db, provider, lat, lng)
 
 
-@router.post("/providers/{provider_id}/contact-events", status_code=204)
+@router.post(
+    "/providers/{provider_id}/contact-events",
+    status_code=204,
+    dependencies=[Depends(limit_contact_events)],
+)
 def record_contact_event(
-    provider_id: uuid.UUID, body: ContactEventIn, db: Session = Depends(get_db)
+    provider_id: uuid.UUID,
+    body: ContactEventIn,
+    request: Request,
+    db: Session = Depends(get_db),
 ):
     """Count a profile view, a WhatsApp tap or a call tap. No login needed."""
     provider = get_verified_provider(db, provider_id)
-    db.add(ContactEvent(provider_id=provider.id, type=body.type))
-    db.commit()
+
+    # The same person tapping again within 10 minutes gets the same 204
+    # answer, but is not counted twice. This keeps provider stats honest.
+    if not is_repeated_contact_event(request, provider.id, body.type):
+        db.add(ContactEvent(provider_id=provider.id, type=body.type))
+        db.commit()
     return Response(status_code=204)

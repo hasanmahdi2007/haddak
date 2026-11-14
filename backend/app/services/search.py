@@ -33,6 +33,7 @@ def search_providers(
     radius_m: int,
     today: date,
     category_id: int | None = None,
+    name_contains: str | None = None,
     limit: int = 30,
     offset: int = 0,
 ) -> tuple[list[tuple[Provider, float]], int]:
@@ -51,6 +52,12 @@ def search_providers(
     ]
     if category_id is not None:
         filters.append(Provider.category_id.in_(category_with_children_ids(db, category_id)))
+    if name_contains is not None and name_contains.strip():
+        # Case-insensitive "name contains this text".
+        # autoescape=True matters: in SQL's LIKE, % and _ are wildcards, so
+        # without it a search for "%" would match every provider. With it,
+        # whatever the user typed is matched literally.
+        filters.append(Provider.name.icontains(name_contains.strip(), autoescape=True))
 
     # 2. Distance in metres (the column is GEOGRAPHY, so no unit conversion).
     distance_m = func.ST_Distance(Provider.location, search_point)

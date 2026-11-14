@@ -24,13 +24,13 @@ Status: `todo`, `doing`, `done`, `blocked`. Update the status when a task change
 | B6 | Reviews: upsert, delete, list, rating recalculation | done | Tests: average updates; cannot review own profile |
 | B7 | Admin endpoints with admin key | done | Tests: wrong key is 401; status change makes profile public |
 | B8 | Lint (ruff), GitHub Actions workflow for lint + tests, backend README | done | `ruff check` and `pytest` pass locally |
-| B9 | Name search (`q`) on the search endpoint | doing | Tests: substring match, wildcards escaped |
-| B10 | `/health` checks the database | doing | Test: 503 when the database is down |
-| B11 | Rate limits and contact-event de-duplication | doing | Tests: 429, `Retry-After`, repeat tap not stored |
-| B12 | Admin approval page at `/admin` | doing | Page loads; approve and reject work |
-| B13 | Request logging | doing | One line per request, no secrets |
-| B14 | Dockerfile and deploy notes | doing | Image builds and answers `/health` |
-| B15 | Refuse to start in production with placeholder secrets | doing | Test |
+| B9 | Name search (`q`) on the search endpoint | done | Tests: substring match, wildcards escaped |
+| B10 | `/health` checks the database | done | Test: 503 when the database is down |
+| B11 | Rate limits and contact-event de-duplication | done | Tests: 429, `Retry-After`, repeat tap not stored |
+| B12 | Admin approval page at `/admin` | done | Page loads; approve and reject work |
+| B13 | Request logging | done | One line per request, no secrets |
+| B14 | Dockerfile and deploy notes | done | Image builds and answers `/health` |
+| B15 | Refuse to start in production with placeholder secrets | done | Test |
 
 ## Mobile (mobile subagent) — works in `mobile/` only
 

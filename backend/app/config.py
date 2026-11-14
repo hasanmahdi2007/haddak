@@ -7,9 +7,16 @@ Values come from environment variables, or from a `.env` file in `backend/`
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Values copied from .env.example start with this; they are not real secrets.
+PLACEHOLDER_PREFIX = "change-me"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    # "development" or "production". In production the app refuses to start
+    # with missing or placeholder secrets (see production_problems below).
+    environment: str = "development"
 
     # Default points at the local Docker database from docker-compose.yml.
     database_url: str = "postgresql+psycopg://haddak:haddak@localhost:5433/haddak"
@@ -25,6 +32,20 @@ class Settings(BaseSettings):
     # Comma-separated list of allowed browser origins, or "*" for any.
     cors_origins: str = "*"
 
+    # Set to true only when the API runs behind a proxy / load balancer that
+    # sets the X-Forwarded-For header (most hosting platforms do). Then the
+    # client's IP is read from that header. If this is true WITHOUT such a
+    # proxy, anyone can fake their IP and dodge the rate limits.
+    trust_proxy: bool = False
+
+    # How many proxies sit in front of the API. Each proxy APPENDS the address
+    # it received the request from, so the header looks like
+    #   "whatever-the-client-typed, real-client-ip, proxy-1-ip"
+    # Only the last PROXY_HOPS entries were written by proxies we trust; we
+    # read the client IP from that position, counting from the right. Entries
+    # further left can be faked by the client and are ignored.
+    proxy_hops: int = 1
+
     @field_validator("database_url")
     @classmethod
     def use_psycopg3_driver(cls, value: str) -> str:
@@ -38,6 +59,37 @@ class Settings(BaseSettings):
 
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    def is_production(self) -> bool:
+        return self.environment.strip().lower() == "production"
+
+
+def is_real_secret(value: str) -> bool:
+    """False for an empty value or one still copied from .env.example."""
+    value = value.strip()
+    return value != "" and not value.lower().startswith(PLACEHOLDER_PREFIX)
+
+
+def production_problems(settings: Settings) -> list[str]:
+    """Reasons this configuration is unsafe for production (empty = fine)."""
+    if not settings.is_production():
+        return []
+
+    problems = []
+    if not is_real_secret(settings.admin_api_key):
+        problems.append("ADMIN_API_KEY is empty or still a placeholder")
+    has_jwks = settings.supabase_jwks_url.strip() != ""
+    if not has_jwks and not is_real_secret(settings.supabase_jwt_secret):
+        problems.append("set SUPABASE_JWKS_URL or a real SUPABASE_JWT_SECRET")
+    return problems
+
+
+def check_startup_settings(settings: Settings) -> None:
+    """Called once when the app starts. Better to fail loudly at startup than
+    to run in production with an admin key anyone could guess."""
+    problems = production_problems(settings)
+    if problems:
+        raise RuntimeError("Refusing to start in production: " + "; ".join(problems))
 
 
 settings = Settings()

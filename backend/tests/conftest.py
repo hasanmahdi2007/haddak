@@ -27,6 +27,8 @@ os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 os.environ["SUPABASE_JWT_SECRET"] = TEST_JWT_SECRET
 os.environ["SUPABASE_JWKS_URL"] = ""
 os.environ["ADMIN_API_KEY"] = TEST_ADMIN_KEY
+os.environ["ENVIRONMENT"] = "development"
+os.environ["TRUST_PROXY"] = "false"
 
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
@@ -35,6 +37,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.db import SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import Category, Provider  # noqa: E402
+from app.rate_limit import limiter  # noqa: E402
 from app.services.geo import point_for_storage, project_point  # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -86,6 +89,33 @@ def empty_tables(migrated_database):
         connection.execute(
             text("TRUNCATE contact_events, reviews, providers, categories RESTART IDENTITY CASCADE")
         )
+
+
+class FakeClock:
+    """A clock the tests control: time only moves when a test says so."""
+
+    def __init__(self):
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds
+
+
+@pytest.fixture(autouse=True)
+def clock():
+    """Before every test: empty the rate limiter and give it a fake clock.
+
+    Emptying it means one test's requests never count against another test.
+    A test that needs time to pass (e.g. "ten minutes later") asks for this
+    fixture and calls clock.advance(seconds).
+    """
+    fake_clock = FakeClock()
+    limiter.reset()
+    limiter.clock = fake_clock
+    return fake_clock
 
 
 @pytest.fixture

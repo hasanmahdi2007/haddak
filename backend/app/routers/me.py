@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_user_id
 from app.db import get_db
 from app.models import Category, ContactEvent, Provider
+from app.rate_limit import limit_writes
 from app.schemas import OwnProvider, ProviderCreate, ProviderStats, ProviderUpdate
 from app.services.geo import point_for_storage
 from app.services.provider_views import to_own
@@ -56,7 +57,12 @@ def get_my_provider(
     return to_own(get_my_provider_or_404(db, user_id))
 
 
-@router.post("/me/provider", response_model=OwnProvider, status_code=201)
+@router.post(
+    "/me/provider",
+    response_model=OwnProvider,
+    status_code=201,
+    dependencies=[Depends(limit_writes)],
+)
 def create_my_provider(
     body: ProviderCreate,
     db: Session = Depends(get_db),
@@ -95,7 +101,7 @@ def create_my_provider(
     return to_own(provider)
 
 
-@router.patch("/me/provider", response_model=OwnProvider)
+@router.patch("/me/provider", response_model=OwnProvider, dependencies=[Depends(limit_writes)])
 def update_my_provider(
     body: ProviderUpdate,
     db: Session = Depends(get_db),

@@ -119,7 +119,9 @@ Both admin routes return `OwnProvider` items; the list is `{"items": [...], "tot
 Write routes are limited per client IP, in the API process's memory (no extra service). Over the limit returns 429 with `{"detail": "..."}` and a `Retry-After` header.
 
 - `POST /providers/{id}/contact-events`: 30 per minute per IP. In addition, the same IP, provider and type is counted at most once per 10 minutes; repeats still return 204 but are not stored. This keeps provider stats honest.
-- `PUT /providers/{id}/reviews/mine`, `POST` and `PATCH /me/provider`: 20 per minute per IP.
+- `PUT /providers/{id}/reviews/mine`, `POST` and `PATCH /me/provider`: 20 per minute per IP. One shared allowance across these routes.
+
+Requests are counted before the login token is checked, so failed attempts use the allowance too. Behind a hosting proxy the client IP is read from `X-Forwarded-For`, counting `PROXY_HOPS` entries from the right so a client cannot fake it.
 
 ## Admin page
 

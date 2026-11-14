@@ -36,6 +36,7 @@ Run these in `backend/` with the virtualenv active.
 With the server running:
 
 - Interactive docs: http://localhost:8000/docs
+- Admin page (approve / reject profiles): http://localhost:8000/admin — asks for `ADMIN_API_KEY`
 - Try it: http://localhost:8000/api/v1/providers/search?lat=33.8547&lng=35.5097&radius_m=500
 
 To let a phone on the same Wi-Fi reach the server, run
@@ -63,6 +64,48 @@ tables before every test. Set `TEST_DATABASE_URL` to use a different server.
 3. Update the class in `app/models.py`.
 4. `alembic upgrade head`.
 
+## Deploying
+
+The `Dockerfile` builds the production image. On start it runs
+`alembic upgrade head`, then uvicorn on `$PORT` (8000 if not set), as a
+non-root user.
+
+```bash
+docker build -t haddak-api .
+docker run -p 8000:8000 -e ENVIRONMENT=production -e DATABASE_URL=... -e ADMIN_API_KEY=... \
+  -e SUPABASE_JWKS_URL=... -e CORS_ORIGINS= -e TRUST_PROXY=true haddak-api
+```
+
+Set these environment variables on the hosting platform (never in the image):
+
+| Variable | Production value |
+|---|---|
+| `ENVIRONMENT` | `production`. Turns on the startup safety check below. |
+| `DATABASE_URL` | The Postgres connection string. The database must allow the PostGIS extension (Supabase does). `postgresql://...` is fine; the driver is added automatically. |
+| `SUPABASE_JWKS_URL` **or** `SUPABASE_JWT_SECRET` | How login tokens are verified. Prefer the JWKS URL (`https://<project>.supabase.co/auth/v1/.well-known/jwks.json`); if it is set, the secret is ignored. |
+| `ADMIN_API_KEY` | A long random value: `python -c "import secrets; print(secrets.token_urlsafe(32))"`. |
+| `CORS_ORIGINS` | Empty, unless a website on another domain must call the API (then list it, e.g. `https://haddak.app`). Never `*`. The phone app and `/admin` do not need CORS. |
+| `TRUST_PROXY` | `true` when the platform puts a proxy in front of the app (Render, Railway, Fly.io and similar do). Rate limits then use the real client IP from `X-Forwarded-For`. `false` if the server is reached directly. |
+| `PROXY_HOPS` | How many trusted proxies are in front (default 1). The client IP is read that many entries from the right of `X-Forwarded-For`, so a client cannot fake it. Check on the real host after the first deploy. |
+
+Good to know:
+
+- **Startup safety.** With `ENVIRONMENT=production` the server refuses to start
+  if `ADMIN_API_KEY` is empty or still starts with `change-me`, or if neither
+  token setting is configured. The error message says which.
+- **Health check.** Point the platform's health check at `/api/v1/health`. It
+  answers 503 when the database cannot be reached.
+- **One instance.** Rate limits are kept in the process's memory, so run a
+  single instance with a single worker (the Dockerfile does). See the note at
+  the top of `app/rate_limit.py`.
+- **Logs.** One line per request: method, path, status, duration. Query
+  strings (users' positions) and headers (tokens, admin key) are never logged.
+  If you start uvicorn yourself in production, add `--no-access-log`, because
+  uvicorn's own access log does print query strings.
+- **Admin page.** `https://<your-domain>/admin`. Use it only over HTTPS; the
+  key stays in the tab's memory and is gone on reload.
+- **No fake data.** Do not run `scripts/seed.py` against production.
+
 ## Tour of the code
 
 A request travels: **router** (reads and validates the request) → **service**
@@ -77,6 +120,9 @@ app/
   models.py          One class per table (Category, Provider, Review, ContactEvent).
   schemas.py         JSON shapes in and out, with validation (phone format, 1-5 rating...).
   auth.py            Checks login tokens (user id from "sub") and the admin key.
+  rate_limit.py      Per-IP limits on write routes and contact-event de-duplication.
+  request_logging.py One log line per request (no query string, no headers).
+  static/admin.html  The founder's admin page, served at /admin.
   routers/
     categories.py    GET /categories
     providers.py     Public: search, detail, by-slug, contact events
