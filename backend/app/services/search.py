@@ -3,12 +3,23 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import case, func, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.models import Category, Provider
+from app.models import PUBLIC_STATUSES, Category, Provider
 from app.services.geo import point_for_query
 
+# Ranking, in this order (each rule only decides between providers that are
+# equal on all the rules before it):
+#   1. Verified before not verified. Non-verified providers ('unverified' and
+#      'pending') are only in the results when the searcher switched on
+#      "include unverified", and then they ALL come after the verified ones.
+#   2. Featured first. Only counts for verified providers: a featured date on
+#      a non-verified provider is ignored.
+#   3. Weighted rating, best first (explained just below).
+#   4. Distance, nearest first.
+#   5. Id, so two requests for the same page always agree.
+#
 # Weighted rating: pretend every provider also has 5 extra reviews of 3.5
 # stars. A provider with one 5-star review then scores about 3.75, while one
 # with fifty 4.8-star reviews scores about 4.68, so a single lucky review
@@ -34,6 +45,7 @@ def search_providers(
     today: date,
     category_id: int | None = None,
     name_contains: str | None = None,
+    include_unverified: bool = False,
     limit: int = 30,
     offset: int = 0,
 ) -> tuple[list[tuple[Provider, float]], int]:
@@ -44,10 +56,15 @@ def search_providers(
     """
     search_point = point_for_query(lat, lng)
 
-    # 1. Filter: public (verified) providers inside the circle.
+    # 1. Filter: providers inside the circle. Verified ones only, unless the
+    #    searcher asked for unverified ones too ('rejected' never matches).
     #    ST_DWithin can use the GIST index on providers.location.
+    if include_unverified:
+        status_filter = Provider.status.in_(PUBLIC_STATUSES)
+    else:
+        status_filter = Provider.status == "verified"
     filters = [
-        Provider.status == "verified",
+        status_filter,
         func.ST_DWithin(Provider.location, search_point, radius_m),
     ]
     if category_id is not None:
@@ -62,8 +79,11 @@ def search_providers(
     # 2. Distance in metres (the column is GEOGRAPHY, so no unit conversion).
     distance_m = func.ST_Distance(Provider.location, search_point)
 
-    # 3. Ordering: featured first, then weighted rating, then nearest.
-    is_featured = case((Provider.featured_until >= today, 1), else_=0)
+    # 3. Ordering: see "Ranking" at the top of this file.
+    is_verified = case((Provider.status == "verified", 1), else_=0)
+    is_featured = case(
+        (and_(Provider.status == "verified", Provider.featured_until >= today), 1), else_=0
+    )
     weighted_rating = (
         Provider.review_count * Provider.avg_rating + PRIOR_REVIEW_COUNT * PRIOR_RATING
     ) / (Provider.review_count + PRIOR_REVIEW_COUNT)
@@ -72,6 +92,7 @@ def search_providers(
         select(Provider, distance_m)
         .where(*filters)
         .order_by(
+            is_verified.desc(),
             is_featured.desc(),
             weighted_rating.desc(),
             distance_m.asc(),

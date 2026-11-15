@@ -20,6 +20,7 @@ from app.config import settings
 CONTACT_EVENTS_PER_MINUTE = 30
 WRITES_PER_MINUTE = 20
 SUGGESTIONS_PER_HOUR = 5
+REPORTS_PER_HOUR = 10
 ONE_MINUTE = 60
 ONE_HOUR = 60 * 60
 CONTACT_EVENT_DEDUP_SECONDS = 10 * 60
@@ -91,7 +92,7 @@ class RateLimiter:
         if len(self._hits) + len(self._last_seen) < CLEANUP_THRESHOLD:
             return
         oldest_useful = now - LONGEST_WINDOW_SECONDS
-        # A key whose own window is longer (suggestions are counted per hour)
+        # A key whose own window is longer (suggestions and reports are counted per hour)
         # is kept for that whole window, so its limit is not forgotten early.
         self._hits = {
             key: moments
@@ -152,6 +153,11 @@ def limit_writes(request: Request) -> None:
 def limit_suggestions(request: Request) -> None:
     """5 per hour per IP. Stricter than other writes because no login is needed."""
     enforce_limit(f"suggestions:{get_client_ip(request)}", SUGGESTIONS_PER_HOUR, ONE_HOUR)
+
+
+def limit_reports(request: Request) -> None:
+    """10 per hour per IP. Like suggestions: no login, so a stricter limit."""
+    enforce_limit(f"reports:{get_client_ip(request)}", REPORTS_PER_HOUR, ONE_HOUR)
 
 
 def is_repeated_contact_event(request: Request, provider_id: object, event_type: str) -> bool:

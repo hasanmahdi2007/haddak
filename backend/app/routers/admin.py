@@ -1,7 +1,6 @@
 """Admin endpoints. Every route here needs the X-Admin-Key header."""
 
 import uuid
-from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import func, select
@@ -9,17 +8,31 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_admin
 from app.db import get_db
-from app.models import Provider, ProviderSuggestion
-from app.schemas import AdminProviderUpdate, OwnProvider, OwnProviderList, SuggestionList
+from app.models import Provider, ProviderReport, ProviderSuggestion
+from app.routers.me import generate_slug, require_category
+from app.schemas import (
+    AdminProviderUpdate,
+    OwnProvider,
+    OwnProviderList,
+    ProviderStatus,
+    ReportList,
+    SuggestionList,
+    SuggestionPublish,
+)
+from app.services.geo import point_for_storage
 from app.services.provider_views import to_own
 
 # dependencies=[...] applies the admin-key check to all routes in this file.
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
+# What a listing published from a suggestion must have, after the admin's
+# body has been merged over the suggestion.
+PUBLISH_REQUIRED_FIELDS = ["name", "phone", "category_id", "area_name", "lat", "lng"]
+
 
 @router.get("/providers", response_model=OwnProviderList)
 def list_providers_by_status(
-    status: Literal["pending", "verified", "rejected"] = "pending",
+    status: ProviderStatus = "pending",
     db: Session = Depends(get_db),
 ):
     """Profiles with the given status, oldest first (a review queue)."""
@@ -35,7 +48,14 @@ def list_providers_by_status(
 def update_provider(
     provider_id: uuid.UUID, body: AdminProviderUpdate, db: Session = Depends(get_db)
 ):
-    """Verify or reject a profile, or set founding member / featured."""
+    """Change a profile's status, or set founding member / featured.
+
+    The admin page's status buttons all come here:
+      Approve       -> status "verified"
+      Decline proof -> status "unverified" (from pending; the listing stays visible)
+      Reject        -> status "rejected"   (hidden everywhere public)
+      Restore       -> status "unverified" (from rejected)
+    """
     provider = db.get(Provider, provider_id)
     if provider is None:
         raise HTTPException(status_code=404, detail="Provider not found")
@@ -75,5 +95,99 @@ def delete_suggestion(suggestion_id: uuid.UUID, db: Session = Depends(get_db)):
     if suggestion is None:
         raise HTTPException(status_code=404, detail="Suggestion not found")
     db.delete(suggestion)
+    db.commit()
+    return Response(status_code=204)
+
+
+@router.post("/suggestions/{suggestion_id}/publish", response_model=OwnProvider, status_code=201)
+def publish_suggestion(
+    suggestion_id: uuid.UUID,
+    body: SuggestionPublish | None = None,
+    db: Session = Depends(get_db),
+):
+    """Turn a suggestion into a public, unverified listing with no owner.
+
+    The body can override or supply fields; whatever it leaves out comes
+    from the suggestion.
+    """
+    # FOR UPDATE locks the suggestion row: if "Publish" is sent twice at the
+    # same moment, the second request waits, then finds the row gone (404)
+    # instead of creating a second listing.
+    suggestion = db.scalar(
+        select(ProviderSuggestion)
+        .where(ProviderSuggestion.id == suggestion_id)
+        .with_for_update(of=ProviderSuggestion)
+    )
+    if suggestion is None:
+        raise HTTPException(status_code=404, detail="Suggestion not found")
+
+    # Start from the suggestion, then put the admin's values on top.
+    fields = {
+        "name": suggestion.name,
+        "phone": suggestion.phone,
+        "category_id": suggestion.category_id,
+        "area_name": suggestion.area_name,
+        "lat": suggestion.lat,
+        "lng": suggestion.lng,
+        # The suggestion's note was written for the admin, so it is not
+        # published: the description only comes from the body.
+        "description": "",
+    }
+    if body is not None:
+        fields.update(body.model_dump(exclude_none=True))
+
+    missing = [name for name in PUBLISH_REQUIRED_FIELDS if fields[name] in (None, "")]
+    if missing:
+        raise HTTPException(status_code=422, detail="Missing: " + ", ".join(missing))
+    require_category(db, fields["category_id"])
+
+    provider = Provider(
+        owner_user_id=None,  # nobody has claimed this listing
+        source="suggestion",
+        status="unverified",
+        slug=generate_slug(db),
+        name=fields["name"],
+        category_id=fields["category_id"],
+        description=fields["description"],
+        phone=fields["phone"],
+        location=point_for_storage(fields["lat"], fields["lng"]),
+        area_name=fields["area_name"],
+    )
+    db.add(provider)
+    db.delete(suggestion)
+    # One commit = one transaction: the listing appears and the suggestion
+    # disappears together, or neither happens.
+    db.commit()
+    db.refresh(provider)
+    return to_own(db, provider)
+
+
+@router.get("/reports", response_model=ReportList)
+def list_reports(
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+):
+    """Reported listings, newest first."""
+    query = (
+        select(ProviderReport)
+        .order_by(ProviderReport.created_at.desc(), ProviderReport.id)
+        .limit(limit)
+        .offset(offset)
+    )
+    # response_model converts each row to ReportOut, including the provider's
+    # id, name and status (loaded in the same query, see models.py).
+    items = list(db.scalars(query))
+    total = db.scalar(select(func.count()).select_from(ProviderReport))
+    return {"items": items, "total": total or 0}
+
+
+@router.delete("/reports/{report_id}", status_code=204)
+def delete_report(report_id: uuid.UUID, db: Session = Depends(get_db)):
+    """Dismiss a report once it has been dealt with."""
+    report = db.get(ProviderReport, report_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Report not found")
+    db.delete(report)
     db.commit()
     return Response(status_code=204)

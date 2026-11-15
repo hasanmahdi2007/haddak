@@ -51,7 +51,7 @@ def test_bad_tokens_are_rejected(client):
 # ---------- create ----------
 
 
-def test_create_profile_starts_pending_and_hidden_from_the_public(client, db):
+def test_create_profile_with_proof_starts_pending_and_listed_without_badge(client, db):
     category = make_category(db, "laptop-repair")
     headers = auth_headers(uuid.uuid4())
 
@@ -69,9 +69,15 @@ def test_create_profile_starts_pending_and_hidden_from_the_public(client, db):
     assert body["lng"] == pytest.approx(35.5102)
     assert len(body["slug"]) == 6
 
-    # The owner can see it; the public cannot until the admin verifies it.
+    # The owner can see it. So can the public, but without the badge and
+    # without the private fields, until the admin verifies it.
     assert client.get(ME_URL, headers=headers).json()["id"] == body["id"]
-    assert client.get(f"/api/v1/providers/{body['id']}").status_code == 404
+    public = client.get(f"/api/v1/providers/{body['id']}")
+    assert public.status_code == 200
+    assert public.json()["verified"] is False
+    assert public.json()["claimed"] is True
+    assert "status" not in public.json()
+    assert "verification_doc_url" not in public.json()
 
 
 def test_owner_cannot_set_admin_fields_when_creating(client, db):

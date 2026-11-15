@@ -8,7 +8,9 @@
 <!--
   One self-contained page: no build step, no external files.
   It only calls the admin endpoints: GET and PATCH /api/v1/admin/providers,
-  GET and DELETE /api/v1/admin/suggestions.
+  GET, DELETE and POST .../publish on /api/v1/admin/suggestions,
+  GET and DELETE /api/v1/admin/reports,
+  plus the public GET /api/v1/categories (for the category list when publishing).
   The admin key lives in a JavaScript variable: it is gone when the tab is
   closed or reloaded, and is never written to storage or cookies.
 -->
@@ -32,7 +34,7 @@
   header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
   h1 { font-size: 20px; margin: 0; }
   h2 { font-size: 18px; margin: 0; overflow-wrap: anywhere; }
-  button, input { font: inherit; color: inherit; }
+  button, input, select, textarea { font: inherit; color: inherit; }
   button {
     min-height: 44px; padding: 8px 16px; border-radius: 8px; cursor: pointer;
     border: 1px solid var(--line); background: var(--card);
@@ -40,10 +42,15 @@
   button:disabled { opacity: 0.5; cursor: default; }
   button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
   button.danger { color: var(--danger); border-color: var(--danger); }
-  input[type="password"], input[type="date"] {
+  input[type="password"], input[type="date"], input[type="text"], input[type="number"], select, textarea {
     min-height: 44px; padding: 8px 12px; border-radius: 8px;
     border: 1px solid var(--line); background: var(--card);
   }
+  .publish-form { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .publish-form[hidden] { display: none; }  /* display: grid would otherwise un-hide it */
+  .publish-form label { display: grid; gap: 4px; color: var(--muted); font-size: 14px; }
+  .publish-form input, .publish-form select, .publish-form textarea { width: 100%; color: var(--ink); font-size: 16px; }
+  .publish-form textarea { min-height: 88px; resize: vertical; }
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
   .panel, .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
   .key-form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
@@ -92,9 +99,11 @@
   <section id="list-panel" hidden>
     <div class="tabs" id="tabs">
       <button type="button" data-status="pending">Pending</button>
+      <button type="button" data-status="unverified">Unverified</button>
       <button type="button" data-status="verified">Verified</button>
       <button type="button" data-status="rejected">Rejected</button>
       <button type="button" data-status="suggestions">Suggestions</button>
+      <button type="button" data-status="reports">Reports</button>
     </div>
     <div id="list"></div>
   </section>
@@ -105,8 +114,20 @@
 
 // The admin key. Memory only: never saved to browser storage or cookies.
 let adminKey = "";
-// Which tab is open: a profile status, or "suggestions".
+// Which tab is open: a profile status, "suggestions" or "reports".
 let currentStatus = "pending";
+// The category list for the Publish form. Loaded once, the first time the
+// Suggestions tab is opened.
+let categories = null;
+
+// How each report reason is shown.
+const REASON_LABELS = {
+  wrong_info: "Wrong information",
+  not_real: "Not a real provider",
+  closed: "Closed",
+  offensive: "Offensive",
+  other: "Other"
+};
 
 const keyPanel = document.getElementById("key-panel");
 const keyForm = document.getElementById("key-form");
@@ -180,23 +201,47 @@ async function callApi(method, path, body) {
   return data;
 }
 
+// The category list is public (no key needed) and never changes while the
+// page is open, so it is fetched once.
+async function loadCategories() {
+  if (categories !== null) return;
+  const response = await fetch("/api/v1/categories");
+  if (!response.ok) throw new Error("Could not load the categories (" + response.status + ").");
+  categories = await response.json();
+}
+
+// "12 suggestions (showing the newest 100)." for the two newest-first tabs.
+function countMessage(data, word) {
+  if (data.total === 0) return "No " + word + ".";
+  const shown = data.items.length < data.total ? " (showing the newest " + data.items.length + ")" : "";
+  return data.total + " " + word + shown + ".";
+}
+
 async function loadList() {
   showMessage("Loading…", false);
   try {
-    const showSuggestions = currentStatus === "suggestions";
-    const data = showSuggestions
-      ? await callApi("GET", "/suggestions?limit=100")
-      : await callApi("GET", "/providers?status=" + encodeURIComponent(currentStatus));
+    let data;
+    let renderItem;
+    let doneText;
+    if (currentStatus === "suggestions") {
+      data = await callApi("GET", "/suggestions?limit=100");
+      await loadCategories();
+      renderItem = renderSuggestion;
+      doneText = countMessage(data, "suggestions");
+    } else if (currentStatus === "reports") {
+      data = await callApi("GET", "/reports?limit=100");
+      renderItem = renderReport;
+      doneText = countMessage(data, "reports");
+    } else {
+      data = await callApi("GET", "/providers?status=" + encodeURIComponent(currentStatus));
+      renderItem = renderProvider;
+      doneText = data.total === 0 ? "No " + currentStatus + " profiles." : data.total + " " + currentStatus + ".";
+    }
     keyPanel.hidden = true;
     listPanel.hidden = false;
     lockButton.hidden = false;
-    renderList(data.items, showSuggestions ? renderSuggestion : renderProvider);
-    if (showSuggestions) {
-      const shown = data.items.length < data.total ? " (showing the newest " + data.items.length + ")" : "";
-      showMessage(data.total === 0 ? "No suggestions." : data.total + " suggestions" + shown + ".", false);
-    } else {
-      showMessage(data.total === 0 ? "No " + currentStatus + " profiles." : data.total + " " + currentStatus + ".", false);
-    }
+    renderList(data.items, renderItem);
+    showMessage(doneText, false);
   } catch (error) {
     showMessage(error.message, true);
   }
@@ -222,6 +267,28 @@ async function deleteSuggestion(suggestion) {
   }
 }
 
+// `fields` holds only what the admin filled in; the server takes the rest
+// from the suggestion and answers 422 naming anything still missing.
+async function publishSuggestion(suggestion, fields) {
+  try {
+    await callApi("POST", "/suggestions/" + encodeURIComponent(suggestion.id) + "/publish", fields);
+    await loadList();
+    showMessage("Published " + (fields.name || suggestion.name) + " as an unverified listing.", false);
+  } catch (error) {
+    showMessage(error.message, true);
+  }
+}
+
+async function dismissReport(report) {
+  try {
+    await callApi("DELETE", "/reports/" + encodeURIComponent(report.id));
+    await loadList();
+    showMessage("Dismissed the report about " + report.provider.name + ".", false);
+  } catch (error) {
+    showMessage(error.message, true);
+  }
+}
+
 // ---------- drawing ----------
 
 function addRow(table, label, valueNode) {
@@ -238,6 +305,7 @@ function renderProvider(provider) {
   head.appendChild(element("h2", provider.name));
   if (provider.founding_member) head.appendChild(element("span", "Founding member", "badge"));
   if (provider.featured) head.appendChild(element("span", "Featured", "badge"));
+  if (provider.claimed === false) head.appendChild(element("span", "No owner (from a suggestion)", "badge"));
   card.appendChild(head);
 
   const table = element("dl");
@@ -269,7 +337,7 @@ function renderProvider(provider) {
   }
   card.appendChild(links);
 
-  // Approve / Reject
+  // Approve / Decline proof / Restore / Reject. Each one sets the status.
   const actions = element("div", null, "actions");
   if (provider.status !== "verified") {
     const approve = element("button", "Approve", "primary");
@@ -278,6 +346,24 @@ function renderProvider(provider) {
       updateProvider(provider, { status: "verified" }, "Approved " + provider.name + ".");
     });
     actions.appendChild(approve);
+  }
+  if (provider.status === "pending") {
+    // The proof was not good enough, but the listing itself is fine: it
+    // stays visible, without the badge.
+    const decline = element("button", "Decline proof");
+    decline.type = "button";
+    decline.addEventListener("click", function () {
+      updateProvider(provider, { status: "unverified" }, "Declined the proof of " + provider.name + ". It stays listed as unverified.");
+    });
+    actions.appendChild(decline);
+  }
+  if (provider.status === "rejected") {
+    const restore = element("button", "Restore");
+    restore.type = "button";
+    restore.addEventListener("click", function () {
+      updateProvider(provider, { status: "unverified" }, "Restored " + provider.name + " as an unverified listing.");
+    });
+    actions.appendChild(restore);
   }
   if (provider.status !== "rejected") {
     const reject = element("button", "Reject", "danger");
@@ -350,12 +436,22 @@ function renderSuggestion(suggestion) {
   addRow(table, "Phone", element("span", suggestion.phone || "Not given"));
   addRow(table, "Category", element("span", suggestion.category ? suggestion.category.name_en : "Not given"));
   addRow(table, "Area", element("span", suggestion.area_name || "Not given"));
+  const hasPosition = suggestion.lat !== null && suggestion.lng !== null;
+  addRow(table, "Position", element("span", hasPosition ? suggestion.lat + ", " + suggestion.lng : "Not given"));
   addRow(table, "Date", element("span", formatDate(suggestion.created_at)));
   card.appendChild(table);
 
   if (suggestion.note) card.appendChild(element("p", suggestion.note, "description"));
 
+  const publishForm = renderPublishForm(suggestion);
+
   const actions = element("div", null, "actions");
+  const publish = element("button", "Publish", "primary");
+  publish.type = "button";
+  publish.addEventListener("click", function () {
+    publishForm.hidden = !publishForm.hidden;
+  });
+  actions.appendChild(publish);
   const remove = element("button", "Delete", "danger");
   remove.type = "button";
   remove.addEventListener("click", function () {
@@ -364,6 +460,128 @@ function renderSuggestion(suggestion) {
     }
   });
   actions.appendChild(remove);
+  card.appendChild(actions);
+  card.appendChild(publishForm);
+  return card;
+}
+
+// One labelled input for the Publish form.
+function formField(form, labelText, input) {
+  const label = element("label");
+  label.appendChild(element("span", labelText));
+  label.appendChild(input);
+  form.appendChild(label);
+  return input;
+}
+
+function textInput(type, value) {
+  const input = element("input");
+  input.type = type;
+  input.value = value === null || value === undefined ? "" : String(value);
+  input.required = true;
+  return input;
+}
+
+// The form behind "Publish": everything a listing needs, filled in with what
+// the suggestion already has. The admin completes the empty fields (the
+// browser refuses to send while one is empty) and may correct the others.
+function renderPublishForm(suggestion) {
+  const form = element("form", null, "publish-form");
+  form.hidden = true;
+
+  const name = formField(form, "Name", textInput("text", suggestion.name));
+  const phone = formField(form, "Phone (+961…)", textInput("text", suggestion.phone));
+
+  const category = element("select");
+  category.required = true;
+  const choose = element("option", "Choose a category");
+  choose.value = "";
+  category.appendChild(choose);
+  (categories || []).forEach(function (item) {
+    const option = element("option", item.name_en);
+    option.value = String(item.id);
+    category.appendChild(option);
+  });
+  category.value = suggestion.category ? String(suggestion.category.id) : "";
+  formField(form, "Category", category);
+
+  const area = formField(form, "Area", textInput("text", suggestion.area_name));
+
+  const lat = formField(form, "Latitude (e.g. 33.8547)", textInput("number", suggestion.lat));
+  lat.step = "any";
+  lat.min = "-90";
+  lat.max = "90";
+  const lng = formField(form, "Longitude (e.g. 35.5097)", textInput("number", suggestion.lng));
+  lng.step = "any";
+  lng.min = "-180";
+  lng.max = "180";
+
+  const description = formField(form, "Description (optional)", element("textarea"));
+  description.maxLength = 2000;
+
+  const buttons = element("div", null, "actions");
+  const send = element("button", "Publish listing", "primary");
+  send.type = "submit";
+  buttons.appendChild(send);
+  const cancel = element("button", "Cancel");
+  cancel.type = "button";
+  cancel.addEventListener("click", function () {
+    form.hidden = true;
+  });
+  buttons.appendChild(cancel);
+  form.appendChild(buttons);
+
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
+    const fields = {
+      name: name.value.trim(),
+      phone: phone.value.trim(),
+      category_id: Number(category.value),
+      area_name: area.value.trim(),
+      lat: Number(lat.value),
+      lng: Number(lng.value)
+    };
+    if (description.value.trim()) fields.description = description.value.trim();
+    publishSuggestion(suggestion, fields);
+  });
+  return form;
+}
+
+// A report is typed by an anonymous visitor too: textContent only.
+function renderReport(report) {
+  const card = element("article", null, "card");
+  const provider = report.provider;
+
+  const head = element("div", null, "card-head");
+  head.appendChild(element("h2", provider.name));
+  head.appendChild(element("span", provider.status, "badge"));
+  card.appendChild(head);
+
+  const table = element("dl");
+  addRow(table, "Reason", element("span", REASON_LABELS[report.reason] || report.reason));
+  addRow(table, "Date", element("span", formatDate(report.created_at)));
+  card.appendChild(table);
+
+  if (report.note) card.appendChild(element("p", report.note, "description"));
+
+  const actions = element("div", null, "actions");
+  const dismiss = element("button", "Dismiss");
+  dismiss.type = "button";
+  dismiss.addEventListener("click", function () {
+    dismissReport(report);
+  });
+  actions.appendChild(dismiss);
+
+  if (provider.status !== "rejected") {
+    const reject = element("button", "Reject listing", "danger");
+    reject.type = "button";
+    reject.addEventListener("click", function () {
+      if (window.confirm("Reject " + provider.name + "? It will be hidden from the public.")) {
+        updateProvider(provider, { status: "rejected" }, "Rejected " + provider.name + ". Dismiss the report when you are done with it.");
+      }
+    });
+    actions.appendChild(reject);
+  }
   card.appendChild(actions);
   return card;
 }

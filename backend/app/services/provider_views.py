@@ -25,7 +25,13 @@ def current_time() -> datetime:
 
 
 def summary_fields(provider: Provider, distance_m: float | None) -> dict:
-    is_featured = provider.featured_until is not None and provider.featured_until >= current_date()
+    is_verified = provider.status == "verified"
+    # "Featured" only counts for verified providers, here and in the ranking.
+    is_featured = (
+        is_verified
+        and provider.featured_until is not None
+        and provider.featured_until >= current_date()
+    )
     return {
         "id": provider.id,
         "slug": provider.slug,
@@ -35,7 +41,10 @@ def summary_fields(provider: Provider, distance_m: float | None) -> dict:
         "price_text": provider.price_text,
         "avg_rating": float(provider.avg_rating),
         "review_count": provider.review_count,
-        "verified": provider.status == "verified",
+        # The public never gets the raw status: 'pending' and 'unverified'
+        # both simply show as verified = False.
+        "verified": is_verified,
+        "claimed": provider.owner_user_id is not None,
         "founding_member": provider.founding_member,
         "featured": is_featured,
         "lat": provider.lat,
@@ -75,6 +84,7 @@ def to_own(db: Session, provider: Provider) -> OwnProvider:
     return OwnProvider(
         **detail_fields(db, provider, None),
         status=provider.status,
+        source=provider.source,
         featured_until=provider.featured_until,
         verification_doc_url=provider.verification_doc_url,
         show_contact_count=provider.show_contact_count,

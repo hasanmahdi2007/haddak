@@ -70,7 +70,9 @@ def test_table_stores_nothing_about_the_sender(db):
             )
         )
     )
-    assert columns == {"id", "name", "phone", "category_id", "area_name", "note", "created_at"}
+    assert columns == {
+        "id", "name", "phone", "category_id", "area_name", "note", "created_at", "lat", "lng",
+    }  # fmt: skip
 
 
 @pytest.mark.parametrize(
@@ -188,7 +190,10 @@ def test_admin_list_is_newest_first_with_all_fields(client, db):
     assert body["total"] == 3
     assert [item["name"] for item in body["items"]] == ["newest", "middle", "oldest"]
     newest = body["items"][0]
-    assert set(newest) == {"id", "name", "phone", "category", "area_name", "note", "created_at"}
+    assert set(newest) == {
+        "id", "name", "phone", "category", "area_name", "note", "created_at", "lat", "lng",
+    }  # fmt: skip
+    assert (newest["lat"], newest["lng"]) == (None, None)
     assert newest["id"] == created["id"]
     assert newest["phone"] == "+96170123456"
     assert newest["category"]["slug"] == "tailor"

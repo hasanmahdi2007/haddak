@@ -73,10 +73,14 @@ def create_my_provider(
         raise already_exists
     require_category(db, body.category_id)
 
-    # status, founding_member and featured_until are not set here: new
-    # profiles start as 'pending' and only the admin changes those.
+    # founding_member and featured_until are not set here: only the admin
+    # changes those. The status is not taken from the body either: a profile
+    # that comes with proof waits for the founder ('pending'), one without
+    # proof is 'unverified'. Both are listed publicly, without the badge.
     provider = Provider(
         owner_user_id=user_id,
+        source="owner",
+        status="pending" if body.verification_doc_url else "unverified",
         slug=generate_slug(db),
         name=body.name,
         category_id=body.category_id,
@@ -123,6 +127,19 @@ def update_my_provider(
         new_lat = changes.pop("lat", provider.lat)
         new_lng = changes.pop("lng", provider.lng)
         provider.location = point_for_storage(new_lat, new_lng)
+
+    # Proof and status. Only these two moves are possible here; a verified
+    # profile stays verified and a rejected one stays rejected.
+    if "verification_doc_url" in changes:
+        new_proof = changes["verification_doc_url"]
+        if provider.status == "unverified" and new_proof:
+            # New proof goes to the founder's queue. Re-sending the URL that
+            # is already stored (e.g. a proof the founder declined) does not.
+            if new_proof != provider.verification_doc_url:
+                provider.status = "pending"
+        elif provider.status == "pending" and not new_proof:
+            # Proof removed: nothing is left for the founder to check.
+            provider.status = "unverified"
 
     for field_name, value in changes.items():
         setattr(provider, field_name, value)

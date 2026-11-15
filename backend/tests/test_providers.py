@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from app.models import ContactEvent
 from tests.conftest import CENTER_LAT, CENTER_LNG, make_category, make_provider
 
-PRIVATE_FIELDS = {"status", "owner_user_id", "verification_doc_url", "featured_until"}
+PRIVATE_FIELDS = {"status", "source", "owner_user_id", "verification_doc_url", "featured_until"}
 
 
 def test_detail_of_verified_provider(client, db):
@@ -24,6 +24,8 @@ def test_detail_of_verified_provider(client, db):
     assert body["photos"] == ["https://example.com/cover.jpg", "https://example.com/second.jpg"]
     assert body["distance_m"] is None
     assert body["created_at"].endswith("Z")
+    assert body["verified"] is True
+    assert body["claimed"] is True
     assert PRIVATE_FIELDS.isdisjoint(body)
 
 
@@ -46,15 +48,34 @@ def test_by_slug_returns_the_same_provider(client, db):
     assert response.json()["id"] == str(provider.id)
 
 
-@pytest.mark.parametrize("status", ["pending", "rejected"])
-def test_unverified_profiles_are_404_everywhere_publicly(client, db, status):
-    provider = make_provider(db, make_category(db, "plumber"), status=status)
+def test_rejected_profiles_are_404_everywhere_publicly(client, db):
+    provider = make_provider(db, make_category(db, "plumber"), status="rejected")
     base = f"/api/v1/providers/{provider.id}"
 
     assert client.get(base).status_code == 404
     assert client.get(f"/api/v1/providers/by-slug/{provider.slug}").status_code == 404
     assert client.get(f"{base}/reviews").status_code == 404
     assert client.post(f"{base}/contact-events", json={"type": "view"}).status_code == 404
+    assert client.post(f"{base}/reports", json={"reason": "other"}).status_code == 404
+
+
+@pytest.mark.parametrize("status", ["unverified", "pending"])
+def test_profiles_that_are_not_verified_are_public_without_the_badge(client, db, status):
+    provider = make_provider(db, make_category(db, "plumber"), status=status)
+    base = f"/api/v1/providers/{provider.id}"
+
+    detail = client.get(base)
+    by_slug = client.get(f"/api/v1/providers/by-slug/{provider.slug}")
+
+    assert detail.status_code == 200
+    assert detail.json()["verified"] is False
+    assert by_slug.status_code == 200
+    assert by_slug.json()["id"] == str(provider.id)
+    # The raw status and the proof link stay private, so 'pending' and
+    # 'unverified' look the same from outside.
+    assert PRIVATE_FIELDS.isdisjoint(detail.json())
+    assert client.get(f"{base}/reviews").status_code == 200
+    assert client.post(f"{base}/contact-events", json={"type": "view"}).status_code == 204
 
 
 def test_unknown_provider_is_404(client):

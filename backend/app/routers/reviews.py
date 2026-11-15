@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user_id, get_optional_user_id
 from app.db import get_db
-from app.models import Provider, Review
+from app.models import PUBLIC_STATUSES, Provider, Review
 from app.rate_limit import limit_writes
-from app.routers.providers import get_verified_provider
+from app.routers.providers import get_public_provider
 from app.schemas import ReviewIn, ReviewList, ReviewOut
 from app.services.ratings import recalculate_rating
 
@@ -42,7 +42,7 @@ def lock_reviewable_provider(db: Session, provider_id: uuid.UUID, user_id: uuid.
         raise HTTPException(status_code=404, detail="Provider not found")
     if provider.owner_user_id == user_id:
         raise HTTPException(status_code=403, detail="You cannot review your own profile")
-    if provider.status != "verified":
+    if provider.status not in PUBLIC_STATUSES:  # rejected: as if it did not exist
         raise HTTPException(status_code=404, detail="Provider not found")
     return provider
 
@@ -61,7 +61,7 @@ def list_reviews(
     db: Session = Depends(get_db),
     current_user_id: uuid.UUID | None = Depends(get_optional_user_id),
 ):
-    provider = get_verified_provider(db, provider_id)
+    provider = get_public_provider(db, provider_id)
     query = (
         select(Review)
         .where(Review.provider_id == provider.id)

@@ -1,4 +1,4 @@
-"""Public provider endpoints: search, detail, share-code lookup, contact events."""
+"""Public provider endpoints: search, detail, share-code lookup, contact events, reports."""
 
 import uuid
 
@@ -7,25 +7,35 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import ContactEvent, Provider
-from app.rate_limit import is_repeated_contact_event, limit_contact_events
-from app.schemas import ContactEventIn, ProviderDetail, ProviderSearchResult
+from app.models import PUBLIC_STATUSES, ContactEvent, Provider, ProviderReport
+from app.rate_limit import is_repeated_contact_event, limit_contact_events, limit_reports
+from app.schemas import (
+    ContactEventIn,
+    ProviderDetail,
+    ProviderSearchResult,
+    ReportCreated,
+    ReportIn,
+)
 from app.services.provider_views import current_date, to_detail, to_summary
 from app.services.search import distance_to_provider, search_providers
 
 router = APIRouter(tags=["providers"])
 
 
-def get_verified_provider(db: Session, provider_id: uuid.UUID) -> Provider:
-    """Load a provider the public is allowed to see, or raise 404.
+def require_public(provider: Provider | None) -> Provider:
+    """Raise 404 unless the public is allowed to see this provider.
 
-    Pending and rejected profiles answer exactly like missing ones, so nobody
-    can find out that an unverified profile exists.
+    Verified, unverified and pending profiles are public. A rejected profile
+    answers exactly like a missing one, so nobody can find out it exists.
     """
-    provider = db.get(Provider, provider_id)
-    if provider is None or provider.status != "verified":
+    if provider is None or provider.status not in PUBLIC_STATUSES:
         raise HTTPException(status_code=404, detail="Provider not found")
     return provider
+
+
+def get_public_provider(db: Session, provider_id: uuid.UUID) -> Provider:
+    """Load a provider the public is allowed to see, or raise 404."""
+    return require_public(db.get(Provider, provider_id))
 
 
 def detail_response(
@@ -48,6 +58,8 @@ def search(
     radius_m: int = Query(ge=100, le=50000),
     category_id: int | None = None,
     q: str | None = Query(default=None, min_length=2, max_length=60),
+    # False (the default): verified providers only. True: also unverified ones.
+    include_unverified: bool = False,
     limit: int = Query(default=30, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -60,6 +72,7 @@ def search(
         today=current_date(),
         category_id=category_id,
         name_contains=q,
+        include_unverified=include_unverified,
         limit=limit,
         offset=offset,
     )
@@ -74,9 +87,7 @@ def get_provider_by_slug(
     lng: float | None = Query(default=None, ge=-180, le=180),
     db: Session = Depends(get_db),
 ):
-    provider = db.scalar(select(Provider).where(Provider.slug == slug))
-    if provider is None or provider.status != "verified":
-        raise HTTPException(status_code=404, detail="Provider not found")
+    provider = require_public(db.scalar(select(Provider).where(Provider.slug == slug)))
     return detail_response(db, provider, lat, lng)
 
 
@@ -87,7 +98,7 @@ def get_provider(
     lng: float | None = Query(default=None, ge=-180, le=180),
     db: Session = Depends(get_db),
 ):
-    provider = get_verified_provider(db, provider_id)
+    provider = get_public_provider(db, provider_id)
     return detail_response(db, provider, lat, lng)
 
 
@@ -103,7 +114,7 @@ def record_contact_event(
     db: Session = Depends(get_db),
 ):
     """Count a profile view, a WhatsApp tap or a call tap. No login needed."""
-    provider = get_verified_provider(db, provider_id)
+    provider = get_public_provider(db, provider_id)
 
     # The same person tapping again within 10 minutes gets the same 204
     # answer, but is not counted twice. This keeps provider stats honest.
@@ -111,3 +122,23 @@ def record_contact_event(
         db.add(ContactEvent(provider_id=provider.id, type=body.type))
         db.commit()
     return Response(status_code=204)
+
+
+@router.post(
+    "/providers/{provider_id}/reports",
+    response_model=ReportCreated,
+    status_code=201,
+    dependencies=[Depends(limit_reports)],
+)
+def report_provider(provider_id: uuid.UUID, body: ReportIn, db: Session = Depends(get_db)):
+    """Flag a listing as wrong, fake, closed or offensive. No login needed.
+
+    Nothing about the sender is stored (no user id, no IP). The admin reads
+    the reports through routers/admin.py.
+    """
+    provider = get_public_provider(db, provider_id)
+
+    report = ProviderReport(provider_id=provider.id, reason=body.reason, note=body.note)
+    db.add(report)
+    db.commit()
+    return ReportCreated(id=report.id)

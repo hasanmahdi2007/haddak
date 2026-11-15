@@ -27,7 +27,9 @@ Admin routes use the header `X-Admin-Key: <ADMIN_API_KEY>` instead.
   "category": { "id": 3, "slug": "laptop-repair", "name_en": "Laptop repair", "name_ar": "تصليح لابتوب", "icon": "laptop" },
   "area_name": "Haret Hreik", "price_text": "From $10",
   "avg_rating": 4.7, "review_count": 23,
-  "verified": true, "founding_member": true, "featured": false,
+  "verified": true,                            // true only when the founder checked proof
+  "claimed": true,                             // false = listed by the community, no owner yet
+  "founding_member": true, "featured": false,  // featured is always false unless verified
   "lat": 33.8551, "lng": 35.5102, "distance_m": 184,
   "cover_photo_url": "https://...",            // null if no photos
   "open_now": true }                           // null if the provider gave no opening hours
@@ -40,19 +42,43 @@ Admin routes use the header `X-Admin-Key: <ADMIN_API_KEY>` instead.
   "contacts_this_month": 12 }                  // null unless the provider chose to show it
 // distance_m is null in ProviderDetail unless lat and lng are passed.
 
-// OwnProvider (what the owner sees) = ProviderDetail plus:
-{ "status": "pending", "featured_until": null, "verification_doc_url": "…",
+// OwnProvider (what the owner and the admin see) = ProviderDetail plus:
+{ "status": "pending",                         // "unverified" | "pending" | "verified" | "rejected"
+  "source": "owner",                           // "owner" | "suggestion"
+  "featured_until": null, "verification_doc_url": "…",
   "show_contact_count": false }
 
 // Suggestion (admin only)
 { "id": "uuid", "name": "Abu Ali Tailor", "phone": "+96170123456",
   "category": { "id": 3, "slug": "tailor", "name_en": "Tailor", "name_ar": "خياط", "icon": "needle" },  // or null
-  "area_name": "Mazraa", "note": "Best tailor in the area.", "created_at": "2026-11-15T10:00:00Z" }
+  "area_name": "Mazraa", "note": "Best tailor in the area.",
+  "lat": 33.8872, "lng": 35.4955,              // both null if no position was sent
+  "created_at": "2026-11-15T10:00:00Z" }
+
+// Report (admin only)
+{ "id": "uuid", "reason": "not_real", "note": "This shop closed years ago.",   // note or null
+  "created_at": "2026-11-15T10:00:00Z",
+  "provider": { "id": "uuid", "name": "Ali Tech", "status": "unverified" } }
 
 // Review
 { "id": "uuid", "author_name": "Rana", "rating": 5, "comment": "Fixed it in an hour.",
   "created_at": "2026-11-15T10:00:00Z", "is_mine": false }
 ```
+
+## Provider statuses and who sees what
+
+A provider can be listed without being verified.
+
+| Status | Public? | Meaning |
+|---|---|---|
+| `unverified` | yes, `verified: false` | No proof submitted, or the proof was not accepted. |
+| `pending` | yes, `verified: false` | Proof submitted, waiting for the founder. |
+| `verified` | yes, `verified: true` | The founder checked the proof. This is the badge. |
+| `rejected` | no, 404 everywhere public | Fake, abusive or duplicate. |
+
+- Public shapes never contain `status` or `verification_doc_url`. `pending` and `unverified` look identical to the public.
+- Search returns verified providers only, unless `include_unverified=true` is sent.
+- Verification is a human decision made in the admin page.
 
 ## Public endpoints
 
@@ -61,10 +87,11 @@ Admin routes use the header `X-Admin-Key: <ADMIN_API_KEY>` instead.
 | `GET /health` | `{"status": "ok"}`. Also checks the database connection; 503 if it is down. |
 | `GET /categories` | All categories, ordered by `sort_order`. Flat list; the app builds the tree from `parent_id`. |
 | `GET /providers/search` | Radius search. See below. |
-| `GET /providers/{id}` | `ProviderDetail`. Optional `lat`, `lng` to get `distance_m`. 404 unless verified. |
+| `GET /providers/{id}` | `ProviderDetail`. Optional `lat`, `lng` to get `distance_m`. 404 if unknown or rejected. |
 | `GET /providers/by-slug/{slug}` | Same as above, by share code. |
 | `GET /providers/{id}/reviews` | `{"items": [Review], "total": n}`. Query: `limit` (default 20, max 50), `offset`. Newest first. `is_mine` is set when a token is sent. |
 | `POST /providers/{id}/contact-events` | Body `{"type": "view" \| "whatsapp" \| "call"}`. Returns 204. No login. |
+| `POST /providers/{id}/reports` | Flag a bad listing. Body below. Returns 201 `{"id": "uuid"}`. No login. 404 if unknown or rejected. |
 | `POST /suggestions` | Suggest a provider who is not on Haddak yet. Body below. Returns 201 `{"id": "uuid"}`. No login. |
 
 ### `GET /providers/search`
@@ -75,10 +102,19 @@ Admin routes use the header `X-Admin-Key: <ADMIN_API_KEY>` instead.
 | `radius_m` | int | required, 100 to 50000. App chips: 500, 1000, 5000, 20000 ("city") |
 | `category_id` | int | optional; includes child categories |
 | `q` | string | optional, 2 to 60 characters; keeps providers whose name contains it (case-insensitive). Works together with `category_id`. |
+| `include_unverified` | bool | default `false`: verified providers only. `true`: also `unverified` and `pending` ones (never `rejected`). |
 | `limit` | int | default 30, max 100 |
 | `offset` | int | default 0 |
 
-Response: `{"items": [ProviderSummary], "total": n}`. Order: featured first, then weighted rating, then distance (see `SCHEMA.md`).
+Response: `{"items": [ProviderSummary], "total": n}`. Order: all verified providers before all non-verified ones; inside each group featured first, then weighted rating, then distance (see `SCHEMA.md`). Featured placement only counts for verified providers.
+
+### `POST /providers/{id}/reports`
+
+```jsonc
+{ "reason": "not_real", "note": "This shop closed years ago." }
+```
+
+`reason` is required: one of `wrong_info`, `not_real`, `closed`, `offensive`, `other`. `note` is optional, up to 500 characters. Nothing about the sender is stored (no user id, no IP).
 
 ### `POST /suggestions`
 
@@ -86,10 +122,11 @@ Body (only `name` is required):
 
 ```jsonc
 { "name": "Abu Ali Tailor", "phone": "+96170123456", "category_id": 3,
-  "area_name": "Mazraa", "note": "Best tailor in the area." }
+  "area_name": "Mazraa", "note": "Best tailor in the area.",
+  "lat": 33.8872, "lng": 35.4955 }
 ```
 
-Limits: `name` 1 to 100 characters, `area_name` up to 100, `note` up to 500; `phone` in the same international format as provider phones. An unknown `category_id` is 400. Nothing about the sender is stored (no user id, no IP).
+Limits: `name` 1 to 100 characters, `area_name` up to 100, `note` up to 500; `phone` in the same international format as provider phones. `lat` (-90 to 90) and `lng` (-180 to 180) are optional, but must be sent together: one without the other is 422. An unknown `category_id` is 400. Nothing about the sender is stored (no user id, no IP).
 
 ## Auth endpoints
 
@@ -98,8 +135,8 @@ Limits: `name` 1 to 100 characters, `area_name` up to 100, `note` up to 500; `ph
 | `PUT /providers/{id}/reviews/mine` | Create or update my review. Body `{"rating": 1-5, "comment": "…", "author_name": "…"}`. Returns `Review`. 403 on own profile. |
 | `DELETE /providers/{id}/reviews/mine` | Remove my review. 204. |
 | `GET /me/provider` | `OwnProvider`, or 404 if the user has no profile. |
-| `POST /me/provider` | Create my profile. Body below. Returns 201 `OwnProvider` with `status: "pending"`. 409 if one exists. |
-| `PATCH /me/provider` | Update any of the create fields. Returns `OwnProvider`. |
+| `POST /me/provider` | Create my profile. Body below. Returns 201 `OwnProvider`. `status` is `"pending"` if a `verification_doc_url` was sent, otherwise `"unverified"`; the profile is listed publicly either way. 409 if one exists. |
+| `PATCH /me/provider` | Update any of the create fields. Returns `OwnProvider`. Status rules below. |
 | `GET /me/provider/stats` | `{"month": "2026-11", "views": 40, "whatsapp": 9, "calls": 3}` for the current month. |
 
 Create body:
@@ -112,6 +149,12 @@ Create body:
 ```
 
 Phone numbers must be in international format (`+` and 8 to 15 digits).
+
+`verification_doc_url` is optional. How `PATCH /me/provider` treats it:
+
+- On an `unverified` profile, sending a `verification_doc_url` that is not the one already stored moves it to `pending` (proof waiting for the founder). Sending the same URL again changes nothing, so a declined proof is not queued again by an ordinary edit.
+- On a `pending` profile, clearing it with `null` moves the profile back to `unverified`.
+- Every other edit keeps the status. A `verified` profile stays verified; a `rejected` profile stays rejected whatever is sent.
 
 Two optional fields can also be sent on create and on update:
 
@@ -134,19 +177,49 @@ Two optional fields can also be sent on create and on update:
 
 | Method and path | Purpose |
 |---|---|
-| `GET /admin/providers?status=pending` | List `OwnProvider` items by status. |
+| `GET /admin/providers?status=pending` | List `OwnProvider` items by status: `unverified`, `pending`, `verified` or `rejected`. |
 | `PATCH /admin/providers/{id}` | Body: any of `status`, `founding_member`, `featured_until`. |
-
 | `GET /admin/suggestions` | `{"items": [Suggestion], "total": n}`, newest first. Query: `limit` (default 50, max 100), `offset`. |
 | `DELETE /admin/suggestions/{id}` | Remove a suggestion once it is dealt with. 204; 404 if there is no such suggestion. |
+| `POST /admin/suggestions/{id}/publish` | Turn a suggestion into a public, unverified listing. Body below. Returns 201 `OwnProvider`. |
+| `GET /admin/reports` | `{"items": [Report], "total": n}`, newest first. Query: `limit` (default 50, max 100), `offset`. |
+| `DELETE /admin/reports/{id}` | Dismiss a report. 204; 404 if there is no such report. |
 
 Both provider routes return `OwnProvider` items; the list is `{"items": [...], "total": n}`, oldest first, `status` defaulting to `pending`.
+
+### Status changes (`PATCH /admin/providers/{id}`)
+
+The admin page's buttons all send `status` to this one route:
+
+| Action | Body | Used on |
+|---|---|---|
+| Verify (Approve) | `{"status": "verified"}` | `pending` or `unverified` |
+| Decline proof | `{"status": "unverified"}` | `pending`. The listing stays visible, without the badge. The proof link is kept so the founder can still see what was declined. |
+| Reject | `{"status": "rejected"}` | any. Hidden everywhere public. |
+| Restore | `{"status": "unverified"}` | `rejected`. Listed again, without the badge. |
+
+The route accepts any of the four statuses and does not check which status the profile had before: the admin is trusted.
+
+### `POST /admin/suggestions/{id}/publish`
+
+Creates a provider with `status: "unverified"`, `source: "suggestion"` and no owner (`claimed: false`), with a share code generated like any other profile's. The suggestion is deleted in the same transaction.
+
+The body is optional. Any field in it overrides the suggestion's value; a field left out or `null` keeps the suggestion's value:
+
+```jsonc
+{ "name": "Abu Ali Tailor", "phone": "+96170123456", "category_id": 3,
+  "area_name": "Mazraa", "lat": 33.8872, "lng": 35.4955, "description": "…" }
+```
+
+- After merging, `name`, `phone`, `category_id`, `area_name`, `lat` and `lng` must all be present; otherwise 422 with `{"detail": "Missing: phone, lat, lng"}` and nothing is changed.
+- `description` only comes from the body (default empty). The suggestion's `note` was written for the admin and is never published.
+- The fields are validated like a profile's (phone format, lengths, coordinate ranges). An unknown `category_id` is 400. An unknown suggestion is 404.
 
 ## Details settled during the backend build
 
 - Validation errors (422) return one string in `detail`, not FastAPI's default list.
 - `whatsapp` in responses falls back to `phone` when none was stored, so the app always has a number.
-- Reviews and contact events on a profile that is not verified return 404. Reviewing your own profile is 403.
+- Reviews, contact events and reports on a rejected (or unknown) profile return 404. Unverified and pending profiles can be reviewed and contacted like verified ones. Reviewing your own profile is 403.
 - `DELETE /providers/{id}/reviews/mine` returns 204 even if there was no review.
 - An unknown `category_id` is 400 on profile create or update, and an empty result in search.
 - `category_id` in search includes direct children only (one level).
@@ -154,7 +227,9 @@ Both provider routes return `OwnProvider` items; the list is `{"items": [...], "
 - "Today" (featured expiry) and the stats month are in UTC.
 - `contacts_this_month` is the number of `whatsapp` + `call` contact events in the current UTC month (the same month as the stats); views are not included. It is `null` unless the provider turned on `show_contact_count`, also in `OwnProvider`. It is not part of search results. Counting itself is always on.
 - Limits: name and area 100 characters, description and comment 2000, 10 photos, `author_name` required, up to 80.
-- **Open decision:** `PATCH /me/provider` keeps the current `status`, so a verified provider can change name or category without a new review.
+- **Open decision:** `PATCH /me/provider` keeps the current `status` (apart from the proof rules above), so a verified provider can change name or category without a new review.
+- `featured` in public shapes is `true` only for a verified provider whose `featured_until` has not passed. `OwnProvider.featured_until` shows the stored date whatever the status.
+- A listing with no owner (`claimed: false`) cannot be edited through `/me/provider`; claiming it is not built yet. The admin can still verify, reject or feature it.
 
 ## Rate limits
 
@@ -162,14 +237,14 @@ Write routes are limited per client IP, in the API process's memory (no extra se
 
 - `POST /providers/{id}/contact-events`: 30 per minute per IP. In addition, the same IP, provider and type is counted at most once per 10 minutes; repeats still return 204 but are not stored. This keeps provider stats honest.
 - `PUT /providers/{id}/reviews/mine`, `POST` and `PATCH /me/provider`: 20 per minute per IP. One shared allowance across these routes.
-
 - `POST /suggestions`: 5 per hour per IP (its own allowance). Requests refused for a validation error count too.
+- `POST /providers/{id}/reports`: 10 per hour per IP (its own allowance). Requests refused for a validation error or an unknown provider count too.
 
 Requests are counted before the login token is checked, so failed attempts use the allowance too. Behind a hosting proxy the client IP is read from `X-Forwarded-For`, counting `PROXY_HOPS` entries from the right so a client cannot fake it.
 
 ## Admin page
 
-`GET /admin` (outside `/api/v1`) serves one static HTML page for the founder: enter the admin key, see pending profiles with their proof link, approve or reject, set founding member and featured-until. A "Suggestions" tab lists suggested providers with a Delete button. It only calls the admin endpoints above; the key is kept in the browser tab's memory, never stored.
+`GET /admin` (outside `/api/v1`) serves one static HTML page for the founder: enter the admin key, see profiles by status (Pending, Unverified, Verified, Rejected) with their proof link, approve, decline the proof, reject or restore, set founding member and featured-until. A "Suggestions" tab lists suggested providers with Publish (a small form for the fields that are still missing) and Delete. A "Reports" tab lists reported listings with Dismiss and Reject listing. It only calls the admin endpoints above and the public `GET /categories`; the key is kept in the browser tab's memory, never stored.
 
 ## Photos and proof documents
 

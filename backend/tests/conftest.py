@@ -73,8 +73,8 @@ def migrated_database():
     with engine.begin() as connection:
         connection.execute(
             text(
-                "DROP TABLE IF EXISTS provider_suggestions, contact_events, reviews, providers, "
-                "categories, alembic_version CASCADE"
+                "DROP TABLE IF EXISTS provider_reports, provider_suggestions, contact_events, "
+                "reviews, providers, categories, alembic_version CASCADE"
             )
         )
     command.upgrade(Config(str(BACKEND_DIR / "alembic.ini")), "head")
@@ -88,8 +88,8 @@ def empty_tables(migrated_database):
     with engine.begin() as connection:
         connection.execute(
             text(
-                "TRUNCATE provider_suggestions, contact_events, reviews, providers, categories "
-                "RESTART IDENTITY CASCADE"
+                "TRUNCATE provider_reports, provider_suggestions, contact_events, reviews, "
+                "providers, categories RESTART IDENTITY CASCADE"
             )
         )
 
@@ -174,11 +174,17 @@ def make_provider(
     owner_user_id: uuid.UUID | None = None,
     show_contact_count: bool = False,
     opening_hours: dict | None = None,
+    claimed: bool = True,
+    source: str = "owner",
 ) -> Provider:
-    """Insert a provider exactly `distance_m` metres from the test centre."""
+    """Insert a provider exactly `distance_m` metres from the test centre.
+
+    claimed=False makes a listing with no owner, as published from a suggestion.
+    """
     lat, lng = project_point(db, CENTER_LAT, CENTER_LNG, distance_m, bearing_deg)
     provider = Provider(
-        owner_user_id=owner_user_id or uuid.uuid4(),
+        owner_user_id=(owner_user_id or uuid.uuid4()) if claimed else None,
+        source=source,
         slug=uuid.uuid4().hex[:8],
         name=name,
         category_id=category.id,

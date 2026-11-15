@@ -1,4 +1,4 @@
-"""Admin endpoints: the key is required; verifying makes a profile public."""
+"""Admin endpoints: the key is required; verifying gives a profile the badge."""
 
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -22,8 +22,8 @@ def test_admin_routes_need_the_right_key(client, db):
     assert client.get(ADMIN_URL, headers=wrong).status_code == 401
     assert client.patch(patch_url, json=body, headers=wrong).status_code == 401
 
-    # Nothing changed
-    assert client.get(f"/api/v1/providers/{provider.id}").status_code == 404
+    # Nothing changed: still listed without the badge
+    assert client.get(f"/api/v1/providers/{provider.id}").json()["verified"] is False
 
 
 def test_list_by_status_shows_private_fields(client, db):
@@ -46,10 +46,11 @@ def test_list_rejects_unknown_status(client):
     assert response.status_code == 422
 
 
-def test_verifying_makes_the_profile_public(client, db):
+def test_verifying_gives_the_badge_and_a_place_in_the_default_search(client, db):
     provider = make_provider(db, make_category(db, "plumber"), status="pending")
     public_url = f"/api/v1/providers/{provider.id}"
-    assert client.get(public_url).status_code == 404
+    # Before: listed, but without the badge and not in the default search.
+    assert client.get(public_url).json()["verified"] is False
     assert search(client)["total"] == 0
 
     response = client.patch(
@@ -58,7 +59,7 @@ def test_verifying_makes_the_profile_public(client, db):
 
     assert response.status_code == 200
     assert response.json()["status"] == "verified"
-    assert client.get(public_url).status_code == 200
+    assert client.get(public_url).json()["verified"] is True
     assert search(client)["total"] == 1
 
 

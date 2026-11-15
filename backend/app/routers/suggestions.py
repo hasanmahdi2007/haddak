@@ -1,6 +1,6 @@
 """Public: suggest a provider who is not on Haddak yet.
 
-The admin reads and deletes suggestions through routers/admin.py.
+The admin reads, publishes and deletes suggestions through routers/admin.py.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -31,6 +31,8 @@ def create_suggestion(body: SuggestionIn, db: Session = Depends(get_db)):
         category_id=body.category_id,
         area_name=body.area_name,
         note=body.note,
+        lat=body.lat,
+        lng=body.lng,
     )
     db.add(suggestion)
     db.commit()

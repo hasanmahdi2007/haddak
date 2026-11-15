@@ -57,6 +57,11 @@ def check_opening_hours(hours: dict | None) -> dict | None:
     return hours
 
 
+def check_lat_lng_together(lat: float | None, lng: float | None) -> None:
+    if (lat is None) != (lng is None):
+        raise ValueError("lat and lng must be sent together")
+
+
 def reject_nulls(model: BaseModel, required_fields: set[str]) -> None:
     """For PATCH bodies: a field may be left out, but these may not be null."""
     for name in required_fields & model.model_fields_set:
@@ -103,7 +108,8 @@ class ProviderSummary(BaseModel):
     price_text: str | None
     avg_rating: float
     review_count: int
-    verified: bool
+    verified: bool  # True only for status 'verified': the founder checked proof
+    claimed: bool  # False for a listing with no owner ("listed by the community")
     founding_member: bool
     featured: bool
     lat: float
@@ -129,6 +135,7 @@ class OwnProvider(ProviderDetail):
     """What the owner (and the admin) sees: includes the private fields."""
 
     status: str
+    source: str  # 'owner' or 'suggestion'
     featured_until: date | None
     verification_doc_url: str | None
     show_contact_count: bool
@@ -220,8 +227,12 @@ class ProviderUpdate(BaseModel):
         return self
 
 
+# The four statuses; their meaning is described at the top of models.py.
+ProviderStatus = Literal["unverified", "pending", "verified", "rejected"]
+
+
 class AdminProviderUpdate(BaseModel):
-    status: Literal["pending", "verified", "rejected"] | None = None
+    status: ProviderStatus | None = None
     founding_member: bool | None = None
     featured_until: date | None = None  # null removes "featured"
 
@@ -271,12 +282,41 @@ class SuggestionIn(BaseModel):
     category_id: int | None = None
     area_name: str | None = Field(default=None, max_length=100)
     note: str | None = Field(default=None, max_length=500)
+    # Optional position of the suggested provider: both or neither.
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
 
     _phone = field_validator("phone")(check_phone)
+
+    @model_validator(mode="after")
+    def lat_and_lng_together(self) -> "SuggestionIn":
+        check_lat_lng_together(self.lat, self.lng)
+        return self
 
 
 class SuggestionCreated(BaseModel):
     id: uuid.UUID
+
+
+class SuggestionPublish(BaseModel):
+    """Admin body for publishing a suggestion as a listing.
+
+    Every field is optional: a value here replaces the suggestion's value,
+    a field left out (or null) keeps it. Whether everything needed is there
+    is checked after merging, in routers/admin.py.
+    """
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    phone: str | None = None
+    category_id: int | None = None
+    area_name: str | None = Field(default=None, min_length=1, max_length=100)
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
+    description: str | None = Field(default=None, max_length=2000)
+
+    _phone = field_validator("phone")(check_phone)
 
 
 class SuggestionOut(BaseModel):
@@ -290,9 +330,54 @@ class SuggestionOut(BaseModel):
     category: CategoryBrief | None
     area_name: str | None
     note: str | None
+    lat: float | None
+    lng: float | None
     created_at: datetime
 
 
 class SuggestionList(BaseModel):
     items: list[SuggestionOut]
+    total: int
+
+
+# ---------- Reports ----------
+
+ReportReason = Literal["wrong_info", "not_real", "closed", "offensive", "other"]
+
+
+class ReportIn(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    reason: ReportReason
+    note: str | None = Field(default=None, max_length=500)
+
+
+class ReportCreated(BaseModel):
+    id: uuid.UUID
+
+
+class ReportedProvider(BaseModel):
+    """The few provider fields the admin needs next to a report."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    status: str
+
+
+class ReportOut(BaseModel):
+    """What the admin sees."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    reason: str
+    note: str | None
+    created_at: datetime
+    provider: ReportedProvider
+
+
+class ReportList(BaseModel):
+    items: list[ReportOut]
     total: int
