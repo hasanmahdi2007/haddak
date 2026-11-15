@@ -318,6 +318,8 @@ export default function ProviderScreen() {
   const saved = favourites.isFavourite(id);
   // Scale of the heart; kept in state so the same value lives for the whole screen.
   const [pulse] = useState(() => new Animated.Value(1));
+  // How far the page is scrolled; drives the solid bar behind the top controls.
+  const [scrollY] = useState(() => new Animated.Value(0));
 
   // Same origin as the search (the device position, or Haret Hreik), so distances agree.
   const from = locationStatus === 'locating' ? undefined : coords;
@@ -424,11 +426,21 @@ export default function ProviderScreen() {
   }
 
   const hasPhotos = provider.photos.length > 0;
+  // The bar covers the status bar area and the row of round buttons.
+  const barHeight = insets.top + space.sm * 2 + size.touch;
+  // Fully solid when the white sheet's top edge reaches the bottom of the bar.
+  const barFadeEnd = Math.max(space.xxl, galleryHeight - size.sheetOverlap - barHeight);
 
   return (
     <View style={styles.screen}>
       <StatusBar style={hasPhotos || dark ? 'light' : 'dark'} />
-      <ScrollView contentContainerStyle={{ paddingBottom: space.xxxl }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: space.xxxl }}
+        scrollEventThrottle={16}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+          useNativeDriver: false,
+        })}
+      >
         <View style={styles.column}>
           <Gallery provider={provider} width={width} />
 
@@ -573,6 +585,23 @@ export default function ProviderScreen() {
         </View>
       </ScrollView>
 
+      {/* Once the photo has scrolled away, a solid bar fades in behind the controls
+          so they never sit on top of the text. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.overlayBacking,
+          {
+            height: barHeight,
+            opacity: scrollY.interpolate({
+              inputRange: [Math.max(0, barFadeEnd - space.xxl), barFadeEnd],
+              outputRange: [0, 1],
+              extrapolate: 'clamp',
+            }),
+          },
+        ]}
+      />
+
       {/* Controls over the photo. */}
       <View
         style={[styles.overlayBar, { top: insets.top + space.sm, flexDirection: row }]}
@@ -664,6 +693,15 @@ const useStyles = makeStyles((c) => ({
   },
   overlayGroup: {
     gap: space.sm,
+  },
+  overlayBacking: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: c.background,
+    borderBottomWidth: 1,
+    borderBottomColor: c.border,
   },
   // Photo counter; it sits above the part of the photo the sheet covers.
   counter: {

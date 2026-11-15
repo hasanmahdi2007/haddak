@@ -10,7 +10,7 @@ What has been built, how it was checked, and what is still open. Newest entry fi
 | GitHub | Private repo https://github.com/hasanmahdi2007/haddak, CI running |
 | Local database | Postgres 16 + PostGIS in Docker, port 5433, seeded |
 | Backend | All version 1 endpoints built, hardened and tested (161 tests); Docker image ready |
-| Mobile app | Home, Results and Profile built in the chosen design (option B, white and sea teal), light and dark, English and Arabic. Map, sign-in, provider sign-up and reviews not started |
+| Mobile app | Home, Results (list and map), Profile, Saved and Suggest screens built in the chosen design (option B), light and dark, English and Arabic; name search, directions, opening hours, favourites. Sign-in, provider sign-up, reviews and stats not started (need Supabase) |
 | Hosting | Not started (plan in `SYSTEM_DESIGN.md` section 6) |
 
 ## Validation benchmark (from `PROJECT.md`)
@@ -24,6 +24,21 @@ The app is judged in the first area by this, not by code:
 Current: 0 real providers (app not released). Seed data only.
 
 ## Log
+
+### 2026-11-15 — app screens for favourites, hours, contact count and suggestions
+
+**Built** (`mobile/`): favourites stored on the phone (heart on the profile, Saved screen, count on Home); "Open now" / "Closed" on result cards and the map card; an "Opening hours" section on the profile; the optional "N people contacted this month" line; the "Suggest a provider" form, reached from Home and from an empty results list. Commits `531abfe`, `182dd1e`.
+
+**Fixed by the coordinating session:**
+
+- The suggestion form rejected local numbers such as `70 123 456`; it now adds `+961` to 7- or 8-digit local numbers.
+- On a scrolled profile the back, heart and share buttons sat on top of the text; a solid bar now fades in behind them once the photo has scrolled away.
+
+**Checked by the coordinating session:** `npx tsc --noEmit` and `npx expo lint` → no errors after each change; opened the Saved, opening-hours and suggestion-form screenshots.
+
+**Not verified:** all of this on a phone (keyboard over the form, favourites surviving an app restart, the fading bar, Arabic wording); hours, contact count and suggestions against the real backend from the app (agents tested with mock data; the backend endpoints themselves were tried live); the two fixes above in a running app.
+
+**Remaining for version 1:** sign-in, provider sign-up (pin drop, proof upload, hours, contact-count switch), reviews, provider stats screen, share link and QR code. These need the Supabase project (founder task F2). Then deployment, then AI search.
 
 ### 2026-11-15 — extra features: name search, directions, hours, contact count, suggestions
 
