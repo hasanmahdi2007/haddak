@@ -134,6 +134,41 @@ The founder's goal is an everyday app for a whole country. This design is delibe
 
 Lebanon has about 5 million people. One well-indexed Postgres database is enough for the whole country.
 
+### 7.1 Decision record: Supabase and a small container host, not AWS (2026-11-15)
+
+**Question.** If the app succeeds, is Supabase enough, or is AWS needed?
+
+**Estimate of a successful Haddak.** These are assumptions, not measurements; replace them with real numbers after launch.
+
+| Quantity | Assumption | Result |
+|---|---|---|
+| People | Lebanon about 5.5 million, Greater Beirut about 2 million | A national success is on the order of 100,000 monthly users |
+| Providers | | 5,000 to 20,000 |
+| Requests | 100,000 users × about 50 API calls a month (searches, profiles, reviews) | 5 million a month: about 2 a second on average, perhaps 20 to 30 a second at the evening peak |
+| Database size | 20,000 providers, 500,000 reviews, about 10 million contact events a year | Roughly 1 to 2 GB after a year |
+| Photos stored | 20,000 providers × 5 photos × about 300 KB | About 30 GB |
+
+**What that needs.** A radius search is one indexed query that takes a few milliseconds, so one small API instance and one small Postgres database handle the peak with a large margin. The paid Supabase plan's included database size, file storage and login users are (from memory; check the pricing page) each several times these numbers.
+
+**Decision.** Launch on Supabase plus one container host. Do not use AWS now.
+
+**Why.**
+- Capacity is not the constraint at any realistic size for one country.
+- The constraint is the founder's time. The validation benchmark is 50 real providers; AWS setup (networking, permissions, database, containers, load balancer) costs days and adds no provider.
+- AWS would cost more for the same load and is harder to predict.
+- Leaving later is cheap by design: the database is standard Postgres (export and import), the backend is a standard Docker image, and the app talks only to our API. Only login would need a migration plan.
+
+**What breaks first, and the fix.** None of these is solved by AWS as such.
+
+| Pressure point | When | Fix |
+|---|---|---|
+| Photo bandwidth: full-size photos sent to every phone | First, well before the database is stressed | Resize on upload, serve small thumbnails in lists, long cache headers, a CDN in front of storage |
+| Rate limiter kept in one process's memory | When a second API instance is needed | Move the counters to Redis |
+| `contact_events` grows without limit | After about a year of real use | Monthly summary table; archive old rows |
+| Search load | Far beyond a national success | Read replica for searches |
+
+**Revisit this decision when** any of these is true: the monthly bill passes about $150; a feature needs something these hosts lack (background workers for AI search, a queue); the app expands beyond Lebanon and needs several regions; or a customer or investor requires a specific cloud.
+
 ## 8. What comes later, and where it plugs in
 
 | Later feature | Where it fits |
