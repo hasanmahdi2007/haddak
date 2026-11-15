@@ -120,8 +120,8 @@ Lucide line icons (`lucide-react-native`), one stroke weight, coloured with toke
 
 ## Screens
 
-- **Home** (`src/app/index.tsx`): teal wordmark and the language switch; the question; the aqua location pill with the coral pin; a two-column grid of category tiles; a docked bar with the distance track and one full-width search button whose label names the chosen category.
-- **Results** (`src/app/results.tsx`): back arrow, title (the category, or "Everyone nearby") with the result count under it, the list / map toggle, then the same distance track as Home. Below, a list of provider cards, or the map (see Map view).
+- **Home** (`src/app/index.tsx`): teal wordmark and the language switch; the question; the aqua location pill with the coral pin; the search-by-name field; a two-column grid of category tiles; a docked bar with the distance track and one full-width search button whose label names the chosen category.
+- **Results** (`src/app/results.tsx`): back arrow, title (the quoted name when searching by name, else the category, or "Everyone nearby") with the result count under it, the list / map toggle, then the same distance track as Home. Below, a list of provider cards, or the map (see Map view).
 - **Provider profile** (`src/app/provider/[id].tsx`): photo gallery at the top; a white sheet with 24 dp top corners rises 24 dp over it, with the large seal across that edge on the end side. Then "category · area", the name, the verified line, tags, the facts strip, About, Reviews. WhatsApp and Call are docked at the bottom.
 
 ## Components
@@ -170,6 +170,12 @@ On cards and in the profile facts: amber star, the average to one decimal, the c
 
 ### Profile facts strip
 One aqua strip (radius `lg`) with three columns split by thin lines: rating, distance, price. Each shows its icon and value in `title` type with a `caption` label under it. Same icons and order as the card strip.
+
+### Search field (on Home)
+An aqua field (`surfaceTint`, radius `lg`, 48 dp high) above the categories: search icon at the start, `body` text, a 48 dp clear button at the end once there is text. Focus turns its 1.5 dp border `primary`. The keyboard's search key (or the docked button) searches by name with 2 or more characters, together with the chosen distance and category; fewer does nothing. Results then shows the quoted name as its title, and the empty state names it.
+
+### Get directions (on the profile)
+An `outline` button with the navigation arrow, 8 dp under the facts strip, so distance and the way there read together. It opens the maps app at the provider's coordinates (Google Maps universal link). If it cannot open, the same `dangerSoft` notice as WhatsApp and Call appears.
 
 ### Photo (`Photo`)
 A provider photo, cropped to fill. No photo, or it fails to load: the category icon in teal on aqua. On the profile the header is shorter when there are no photos. A gallery with several photos shows a "1 / 3" counter on a scrim pill.

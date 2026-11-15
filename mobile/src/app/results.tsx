@@ -46,12 +46,15 @@ export default function ResultsScreen() {
   const { colors } = useTheme();
   const { s, f, row, rtl, plural, categoryName } = useI18n();
   const styles = useStyles();
-  const params = useLocalSearchParams<{ category_id?: string; radius?: string }>();
+  const params = useLocalSearchParams<{ category_id?: string; radius?: string; q?: string }>();
   const { coords, status: locationStatus } = useLocation();
   const { byId } = useCategories();
 
   const categoryId = params.category_id ? Number(params.category_id) : undefined;
   const category = categoryId !== undefined ? byId.get(categoryId) : undefined;
+  // The name typed on Home. The backend takes 2 to 60 characters; anything else is dropped.
+  const typed = (params.q ?? '').trim().slice(0, 60);
+  const q = typed.length >= 2 ? typed : undefined;
   const [radiusM, setRadiusM] = useState<RadiusM>(() => parseRadius(params.radius));
   const [mode, setMode] = useState<ViewMode>('list');
 
@@ -61,13 +64,13 @@ export default function ResultsScreen() {
     () =>
       locating
         ? new Promise<never>(() => undefined)
-        : api.searchProviders({ ...coords, radius_m: radiusM, category_id: categoryId }),
-    [locating, coords.lat, coords.lng, radiusM, categoryId],
+        : api.searchProviders({ ...coords, radius_m: radiusM, category_id: categoryId, q }),
+    [locating, coords.lat, coords.lng, radiusM, categoryId, q],
   );
 
   const where = radiusPhrase(s, radiusM);
   const wider = widerRadius(radiusM);
-  const title = category ? categoryName(category) : s.results.everyone;
+  const title = q ? f(s.results.named, { q }) : category ? categoryName(category) : s.results.everyone;
   const subtitle =
     search.status === 'ready'
       ? plural(s.results.count, search.data.total, { where })
@@ -152,10 +155,22 @@ export default function ResultsScreen() {
         <View style={styles.column}>
           <StateView
             icon={SearchX}
-            title={f(s.results.emptyTitle, { where })}
-            body={wider ? s.results.emptyBody : s.results.emptyCityBody}
+            title={q ? f(s.results.emptyNameTitle, { q, where }) : f(s.results.emptyTitle, { where })}
+            body={
+              q
+                ? wider
+                  ? s.results.emptyNameBody
+                  : s.results.emptyNameCityBody
+                : wider
+                  ? s.results.emptyBody
+                  : s.results.emptyCityBody
+            }
             actionLabel={
-              wider ? f(s.results.emptyAction, { where: radiusPhrase(s, wider) }) : s.results.emptyCityAction
+              wider
+                ? f(s.results.emptyAction, { where: radiusPhrase(s, wider) })
+                : q
+                  ? s.results.emptyNameCityAction
+                  : s.results.emptyCityAction
             }
             onAction={() => (wider ? setRadiusM(wider) : goBack())}
           />

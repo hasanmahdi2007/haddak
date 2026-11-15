@@ -50,6 +50,9 @@ export const ar: Strings = {
     categoriesError: 'ما قدرنا نحمّل الفئات',
     categoriesErrorBody: 'تأكّد من الإنترنت وجرّب مرة تانية.',
     hasMore: '{name}، في خيارات أكتر',
+    searchPlaceholder: 'ابحث بالاسم',
+    searchHint: 'اكتب حرفين أو أكتر وبعدين ابحث.',
+    clearSearch: 'امحي الاسم',
   },
 
   results: {
@@ -76,6 +79,11 @@ export const ar: Strings = {
     emptyAction: 'ابحث {where}',
     emptyCityBody: 'حدّك بعده عم يضيف ناس موثّقين بهالمنطقة. جرّب فئة تانية.',
     emptyCityAction: 'غيّر الفئة',
+    named: '«{q}»',
+    emptyNameTitle: 'ما في حدا اسمه «{q}» {where}',
+    emptyNameBody: 'تأكّد من كتابة الاسم، أو جرّب مسافة أبعد.',
+    emptyNameCityBody: 'تأكّد من كتابة الاسم، أو ابحث حسب الفئة.',
+    emptyNameCityAction: 'رجوع للبحث',
     errorTitle: 'ما قدرنا نحمّل النتائج',
     errorBody: 'تأكّد من الإنترنت وجرّب مرة تانية.',
     openProfile: 'افتح الصفحة',
@@ -141,5 +149,8 @@ export const ar: Strings = {
     errorBody: 'تأكّد من الإنترنت وجرّب مرة تانية.',
     loading: 'عم نحمّل الصفحة',
     dismiss: 'سكّر',
+    directions: 'دلّني عالطريق',
+    directionsLabel: 'افتح الطريق لعند {name} بتطبيق الخرائط',
+    directionsFailed: 'ما قدرنا نفتح تطبيق الخرائط.',
   },
 };

@@ -1,8 +1,17 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ArrowLeft, ArrowRight, LocateFixed, MapPin, Search, WifiOff } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, LocateFixed, MapPin, Search, WifiOff, X } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, BackHandler, Pressable, ScrollView, View } from 'react-native';
+import {
+  ActivityIndicator,
+  BackHandler,
+  Pressable,
+  Platform,
+  ScrollView,
+  TextInput,
+  type TextStyle,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { Category } from '@/api';
@@ -17,10 +26,18 @@ import { useI18n } from '@/i18n';
 import { useCategories, type CategoryNode } from '@/lib/categories';
 import { useLocation } from '@/lib/location';
 import { DEFAULT_RADIUS, type RadiusM } from '@/lib/radius';
-import { makeStyles, radius, size, space, useTheme } from '@/theme';
+import { makeStyles, radius, size, space, type as typeScale, useTheme } from '@/theme';
 
 /** Category tiles per row. */
 const COLUMNS = 2;
+
+/** Limits of the search endpoint's `q` parameter (docs/API.md). */
+const NAME_MIN = 2;
+const NAME_MAX = 60;
+
+// Web only: the field's own border shows focus, so the browser's ring is turned off.
+// ('none' is valid CSS but missing from React Native's types, hence the cast.)
+const NO_FOCUS_RING = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : null;
 
 /** Split a list into grid rows, padding the last row so tiles keep their width. */
 function toRows<T>(items: T[]): (T | null)[][] {
@@ -37,7 +54,8 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, dark } = useTheme();
-  const { s, f, row, rtl, alignStart, language, setLanguage, categoryName } = useI18n();
+  const { s, f, row, rtl, alignStart, textAlign, writingDirection, language, setLanguage, categoryName } =
+    useI18n();
   const styles = useStyles();
   const location = useLocation();
   const categories = useCategories();
@@ -45,6 +63,8 @@ export default function HomeScreen() {
   const [radiusM, setRadiusM] = useState<RadiusM>(DEFAULT_RADIUS);
   const [selected, setSelected] = useState<Category | null>(null);
   const [openParent, setOpenParent] = useState<CategoryNode | null>(null);
+  const [name, setName] = useState('');
+  const [nameFocused, setNameFocused] = useState(false);
 
   // Android Back closes the second level before it leaves the app.
   useEffect(() => {
@@ -60,11 +80,23 @@ export default function HomeScreen() {
     setSelected((current) => (current?.id === category.id ? null : category));
   }, []);
 
+  const query = name.trim();
+
+  // A name of 2+ letters travels with the search; a shorter one is ignored.
   const search = () => {
     router.push({
       pathname: '/results',
-      params: { radius: String(radiusM), ...(selected ? { category_id: String(selected.id) } : {}) },
+      params: {
+        radius: String(radiusM),
+        ...(selected ? { category_id: String(selected.id) } : {}),
+        ...(query.length >= NAME_MIN ? { q: query } : {}),
+      },
     });
+  };
+
+  // The keyboard's search key: nothing happens until the name is long enough.
+  const submitName = () => {
+    if (query.length >= NAME_MIN) search();
   };
 
   const BackIcon = rtl ? ArrowRight : ArrowLeft;
@@ -139,6 +171,45 @@ export default function HomeScreen() {
 
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.column}>
+          {/* Search by name: an aqua field; the border turns teal while typing. */}
+          <View
+            style={[styles.field, { flexDirection: row }, nameFocused ? styles.fieldFocused : null]}
+          >
+            <View style={styles.fieldIcon}>
+              <Search color={colors.textMuted} size={size.icon} strokeWidth={size.stroke} />
+            </View>
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              onSubmitEditing={submitName}
+              onFocus={() => setNameFocused(true)}
+              onBlur={() => setNameFocused(false)}
+              placeholder={s.home.searchPlaceholder}
+              placeholderTextColor={colors.textSubtle}
+              accessibilityLabel={s.home.searchPlaceholder}
+              accessibilityHint={s.home.searchHint}
+              returnKeyType="search"
+              enterKeyHint="search"
+              autoCorrect={false}
+              autoCapitalize="words"
+              maxLength={NAME_MAX}
+              selectionColor={colors.primary}
+              hitSlop={{ top: space.xs, bottom: space.xs }}
+              style={[styles.fieldInput, NO_FOCUS_RING, { textAlign, writingDirection }]}
+            />
+            {name.length > 0 ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={s.home.clearSearch}
+                onPress={() => setName('')}
+                android_ripple={{ color: colors.surfaceTintStrong, borderless: true }}
+                style={styles.fieldClear}
+              >
+                <X color={colors.textMuted} size={size.icon} strokeWidth={size.stroke} />
+              </Pressable>
+            ) : null}
+          </View>
+
           {openParent ? (
             <View style={[styles.levelHeader, { flexDirection: row }]}>
               <IconButton icon={BackIcon} label={s.home.allCategories} onPress={() => setOpenParent(null)} />
@@ -312,6 +383,40 @@ const useStyles = makeStyles((c) => ({
     paddingHorizontal: space.lg,
     paddingTop: space.sm,
     paddingBottom: space.lg,
+  },
+  // Same aqua and radius as the facts strips; 48 dp high.
+  field: {
+    alignItems: 'center',
+    minHeight: size.touch,
+    backgroundColor: c.surfaceTint,
+    borderRadius: radius.lg,
+    borderWidth: size.lineMid,
+    borderColor: c.surfaceTint,
+    marginBottom: space.lg,
+  },
+  fieldFocused: {
+    borderColor: c.primary,
+  },
+  fieldInput: {
+    ...typeScale.body,
+    flex: 1,
+    minWidth: 0,
+    // 40 dp inside the 48 dp field (hitSlop covers the rest), so it never draws over the border.
+    minHeight: size.segment,
+    color: c.text,
+    paddingHorizontal: space.sm,
+    paddingVertical: space.none,
+  },
+  // Lines the search icon up with the clear button's 48 dp box on the other side.
+  fieldIcon: {
+    width: size.touch - space.sm,
+    alignItems: 'flex-end',
+  },
+  fieldClear: {
+    width: size.touch,
+    height: size.touch,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sectionTitle: {
     marginBottom: space.md,

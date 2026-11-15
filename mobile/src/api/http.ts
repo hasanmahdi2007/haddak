@@ -97,7 +97,10 @@ export function createHttpApi(
     health: () => request<HealthResponse>('/health'),
     getCategories: () => request<Category[]>('/categories'),
     searchProviders: (params: SearchParams) =>
-      request<Page<ProviderSummary>>('/providers/search', { query: { ...params } }),
+      // An empty name is left out, so the backend does not reject it as too short.
+      request<Page<ProviderSummary>>('/providers/search', {
+        query: { ...params, q: params.q?.trim() || undefined },
+      }),
     getProvider: (providerId: string, from?: Coordinates) =>
       request<ProviderDetail>(`/providers/${id(providerId)}`, { query: { ...from } }),
     getProviderBySlug: (slug: string, from?: Coordinates) =>

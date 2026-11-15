@@ -6,6 +6,7 @@ import {
   Banknote,
   MapPin,
   MessageCircle,
+  Navigation,
   Phone,
   Share2,
   Star,
@@ -36,7 +37,7 @@ import { Skeleton } from '@/components/Skeleton';
 import { StateView } from '@/components/StateView';
 import { Txt } from '@/components/Txt';
 import { useI18n } from '@/i18n';
-import { shareUrl, telUrl, whatsappUrl } from '@/lib/links';
+import { directionsUrl, shareUrl, telUrl, whatsappUrl } from '@/lib/links';
 import { useLocation } from '@/lib/location';
 import { useAsync } from '@/lib/useAsync';
 import { makeStyles, radius, size, space, useTheme } from '@/theme';
@@ -257,6 +258,16 @@ export default function ProviderScreen() {
     }
   };
 
+  // Opens the phone's maps app with the route to the provider.
+  const directions = async (target: ProviderDetail) => {
+    try {
+      await Linking.openURL(directionsUrl(target.lat, target.lng));
+      setNotice(null);
+    } catch {
+      setNotice(s.provider.directionsFailed);
+    }
+  };
+
   const share = (target: ProviderDetail) => {
     const url = shareUrl(target.slug);
     Share.share({ message: f(s.provider.shareMessage, { name: target.name, url }) }).catch(
@@ -357,6 +368,8 @@ export default function ProviderScreen() {
               ) : null}
             </View>
 
+            {/* The facts and the way there read as one group. */}
+            <View style={styles.factsGroup}>
             {/* Rating, distance, price: the same three facts, icons and order as on a result card. */}
             <View style={[styles.facts, { flexDirection: row }]}>
               <View
@@ -404,6 +417,14 @@ export default function ProviderScreen() {
                   {s.provider.price}
                 </Txt>
               </View>
+            </View>
+            <Button
+              label={s.provider.directions}
+              accessibilityLabel={f(s.provider.directionsLabel, { name: provider.name })}
+              icon={Navigation}
+              variant="outline"
+              onPress={() => void directions(provider)}
+            />
             </View>
 
             {provider.description ? (
@@ -555,6 +576,9 @@ const useStyles = makeStyles((c) => ({
     alignItems: 'center',
     gap: space.sm,
     marginTop: space.sm,
+  },
+  factsGroup: {
+    gap: space.sm,
   },
   facts: {
     backgroundColor: c.surfaceTint,

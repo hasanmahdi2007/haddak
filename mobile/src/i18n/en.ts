@@ -44,6 +44,9 @@ export const en = {
     categoriesError: "Couldn't load the categories",
     categoriesErrorBody: 'Check your connection and try again.',
     hasMore: '{name}, opens more choices',
+    searchPlaceholder: 'Search by name',
+    searchHint: 'Type at least 2 letters, then search.',
+    clearSearch: 'Clear the name',
   },
 
   results: {
@@ -70,6 +73,11 @@ export const en = {
     emptyAction: 'Search {where}',
     emptyCityBody: 'Haddak is still adding verified people in this area. Try another category.',
     emptyCityAction: 'Change category',
+    named: '“{q}”',
+    emptyNameTitle: 'No one named “{q}” {where}',
+    emptyNameBody: 'Check the spelling, or try a wider distance.',
+    emptyNameCityBody: 'Check the spelling, or look by category instead.',
+    emptyNameCityAction: 'Back to search',
     errorTitle: "Couldn't load the results",
     errorBody: 'Check your connection and try again.',
     openProfile: 'Open profile',
@@ -135,6 +143,9 @@ export const en = {
     errorBody: 'Check your connection and try again.',
     loading: 'Loading profile',
     dismiss: 'Dismiss',
+    directions: 'Get directions',
+    directionsLabel: 'Get directions to {name} in your maps app',
+    directionsFailed: "Couldn't open the maps app.",
   },
 };
 
