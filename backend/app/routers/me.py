@@ -2,7 +2,6 @@
 
 import secrets
 import uuid
-from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
@@ -14,6 +13,7 @@ from app.db import get_db
 from app.models import Category, ContactEvent, Provider
 from app.rate_limit import limit_writes
 from app.schemas import OwnProvider, ProviderCreate, ProviderStats, ProviderUpdate
+from app.services.contact_stats import current_month_start
 from app.services.geo import point_for_storage
 from app.services.provider_views import to_own
 
@@ -54,7 +54,7 @@ def require_category(db: Session, category_id: int) -> None:
 def get_my_provider(
     db: Session = Depends(get_db), user_id: uuid.UUID = Depends(get_current_user_id)
 ):
-    return to_own(get_my_provider_or_404(db, user_id))
+    return to_own(db, get_my_provider_or_404(db, user_id))
 
 
 @router.post(
@@ -88,6 +88,8 @@ def create_my_provider(
         area_name=body.area_name,
         photos=body.photos,
         verification_doc_url=body.verification_doc_url,
+        show_contact_count=body.show_contact_count,
+        opening_hours=body.opening_hours,
     )
     db.add(provider)
     try:
@@ -98,7 +100,7 @@ def create_my_provider(
         db.rollback()
         raise already_exists from error
     db.refresh(provider)
-    return to_own(provider)
+    return to_own(db, provider)
 
 
 @router.patch("/me/provider", response_model=OwnProvider, dependencies=[Depends(limit_writes)])
@@ -127,7 +129,7 @@ def update_my_provider(
 
     db.commit()
     db.refresh(provider)
-    return to_own(provider)
+    return to_own(db, provider)
 
 
 @router.get("/me/provider/stats", response_model=ProviderStats)
@@ -135,8 +137,7 @@ def get_my_stats(db: Session = Depends(get_db), user_id: uuid.UUID = Depends(get
     """How many views, WhatsApp taps and call taps my profile got this month."""
     provider = get_my_provider_or_404(db, user_id)
 
-    now = datetime.now(UTC)
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    month_start = current_month_start()
 
     rows = db.execute(
         select(ContactEvent.type, func.count())
@@ -146,7 +147,7 @@ def get_my_stats(db: Session = Depends(get_db), user_id: uuid.UUID = Depends(get
     counts = {event_type: count for event_type, count in rows}
 
     return ProviderStats(
-        month=now.strftime("%Y-%m"),
+        month=month_start.strftime("%Y-%m"),
         views=counts.get("view", 0),
         whatsapp=counts.get("whatsapp", 0),
         calls=counts.get("call", 0),

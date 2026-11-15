@@ -19,7 +19,9 @@ from app.config import settings
 # Limits from docs/API.md.
 CONTACT_EVENTS_PER_MINUTE = 30
 WRITES_PER_MINUTE = 20
+SUGGESTIONS_PER_HOUR = 5
 ONE_MINUTE = 60
+ONE_HOUR = 60 * 60
 CONTACT_EVENT_DEDUP_SECONDS = 10 * 60
 
 # When this many keys are remembered, forget the ones that are too old to matter.
@@ -37,6 +39,7 @@ class RateLimiter:
     def __init__(self, clock: Callable[[], float] = time.monotonic):
         self.clock = clock
         self._hits: dict[str, list[float]] = {}  # key -> times of recent requests
+        self._windows: dict[str, int] = {}  # key -> the window it is counted over
         self._last_seen: dict[str, float] = {}  # key -> time it was last counted
         # Requests run on several threads at once; the lock makes each check
         # happen one at a time (like `synchronized` in Java).
@@ -60,6 +63,7 @@ class RateLimiter:
 
             recent.append(now)
             self._hits[key] = recent
+            self._windows[key] = window_seconds
             self._forget_old_keys(now)
             return 0
 
@@ -79,6 +83,7 @@ class RateLimiter:
         """Forget everything (used between tests)."""
         with self._lock:
             self._hits.clear()
+            self._windows.clear()
             self._last_seen.clear()
 
     def _forget_old_keys(self, now: float) -> None:
@@ -86,9 +91,14 @@ class RateLimiter:
         if len(self._hits) + len(self._last_seen) < CLEANUP_THRESHOLD:
             return
         oldest_useful = now - LONGEST_WINDOW_SECONDS
+        # A key whose own window is longer (suggestions are counted per hour)
+        # is kept for that whole window, so its limit is not forgotten early.
         self._hits = {
-            key: moments for key, moments in self._hits.items() if moments[-1] > oldest_useful
+            key: moments
+            for key, moments in self._hits.items()
+            if moments[-1] > min(oldest_useful, now - self._windows.get(key, 0))
         }
+        self._windows = {key: self._windows[key] for key in self._hits if key in self._windows}
         self._last_seen = {
             key: moment for key, moment in self._last_seen.items() if moment > oldest_useful
         }
@@ -116,8 +126,8 @@ def get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def enforce_limit(key: str, limit: int) -> None:
-    wait_seconds = limiter.seconds_to_wait(key, limit, ONE_MINUTE)
+def enforce_limit(key: str, limit: int, window_seconds: int = ONE_MINUTE) -> None:
+    wait_seconds = limiter.seconds_to_wait(key, limit, window_seconds)
     if wait_seconds > 0:
         raise HTTPException(
             status_code=429,
@@ -137,6 +147,11 @@ def limit_contact_events(request: Request) -> None:
 def limit_writes(request: Request) -> None:
     """20 per minute per IP, shared by the review and profile write routes."""
     enforce_limit(f"writes:{get_client_ip(request)}", WRITES_PER_MINUTE)
+
+
+def limit_suggestions(request: Request) -> None:
+    """5 per hour per IP. Stricter than other writes because no login is needed."""
+    enforce_limit(f"suggestions:{get_client_ip(request)}", SUGGESTIONS_PER_HOUR, ONE_HOUR)
 
 
 def is_repeated_contact_event(request: Request, provider_id: object, event_type: str) -> bool:

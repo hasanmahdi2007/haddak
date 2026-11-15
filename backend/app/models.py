@@ -26,7 +26,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
 from app.db import Base
@@ -77,6 +77,11 @@ class Provider(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+    # The owner's choice: show "contacts this month" on the public profile.
+    show_contact_count: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    # JSON like {"mon": [["09:00", "13:00"]], ...}; None = hours not provided.
+    # The shape is described in docs/SCHEMA.md and validated in schemas.py.
+    opening_hours: Mapped[dict | None] = mapped_column(JSONB)
 
     # Not real columns: whenever a provider is loaded, the database also
     # computes latitude and longitude from `location`, so Python code can
@@ -114,3 +119,28 @@ class ContactEvent(Base):
     provider_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("providers.id", ondelete="CASCADE"))
     type: Mapped[str] = mapped_column(Text)  # 'view', 'whatsapp' or 'call'
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ProviderSuggestion(Base):
+    """Someone telling us about a provider who is not on Haddak yet.
+
+    Anonymous on purpose: there is no user id and no IP address here.
+    """
+
+    __tablename__ = "provider_suggestions"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    name: Mapped[str] = mapped_column(Text)
+    phone: Mapped[str | None] = mapped_column(Text)
+    category_id: Mapped[int | None] = mapped_column(
+        ForeignKey("categories.id", ondelete="SET NULL")
+    )
+    area_name: Mapped[str | None] = mapped_column(Text)
+    note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    # The category is optional here, so this is a LEFT JOIN (no innerjoin=True):
+    # suggestions without a category are still loaded.
+    category: Mapped[Category | None] = relationship(lazy="joined")

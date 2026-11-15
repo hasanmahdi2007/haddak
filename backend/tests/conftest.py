@@ -73,8 +73,8 @@ def migrated_database():
     with engine.begin() as connection:
         connection.execute(
             text(
-                "DROP TABLE IF EXISTS contact_events, reviews, providers, categories, "
-                "alembic_version CASCADE"
+                "DROP TABLE IF EXISTS provider_suggestions, contact_events, reviews, providers, "
+                "categories, alembic_version CASCADE"
             )
         )
     command.upgrade(Config(str(BACKEND_DIR / "alembic.ini")), "head")
@@ -87,7 +87,10 @@ def empty_tables(migrated_database):
     """Before every test: delete all rows so tests cannot affect each other."""
     with engine.begin() as connection:
         connection.execute(
-            text("TRUNCATE contact_events, reviews, providers, categories RESTART IDENTITY CASCADE")
+            text(
+                "TRUNCATE provider_suggestions, contact_events, reviews, providers, categories "
+                "RESTART IDENTITY CASCADE"
+            )
         )
 
 
@@ -169,6 +172,8 @@ def make_provider(
     review_count: int = 0,
     featured_until: date | None = None,
     owner_user_id: uuid.UUID | None = None,
+    show_contact_count: bool = False,
+    opening_hours: dict | None = None,
 ) -> Provider:
     """Insert a provider exactly `distance_m` metres from the test centre."""
     lat, lng = project_point(db, CENTER_LAT, CENTER_LNG, distance_m, bearing_deg)
@@ -186,6 +191,8 @@ def make_provider(
         avg_rating=avg_rating,
         review_count=review_count,
         featured_until=featured_until,
+        show_contact_count=show_contact_count,
+        opening_hours=opening_hours,
     )
     db.add(provider)
     db.commit()

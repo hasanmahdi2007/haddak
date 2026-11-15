@@ -34,7 +34,7 @@ def detail_response(
     distance_m = None
     if lat is not None and lng is not None:
         distance_m = distance_to_provider(db, provider.id, lat, lng)
-    return to_detail(provider, distance_m)
+    return to_detail(db, provider, distance_m)
 
 
 # Note: the fixed paths (/search, /by-slug/...) are declared before

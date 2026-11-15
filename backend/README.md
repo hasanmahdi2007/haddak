@@ -117,10 +117,11 @@ app/
   main.py            Creates the app, adds the routers under /api/v1, health check.
   config.py          Settings read from environment variables / .env.
   db.py              Database connection; get_db gives each request a session.
-  models.py          One class per table (Category, Provider, Review, ContactEvent).
+  models.py          One class per table (Category, Provider, Review, ContactEvent,
+                     ProviderSuggestion).
   schemas.py         JSON shapes in and out, with validation (phone format, 1-5 rating...).
   auth.py            Checks login tokens (user id from "sub") and the admin key.
-  rate_limit.py      Per-IP limits on write routes and contact-event de-duplication.
+  rate_limit.py      Per-IP limits on write routes and suggestions, contact-event de-duplication.
   request_logging.py One log line per request (no query string, no headers).
   static/admin.html  The founder's admin page, served at /admin.
   routers/
@@ -128,13 +129,19 @@ app/
     providers.py     Public: search, detail, by-slug, contact events
     reviews.py       List reviews; create/update/delete my review
     me.py            My own profile: create, read, update, monthly stats
-    admin.py         List by status; verify / reject / feature
+    suggestions.py   Public: suggest a provider who is not on Haddak yet
+    admin.py         List by status; verify / reject / feature; list / delete suggestions
   services/
     search.py        The radius search query and its ranking
     ratings.py       Recalculates avg_rating and review_count from the reviews
     provider_views.py  Converts a Provider row to Summary / Detail / Own JSON
     geo.py           Helpers for map points (PostGIS wants longitude first)
-alembic/             Migrations. versions/0001_initial_schema.py is the SQL from SCHEMA.md.
+    opening_hours.py "Open now" from a provider's opening hours (Beirut time)
+    contact_stats.py Start of the stats month; the optional public contact count
+alembic/             Migrations, as SQL matching SCHEMA.md:
+                     versions/0001_initial_schema.py (the first four tables),
+                     versions/0002_contact_count_hours_suggestions.py (two provider
+                     columns and the provider_suggestions table).
 scripts/
   seed.py            Fake categories, providers and reviews for development
   dev_token.py       Prints a login token for testing

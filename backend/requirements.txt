@@ -8,3 +8,6 @@ pydantic==2.14.3
 pydantic-settings==2.16.3
 alembic==1.20.1
 PyJWT[crypto]==2.15.1
+# Time zone data for zoneinfo ("Asia/Beirut"). Windows and slim Docker images
+# do not ship their own.
+tzdata==2026.6

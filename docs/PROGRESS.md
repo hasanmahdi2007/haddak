@@ -9,7 +9,7 @@ What has been built, how it was checked, and what is still open. Newest entry fi
 | Project docs | Written: PROJECT, V1_SCOPE, SCHEMA, API, SYSTEM_DESIGN, TASKS, this log |
 | GitHub | Private repo https://github.com/hasanmahdi2007/haddak, CI running |
 | Local database | Postgres 16 + PostGIS in Docker, port 5433, seeded |
-| Backend | All version 1 endpoints built, hardened and tested (103 tests); Docker image ready |
+| Backend | All version 1 endpoints built, hardened and tested (161 tests); Docker image ready |
 | Mobile app | Home, Results and Profile built in the chosen design (option B, white and sea teal), light and dark, English and Arabic. Map, sign-in, provider sign-up and reviews not started |
 | Hosting | Not started (plan in `SYSTEM_DESIGN.md` section 6) |
 
@@ -24,6 +24,24 @@ The app is judged in the first area by this, not by code:
 Current: 0 real providers (app not released). Seed data only.
 
 ## Log
+
+### 2026-11-15 — extra features: name search, directions, hours, contact count, suggestions
+
+**Founder decisions:** add name search, "Get directions", working hours with "open now", favourites, "Suggest a provider" and a provider stats screen to version 1; the public contact count is optional per provider (hidden by default; counting itself is always on); finish these before starting AI search. Hosting stays Supabase plus a small container host; the reasoning and a scale estimate are in `SYSTEM_DESIGN.md` section 7.1.
+
+**Built, mobile:** search-by-name field on Home (uses the backend's `q`), "Get directions" on the profile (opens Google Maps; no API cost). Commit `2bbc68e`.
+
+**Built, backend:** `providers.show_contact_count` and public `contacts_this_month`; `providers.opening_hours` with a computed `open_now` (Asia/Beirut) in detail and search results; `provider_suggestions` table with public `POST /suggestions` (5 per hour per IP) and admin list/delete, plus a Suggestions tab on the admin page. Migration `0002_contact_count_hours_suggestions`. Contract written into `API.md` and `SCHEMA.md` first.
+
+**Checked by the coordinating session:**
+
+- Mobile: `npx tsc --noEmit` and `npx expo lint` → no errors; name search for "ali" against the real backend returns matches (it matches anywhere in the name, so "Khalil" is included).
+- Backend: `ruff check .` → clean; `pytest` → 161 passed (was 103).
+- Backend restarted and tried live: search results carry `open_now` (a studio with no Sunday hours shows closed on a Sunday, a provider with no hours shows null); provider detail returns `opening_hours` and `contacts_this_month`; `POST /suggestions` → 201; admin list shows it; delete → 204; admin list without the key → 401.
+
+**Not verified:** the admin page's Suggestions tab in a browser; the Docker image build with the new `tzdata` dependency; the two mobile features on a phone (Arabic wording, keyboard, dark mode).
+
+**Still to build in the app:** favourites (in progress), screens for hours / contact count / suggestions, then sign-in, provider sign-up, reviews, stats, share link and QR (need the Supabase project).
 
 ### 2026-11-15 — map view built (not yet tested on a phone)
 

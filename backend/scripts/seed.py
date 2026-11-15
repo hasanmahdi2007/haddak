@@ -220,6 +220,52 @@ PROVIDERS = [
     ("pending-yoga", "Zen Yoga Studio", "yoga", "Bir el Abed", 650, 20, 0, 0, "$10 per class", {"pending"}),
 ]  # fmt: skip
 
+# ---------------------------------------------------------------------------
+# Opening hours (Lebanon local time; shape in docs/API.md). Chosen by category
+# below. A missing day means closed that day.
+# ---------------------------------------------------------------------------
+WEEKDAYS = ["mon", "tue", "wed", "thu", "fri"]
+
+# Shops and workshops: Monday to Saturday, all day.
+HOURS_SHOP = {day: [["09:00", "19:00"]] for day in WEEKDAYS + ["sat"]}
+# Clinics: closed for lunch, Saturday morning only.
+HOURS_CLINIC = {
+    **{day: [["09:00", "13:00"], ["15:00", "19:00"]] for day in WEEKDAYS},
+    "sat": [["09:00", "13:00"]],
+}
+# Lessons and training: after school and work, plus Saturday morning.
+HOURS_LESSONS = {**{day: [["15:00", "20:00"]] for day in WEEKDAYS}, "sat": [["10:00", "14:00"]]}
+# Sweets shops: every day, late.
+HOURS_EVERY_DAY = {day: [["08:00", "22:00"]] for day in WEEKDAYS + ["sat", "sun"]}
+
+HOURS_BY_TOP_CATEGORY = {
+    "doctors": HOURS_CLINIC,
+    "music-lessons": HOURS_LESSONS,
+    "tutoring": HOURS_LESSONS,
+    "art-lessons": HOURS_LESSONS,
+    "fitness": HOURS_LESSONS,
+    "sweets-shops": HOURS_EVERY_DAY,
+}  # every other category: HOURS_SHOP
+
+# These providers have not given hours (opening_hours = null, open_now = null).
+NO_HOURS_SLUGS = {
+    "abu-hassan-plumbing",
+    "maya-math",
+    "fix-phone-hh",
+    "baabda-lens",
+    "pending-painter",
+}
+
+# These providers chose to show "contacts this month" on their public profile.
+SHOW_CONTACT_COUNT_SLUGS = {
+    "ali-tech",
+    "hadi-sax",
+    "sweet-corner",
+    "karim-electric",
+    "halawiyat-al-baba",
+    "cool-air-ac",
+}
+
 REVIEWER_NAMES = [
     "Rana", "Hassan", "Zeinab", "Mohammad", "Lea", "Jad", "Fatima", "Karim", "Nour", "Ali",
     "Maya", "Hussein", "Sara", "Omar", "Layal", "Rami", "Dana", "Bilal", "Hiba", "Tarek",
@@ -268,6 +314,16 @@ def featured_until_for(flags: set[str], today: date) -> date | None:
     return None
 
 
+def opening_hours_for(
+    slug: str, category: Category, categories: dict[str, Category]
+) -> dict | None:
+    if slug in NO_HOURS_SLUGS:
+        return None
+    # Providers sit in a child category; the hours depend on its parent.
+    top_slug = next(c.slug for c in categories.values() if c.id == category.parent_id)
+    return HOURS_BY_TOP_CATEGORY.get(top_slug, HOURS_SHOP)
+
+
 def seed_provider(
     db: Session, row: tuple, number: int, categories: dict[str, Category]
 ) -> Provider:
@@ -306,6 +362,8 @@ def seed_provider(
     provider.status = "pending" if "pending" in flags else "verified"
     provider.founding_member = "founding" in flags
     provider.featured_until = featured_until_for(flags, datetime.now(UTC).date())
+    provider.opening_hours = opening_hours_for(slug, category, categories)
+    provider.show_contact_count = slug in SHOW_CONTACT_COUNT_SLUGS
     db.flush()
     return provider
 

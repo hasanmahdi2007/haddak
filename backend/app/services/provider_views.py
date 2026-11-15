@@ -6,13 +6,22 @@ Three levels, each adding fields to the one before:
 
 from datetime import UTC, date, datetime
 
+from sqlalchemy.orm import Session
+
 from app.models import Provider
 from app.schemas import CategoryBrief, OwnProvider, ProviderDetail, ProviderSummary
+from app.services.contact_stats import public_contact_count
+from app.services.opening_hours import is_open_now
 
 
 def current_date() -> date:
     """Today's date (UTC). "Featured" means featured_until >= today."""
     return datetime.now(UTC).date()
+
+
+def current_time() -> datetime:
+    """This moment. A separate function so tests can replace it."""
+    return datetime.now(UTC)
 
 
 def summary_fields(provider: Provider, distance_m: float | None) -> dict:
@@ -33,10 +42,11 @@ def summary_fields(provider: Provider, distance_m: float | None) -> dict:
         "lng": provider.lng,
         "distance_m": None if distance_m is None else round(distance_m),
         "cover_photo_url": provider.photos[0] if provider.photos else None,
+        "open_now": is_open_now(provider.opening_hours, current_time()),
     }
 
 
-def detail_fields(provider: Provider, distance_m: float | None) -> dict:
+def detail_fields(db: Session, provider: Provider, distance_m: float | None) -> dict:
     fields = summary_fields(provider, distance_m)
     fields.update(
         description=provider.description,
@@ -46,6 +56,9 @@ def detail_fields(provider: Provider, distance_m: float | None) -> dict:
         whatsapp=provider.whatsapp or provider.phone,
         photos=provider.photos,
         created_at=provider.created_at,
+        opening_hours=provider.opening_hours,
+        # One small extra query, and only for providers who show their count.
+        contacts_this_month=public_contact_count(db, provider),
     )
     return fields
 
@@ -54,14 +67,15 @@ def to_summary(provider: Provider, distance_m: float | None) -> ProviderSummary:
     return ProviderSummary(**summary_fields(provider, distance_m))
 
 
-def to_detail(provider: Provider, distance_m: float | None = None) -> ProviderDetail:
-    return ProviderDetail(**detail_fields(provider, distance_m))
+def to_detail(db: Session, provider: Provider, distance_m: float | None = None) -> ProviderDetail:
+    return ProviderDetail(**detail_fields(db, provider, distance_m))
 
 
-def to_own(provider: Provider) -> OwnProvider:
+def to_own(db: Session, provider: Provider) -> OwnProvider:
     return OwnProvider(
-        **detail_fields(provider, None),
+        **detail_fields(db, provider, None),
         status=provider.status,
         featured_until=provider.featured_until,
         verification_doc_url=provider.verification_doc_url,
+        show_contact_count=provider.show_contact_count,
     )

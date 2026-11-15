@@ -7,7 +7,8 @@
 <title>Haddak admin</title>
 <!--
   One self-contained page: no build step, no external files.
-  It only calls GET and PATCH /api/v1/admin/providers.
+  It only calls the admin endpoints: GET and PATCH /api/v1/admin/providers,
+  GET and DELETE /api/v1/admin/suggestions.
   The admin key lives in a JavaScript variable: it is gone when the tab is
   closed or reloaded, and is never written to storage or cookies.
 -->
@@ -48,8 +49,8 @@
   .key-form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
   .key-form input { flex: 1 1 200px; min-width: 0; }
   .muted { color: var(--muted); font-size: 14px; }
-  .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
-  .tabs button { flex: 1; padding: 8px 4px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .tabs button { flex: 1 1 auto; padding: 8px 12px; }
   .tabs button[aria-pressed="true"] { background: var(--ink); color: var(--page); border-color: var(--ink); font-weight: 600; }
   #message { min-height: 24px; margin: 8px 0; }
   #message.error { color: var(--danger); font-weight: 600; }
@@ -93,6 +94,7 @@
       <button type="button" data-status="pending">Pending</button>
       <button type="button" data-status="verified">Verified</button>
       <button type="button" data-status="rejected">Rejected</button>
+      <button type="button" data-status="suggestions">Suggestions</button>
     </div>
     <div id="list"></div>
   </section>
@@ -103,6 +105,7 @@
 
 // The admin key. Memory only: never saved to browser storage or cookies.
 let adminKey = "";
+// Which tab is open: a profile status, or "suggestions".
 let currentStatus = "pending";
 
 const keyPanel = document.getElementById("key-panel");
@@ -164,11 +167,12 @@ async function callApi(method, path, body) {
     options.headers["Content-Type"] = "application/json";
     options.body = JSON.stringify(body);
   }
-  const response = await fetch("/api/v1/admin/providers" + path, options);
+  const response = await fetch("/api/v1/admin" + path, options);
   if (response.status === 401) {
     lock();
     throw new Error("Wrong admin key.");
   }
+  // A 204 answer (after a delete) has no body; that simply gives {}.
   const data = await response.json().catch(function () { return {}; });
   if (!response.ok) {
     throw new Error(typeof data.detail === "string" ? data.detail : "Request failed (" + response.status + ").");
@@ -179,12 +183,20 @@ async function callApi(method, path, body) {
 async function loadList() {
   showMessage("Loading…", false);
   try {
-    const data = await callApi("GET", "?status=" + encodeURIComponent(currentStatus));
+    const showSuggestions = currentStatus === "suggestions";
+    const data = showSuggestions
+      ? await callApi("GET", "/suggestions?limit=100")
+      : await callApi("GET", "/providers?status=" + encodeURIComponent(currentStatus));
     keyPanel.hidden = true;
     listPanel.hidden = false;
     lockButton.hidden = false;
-    renderList(data.items);
-    showMessage(data.total === 0 ? "No " + currentStatus + " profiles." : data.total + " " + currentStatus + ".", false);
+    renderList(data.items, showSuggestions ? renderSuggestion : renderProvider);
+    if (showSuggestions) {
+      const shown = data.items.length < data.total ? " (showing the newest " + data.items.length + ")" : "";
+      showMessage(data.total === 0 ? "No suggestions." : data.total + " suggestions" + shown + ".", false);
+    } else {
+      showMessage(data.total === 0 ? "No " + currentStatus + " profiles." : data.total + " " + currentStatus + ".", false);
+    }
   } catch (error) {
     showMessage(error.message, true);
   }
@@ -192,9 +204,19 @@ async function loadList() {
 
 async function updateProvider(provider, changes, doneText) {
   try {
-    await callApi("PATCH", "/" + encodeURIComponent(provider.id), changes);
+    await callApi("PATCH", "/providers/" + encodeURIComponent(provider.id), changes);
     await loadList();
     showMessage(doneText, false);
+  } catch (error) {
+    showMessage(error.message, true);
+  }
+}
+
+async function deleteSuggestion(suggestion) {
+  try {
+    await callApi("DELETE", "/suggestions/" + encodeURIComponent(suggestion.id));
+    await loadList();
+    showMessage("Deleted the suggestion for " + suggestion.name + ".", false);
   } catch (error) {
     showMessage(error.message, true);
   }
@@ -315,10 +337,41 @@ function renderProvider(provider) {
   return card;
 }
 
-function renderList(providers) {
+// A suggestion is typed by an anonymous visitor: as untrusted as it gets.
+// Every value goes through element(), i.e. textContent.
+function renderSuggestion(suggestion) {
+  const card = element("article", null, "card");
+
+  const head = element("div", null, "card-head");
+  head.appendChild(element("h2", suggestion.name));
+  card.appendChild(head);
+
+  const table = element("dl");
+  addRow(table, "Phone", element("span", suggestion.phone || "Not given"));
+  addRow(table, "Category", element("span", suggestion.category ? suggestion.category.name_en : "Not given"));
+  addRow(table, "Area", element("span", suggestion.area_name || "Not given"));
+  addRow(table, "Date", element("span", formatDate(suggestion.created_at)));
+  card.appendChild(table);
+
+  if (suggestion.note) card.appendChild(element("p", suggestion.note, "description"));
+
+  const actions = element("div", null, "actions");
+  const remove = element("button", "Delete", "danger");
+  remove.type = "button";
+  remove.addEventListener("click", function () {
+    if (window.confirm("Delete the suggestion for " + suggestion.name + "?")) {
+      deleteSuggestion(suggestion);
+    }
+  });
+  actions.appendChild(remove);
+  card.appendChild(actions);
+  return card;
+}
+
+function renderList(items, renderItem) {
   list.replaceChildren();
-  providers.forEach(function (provider) {
-    list.appendChild(renderProvider(provider));
+  items.forEach(function (item) {
+    list.appendChild(renderItem(item));
   });
   tabButtons.forEach(function (button) {
     button.setAttribute("aria-pressed", String(button.dataset.status === currentStatus));

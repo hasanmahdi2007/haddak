@@ -29,16 +29,25 @@ Admin routes use the header `X-Admin-Key: <ADMIN_API_KEY>` instead.
   "avg_rating": 4.7, "review_count": 23,
   "verified": true, "founding_member": true, "featured": false,
   "lat": 33.8551, "lng": 35.5102, "distance_m": 184,
-  "cover_photo_url": "https://..." }           // null if no photos
+  "cover_photo_url": "https://...",            // null if no photos
+  "open_now": true }                           // null if the provider gave no opening hours
 
 // ProviderDetail = ProviderSummary plus:
 { "description": "…", "phone": "+96170123456", "whatsapp": "+96170123456",
   "photos": ["https://...", "https://..."],
-  "created_at": "2026-11-15T10:00:00Z" }
+  "created_at": "2026-11-15T10:00:00Z",
+  "opening_hours": { "mon": [["09:00", "13:00"], ["15:00", "19:00"]], "sat": [["10:00", "14:00"]] },  // or null
+  "contacts_this_month": 12 }                  // null unless the provider chose to show it
 // distance_m is null in ProviderDetail unless lat and lng are passed.
 
 // OwnProvider (what the owner sees) = ProviderDetail plus:
-{ "status": "pending", "featured_until": null, "verification_doc_url": "…" }
+{ "status": "pending", "featured_until": null, "verification_doc_url": "…",
+  "show_contact_count": false }
+
+// Suggestion (admin only)
+{ "id": "uuid", "name": "Abu Ali Tailor", "phone": "+96170123456",
+  "category": { "id": 3, "slug": "tailor", "name_en": "Tailor", "name_ar": "خياط", "icon": "needle" },  // or null
+  "area_name": "Mazraa", "note": "Best tailor in the area.", "created_at": "2026-11-15T10:00:00Z" }
 
 // Review
 { "id": "uuid", "author_name": "Rana", "rating": 5, "comment": "Fixed it in an hour.",
@@ -56,6 +65,7 @@ Admin routes use the header `X-Admin-Key: <ADMIN_API_KEY>` instead.
 | `GET /providers/by-slug/{slug}` | Same as above, by share code. |
 | `GET /providers/{id}/reviews` | `{"items": [Review], "total": n}`. Query: `limit` (default 20, max 50), `offset`. Newest first. `is_mine` is set when a token is sent. |
 | `POST /providers/{id}/contact-events` | Body `{"type": "view" \| "whatsapp" \| "call"}`. Returns 204. No login. |
+| `POST /suggestions` | Suggest a provider who is not on Haddak yet. Body below. Returns 201 `{"id": "uuid"}`. No login. |
 
 ### `GET /providers/search`
 
@@ -69,6 +79,17 @@ Admin routes use the header `X-Admin-Key: <ADMIN_API_KEY>` instead.
 | `offset` | int | default 0 |
 
 Response: `{"items": [ProviderSummary], "total": n}`. Order: featured first, then weighted rating, then distance (see `SCHEMA.md`).
+
+### `POST /suggestions`
+
+Body (only `name` is required):
+
+```jsonc
+{ "name": "Abu Ali Tailor", "phone": "+96170123456", "category_id": 3,
+  "area_name": "Mazraa", "note": "Best tailor in the area." }
+```
+
+Limits: `name` 1 to 100 characters, `area_name` up to 100, `note` up to 500; `phone` in the same international format as provider phones. An unknown `category_id` is 400. Nothing about the sender is stored (no user id, no IP).
 
 ## Auth endpoints
 
@@ -92,6 +113,23 @@ Create body:
 
 Phone numbers must be in international format (`+` and 8 to 15 digits).
 
+Two optional fields can also be sent on create and on update:
+
+- `show_contact_count` (boolean, default `false`): when `true`, the public profile shows `contacts_this_month`.
+- `opening_hours` (object or `null`, default `null`): see below. `PATCH` with `null` clears the hours.
+
+### Opening hours
+
+```jsonc
+{ "mon": [["09:00", "13:00"], ["15:00", "19:00"]], "sat": [["10:00", "14:00"]] }
+```
+
+- Keys: any of `mon`, `tue`, `wed`, `thu`, `fri`, `sat`, `sun`. Any other key is 422.
+- Each day: a list of at most 3 `[open, close]` pairs, 24-hour `"HH:MM"` from `00:00` to `23:59`, with open before close.
+- A missing day (or an empty list) means closed that day. `null` for the whole field means "hours not provided".
+- No overnight ranges in v1: a range cannot cross midnight (`["22:00", "02:00"]` is 422). `["00:00", "23:59"]` is the longest possible day.
+- Times are Lebanon local time. `open_now` is computed in the `Asia/Beirut` timezone: open from the opening minute up to, but not including, the closing minute. It is `null` when `opening_hours` is `null`.
+
 ## Admin endpoints
 
 | Method and path | Purpose |
@@ -99,7 +137,10 @@ Phone numbers must be in international format (`+` and 8 to 15 digits).
 | `GET /admin/providers?status=pending` | List `OwnProvider` items by status. |
 | `PATCH /admin/providers/{id}` | Body: any of `status`, `founding_member`, `featured_until`. |
 
-Both admin routes return `OwnProvider` items; the list is `{"items": [...], "total": n}`, oldest first, `status` defaulting to `pending`.
+| `GET /admin/suggestions` | `{"items": [Suggestion], "total": n}`, newest first. Query: `limit` (default 50, max 100), `offset`. |
+| `DELETE /admin/suggestions/{id}` | Remove a suggestion once it is dealt with. 204; 404 if there is no such suggestion. |
+
+Both provider routes return `OwnProvider` items; the list is `{"items": [...], "total": n}`, oldest first, `status` defaulting to `pending`.
 
 ## Details settled during the backend build
 
@@ -111,6 +152,7 @@ Both admin routes return `OwnProvider` items; the list is `{"items": [...], "tot
 - `category_id` in search includes direct children only (one level).
 - Tokens must carry `aud: "authenticated"` (Supabase's default). A bad token on the public reviews list is treated as anonymous.
 - "Today" (featured expiry) and the stats month are in UTC.
+- `contacts_this_month` is the number of `whatsapp` + `call` contact events in the current UTC month (the same month as the stats); views are not included. It is `null` unless the provider turned on `show_contact_count`, also in `OwnProvider`. It is not part of search results. Counting itself is always on.
 - Limits: name and area 100 characters, description and comment 2000, 10 photos, `author_name` required, up to 80.
 - **Open decision:** `PATCH /me/provider` keeps the current `status`, so a verified provider can change name or category without a new review.
 
@@ -121,11 +163,13 @@ Write routes are limited per client IP, in the API process's memory (no extra se
 - `POST /providers/{id}/contact-events`: 30 per minute per IP. In addition, the same IP, provider and type is counted at most once per 10 minutes; repeats still return 204 but are not stored. This keeps provider stats honest.
 - `PUT /providers/{id}/reviews/mine`, `POST` and `PATCH /me/provider`: 20 per minute per IP. One shared allowance across these routes.
 
+- `POST /suggestions`: 5 per hour per IP (its own allowance). Requests refused for a validation error count too.
+
 Requests are counted before the login token is checked, so failed attempts use the allowance too. Behind a hosting proxy the client IP is read from `X-Forwarded-For`, counting `PROXY_HOPS` entries from the right so a client cannot fake it.
 
 ## Admin page
 
-`GET /admin` (outside `/api/v1`) serves one static HTML page for the founder: enter the admin key, see pending profiles with their proof link, approve or reject, set founding member and featured-until. It only calls the admin endpoints above; the key is kept in the browser tab's memory, never stored.
+`GET /admin` (outside `/api/v1`) serves one static HTML page for the founder: enter the admin key, see pending profiles with their proof link, approve or reject, set founding member and featured-until. A "Suggestions" tab lists suggested providers with a Delete button. It only calls the admin endpoints above; the key is kept in the browser tab's memory, never stored.
 
 ## Photos and proof documents
 
