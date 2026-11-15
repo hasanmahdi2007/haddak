@@ -39,6 +39,7 @@ Each colour has one job and is never borrowed for decoration.
 | `primaryPressed` | `#005A70` | `#7AD3E6` | Pressed primary |
 | `onPrimary` | `#FFFFFF` | `#00232C` | Text and icons on teal |
 | `primarySoft` / `onPrimarySoft` | `#D3F1F6` / `#004E61` | `#104452` / `#C2EDF6` | Soft teal fill; the dark teal is also the "Use my location" link |
+| `primaryWash` | teal at 12% | teal at 16% | The search-radius circle on the map |
 | `text` | `#0C2A33` | `#E9F6F9` | Main text |
 | `textMuted` | `#45636C` | `#AECAD1` | Supporting text |
 | `textSubtle` | `#52707A` | `#93B3BC` | Captions, review counts, dates |
@@ -120,7 +121,7 @@ Lucide line icons (`lucide-react-native`), one stroke weight, coloured with toke
 ## Screens
 
 - **Home** (`src/app/index.tsx`): teal wordmark and the language switch; the question; the aqua location pill with the coral pin; a two-column grid of category tiles; a docked bar with the distance track and one full-width search button whose label names the chosen category.
-- **Results** (`src/app/results.tsx`): back arrow, title (the category, or "Everyone nearby") with the result count under it, the list / map toggle, then the same distance track as Home. Below, a list of provider cards.
+- **Results** (`src/app/results.tsx`): back arrow, title (the category, or "Everyone nearby") with the result count under it, the list / map toggle, then the same distance track as Home. Below, a list of provider cards, or the map (see Map view).
 - **Provider profile** (`src/app/provider/[id].tsx`): photo gallery at the top; a white sheet with 24 dp top corners rises 24 dp over it, with the large seal across that edge on the end side. Then "category · area", the name, the verified line, tags, the facts strip, About, Reviews. WhatsApp and Call are docked at the bottom.
 
 ## Components
@@ -176,11 +177,22 @@ A provider photo, cropped to fill. No photo, or it fails to load: the category i
 ### WhatsApp and Call
 Docked at the bottom of the profile on `surface` with a top `border` line, always visible. WhatsApp is green and wider (1.6 to 1) because most contact in Lebanon starts there; Call is teal. They open `wa.me` and `tel:` links. If a link cannot open, a `dangerSoft` notice appears above the buttons with the reason and what to do, and can be dismissed.
 
+### Map view (`ResultsMap`, `MapParts`)
+The map side of the Results toggle. It fills the screen below the header and the distance track and shows the same results as the list (one search, no second request). On phones it is a real map (`react-native-maps`, `ResultsMap.tsx`); the web build draws the same pieces on a plain aqua panel (`ResultsMap.web.tsx`) for screenshots.
+- **Fit:** centred on the search position, zoomed so the chosen distance fits with some air around it. "City" fits 20 km, so every result is on screen. Changing the distance re-fits the map.
+- **Circle:** the search distance, a `primaryWash` fill with a 1.5 dp teal line. "City" has no circle.
+- **Search position:** a 20 dp coral dot with a `surface` ring: the same "here" as the location pill. It is not a button.
+- **Pin:** a teal teardrop (26 dp before it is turned) with a `surface` edge and an `onPrimary` dot, tip on the provider's position, inside a 48 dp touch box. Built from plain views, no icon. *Featured* (paid): an amber (`rating`) edge and a ring in place of the dot, and it sits above ordinary pins. *Selected:* larger (32 dp), `primaryPressed` fill, heavier edge, above every other pin. Size and shape carry the difference, not colour alone.
+- **Docked card (`MapProviderCard`):** tapping a pin docks a short provider card `lg` from the bottom and sides: 64 dp photo or category icon, name (`title`, one line), "category · area", then Verified, the Featured tag, rating and distance on one line. `surface` fill, radius `lg`, 1.5 dp aqua edge (teal when featured), no shadow. The whole card is one button that opens the profile; pressed, it turns aqua. Tapping the map elsewhere removes it.
+- **Dark:** the map follows the app's theme (`userInterfaceStyle`); pins, circle and card use the dark tokens.
+- **Arabic:** the map itself never mirrors (east stays on the right); the docked card lays out right to left.
+- **Screen readers:** each pin is labelled with the name and category (plus "Featured, paid placement" and "selected"); the docked card has one spoken description like a list card. Map pins are hard to reach with TalkBack, so the list stays the accessible way through the results.
+
 ### States (`StateView`, `Skeleton`)
 - **Loading**: aqua skeleton blocks (`surfaceTintStrong`) in the shape of the content: tiles, cards with their aqua strip, the profile. Never a centred spinner.
 - **Empty**: an 88 dp aqua disc with a teal icon and the coral dot at its top end corner; a `headline` title that says what happened ("No one within 500 m yet"), one sentence, and one button that fixes it (search the next distance).
 - **Error**: the same layout in error colours (`dangerSoft` disc, dark red icon, no coral dot), announced as an alert, with "Try again".
-- **Map**: the empty layout with an outline button, until the map is built.
+- **Map**: error and empty are the same as the list. While a search runs the map stays up without pins, and the header line says "Searching …".
 
 ## Right-to-left
 
@@ -208,4 +220,5 @@ Plain, warm, local. English is short and direct. Arabic is light Lebanese ("مي
 ## What is verified
 
 - Checked in the web build at 390 x 844 in English and Arabic, light and dark (`design-preview/`).
+- The map view is checked on web only as the aqua preview (`design-preview/results-map-en.png`). The real map has not been run on a phone yet.
 - Not yet checked on an Android device: ripple colours, status bar, behaviour at large system font sizes, and TalkBack reading order.

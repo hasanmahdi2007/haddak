@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, ArrowRight, List, Map as MapIcon, MapPinned, SearchX, WifiOff } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, List, Map as MapIcon, SearchX, WifiOff } from 'lucide-react-native';
 import { useState } from 'react';
 import { FlatList, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { api, type ProviderSummary } from '@/api';
 import { IconButton } from '@/components/IconButton';
 import { ProviderCard } from '@/components/ProviderCard';
 import { RadiusChips } from '@/components/RadiusChips';
+import { ResultsMap } from '@/components/ResultsMap';
 import { Skeleton } from '@/components/Skeleton';
 import { StateView } from '@/components/StateView';
 import { Txt } from '@/components/Txt';
@@ -135,25 +136,8 @@ export default function ResultsScreen() {
         </View>
       </View>
 
-      {mode === 'map' ? (
-        <View style={styles.column}>
-          <StateView
-            icon={MapPinned}
-            title={s.results.mapTitle}
-            body={s.results.mapBody}
-            actionLabel={s.results.mapAction}
-            onAction={() => setMode('list')}
-            actionVariant="outline"
-          />
-        </View>
-      ) : search.status === 'loading' ? (
-        <View style={[styles.column, styles.list]} accessible accessibilityLabel={s.results.loading}>
-          <CardSkeleton />
-          <CardSkeleton />
-          <CardSkeleton />
-          <CardSkeleton />
-        </View>
-      ) : search.status === 'error' ? (
+      {/* Error and empty look the same in both views; the list and the map share one search. */}
+      {search.status === 'error' ? (
         <View style={styles.column}>
           <StateView
             alert
@@ -164,7 +148,7 @@ export default function ResultsScreen() {
             onAction={search.reload}
           />
         </View>
-      ) : search.data.items.length === 0 ? (
+      ) : search.status === 'ready' && search.data.items.length === 0 ? (
         <View style={styles.column}>
           <StateView
             icon={SearchX}
@@ -175,6 +159,23 @@ export default function ResultsScreen() {
             }
             onAction={() => (wider ? setRadiusM(wider) : goBack())}
           />
+        </View>
+      ) : mode === 'map' ? (
+        // The map stays up while a new search runs (pins come back when it lands),
+        // so changing the distance re-fits it instead of rebuilding it.
+        <ResultsMap
+          center={coords}
+          radiusM={radiusM}
+          providers={search.status === 'ready' ? search.data.items : []}
+          loading={search.status === 'loading'}
+          onOpenProvider={openProvider}
+        />
+      ) : search.status === 'loading' ? (
+        <View style={[styles.column, styles.list]} accessible accessibilityLabel={s.results.loading}>
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
         </View>
       ) : (
         <FlatList

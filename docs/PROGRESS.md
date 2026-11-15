@@ -25,6 +25,16 @@ Current: 0 real providers (app not released). Seed data only.
 
 ## Log
 
+### 2026-11-15 — map view built (not yet tested on a phone)
+
+**Built** (`mobile/`): `react-native-maps` 1.29.11; the Results map shows the search position, a translucent teal radius circle, one pin per provider from the same results as the list (featured pins have an amber edge), and a docked card for the selected pin that opens the profile. A web fallback keeps the web build working for screenshots. No Google Maps API key is needed in Expo Go; a store build will need one.
+
+**Checked by the coordinating session:** `npx tsc --noEmit` and `npx expo lint` → no errors. Opened the web fallback screenshot (`design-preview/results-map-en.png`): 13 pins inside the 1 km circle, selected featured pin, docked card.
+
+**Not verified:** the real map. It only runs on a phone, so rendering, pin taps, zoom fit and dark mode are untested until the founder tries it in Expo Go.
+
+**Also today:** the local backend had stopped and the app showed "Couldn't load categories"; restarted with `uvicorn app.main:app --host 0.0.0.0`.
+
 ### 2026-11-15 — design chosen (option B) and applied to all three screens
 
 **Decision:** from three Home screen options (A warm, B teal, C multi-colour) the founder chose **B, "Corniche"**: white ground, sea teal `#00708A` primary, pale aqua surfaces, one coral accent.

@@ -20,6 +20,8 @@ export interface ColorTokens {
   /** Soft teal fill behind secondary things (the verified line). */
   primarySoft: string;
   onPrimarySoft: string;
+  /** See-through teal: the search-radius circle on the map. */
+  primaryWash: string;
 
   text: string;
   textMuted: string;
@@ -72,6 +74,7 @@ export const lightColors: ColorTokens = {
   onPrimary: '#FFFFFF',
   primarySoft: '#D3F1F6',
   onPrimarySoft: '#004E61',
+  primaryWash: 'rgba(0, 112, 138, 0.12)',
 
   text: '#0C2A33',
   textMuted: '#45636C',
@@ -115,6 +118,7 @@ export const darkColors: ColorTokens = {
   onPrimary: '#00232C',
   primarySoft: '#104452',
   onPrimarySoft: '#C2EDF6',
+  primaryWash: 'rgba(76, 194, 219, 0.16)',
 
   text: '#E9F6F9',
   textMuted: '#AECAD1',
@@ -267,6 +271,14 @@ export const size = {
   sheetOverlap: 24,
   /** Stars in a review. */
   star: 14,
+  /** Map pins: the teardrop's square before it is turned, normal and selected, and its centre dot. */
+  mapPin: 26,
+  mapPinSelected: 32,
+  mapPinDot: 10,
+  /** The coral "search position" dot on the map. */
+  mapHere: 20,
+  /** Photo on the card docked over the map. */
+  dockThumb: 64,
   /** Widest the content column grows on tablets and web. */
   maxContent: 560,
 } as const;
