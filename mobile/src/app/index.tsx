@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ArrowLeft, ArrowRight, LocateFixed, MapPin, Search, WifiOff, X } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, Heart, LocateFixed, MapPin, Search, WifiOff, X } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -24,6 +24,7 @@ import { StateView } from '@/components/StateView';
 import { Txt } from '@/components/Txt';
 import { useI18n } from '@/i18n';
 import { useCategories, type CategoryNode } from '@/lib/categories';
+import { useFavourites } from '@/lib/favourites';
 import { useLocation } from '@/lib/location';
 import { DEFAULT_RADIUS, type RadiusM } from '@/lib/radius';
 import { makeStyles, radius, size, space, type as typeScale, useTheme } from '@/theme';
@@ -54,9 +55,10 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, dark } = useTheme();
-  const { s, f, row, rtl, alignStart, textAlign, writingDirection, language, setLanguage, categoryName } =
+  const { s, f, row, rtl, end, alignStart, textAlign, writingDirection, language, setLanguage, categoryName } =
     useI18n();
   const styles = useStyles();
+  const savedCount = useFavourites().list.length;
   const location = useLocation();
   const categories = useCategories();
 
@@ -118,19 +120,41 @@ export default function HomeScreen() {
             <Txt role="headline" color="primary" accessibilityRole="header">
               {s.appName}
             </Txt>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={s.language.switchToLabel}
-              onPress={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
-              android_ripple={{ color: colors.surfaceTintStrong }}
-              style={styles.languageTarget}
-            >
-              <View style={styles.language}>
-                <Txt role="label" color="text">
-                  {s.language.switchTo}
-                </Txt>
+            <View style={[styles.brandActions, { flexDirection: row }]}>
+              {/* Saved providers; the teal badge counts them. */}
+              <View>
+                <IconButton
+                  icon={Heart}
+                  label={savedCount > 0 ? f(s.saved.openCount, { n: savedCount }) : s.saved.open}
+                  onPress={() => router.push('/saved')}
+                />
+                {savedCount > 0 ? (
+                  <View
+                    style={[styles.savedBadge, end(space.none)]}
+                    pointerEvents="none"
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                  >
+                    <Txt role="caption" color="onPrimary" ltr>
+                      {savedCount > 99 ? '99+' : savedCount}
+                    </Txt>
+                  </View>
+                ) : null}
               </View>
-            </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={s.language.switchToLabel}
+                onPress={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
+                android_ripple={{ color: colors.surfaceTintStrong }}
+                style={styles.languageTarget}
+              >
+                <View style={styles.language}>
+                  <Txt role="label" color="text">
+                    {s.language.switchTo}
+                  </Txt>
+                </View>
+              </Pressable>
+            </View>
           </View>
 
           <Txt role="display" accessibilityRole="header">
@@ -336,6 +360,24 @@ const useStyles = makeStyles((c) => ({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: space.md,
+  },
+  brandActions: {
+    alignItems: 'center',
+    gap: space.xs,
+  },
+  // Count on the heart: a small teal pill at its top end corner, ringed in the ground colour.
+  savedBadge: {
+    position: 'absolute',
+    top: space.none,
+    minWidth: space.xl + space.xxs,
+    height: space.xl + space.xxs,
+    paddingHorizontal: space.xs,
+    borderRadius: radius.pill,
+    backgroundColor: c.primary,
+    borderWidth: size.lineBold,
+    borderColor: c.background,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   languageTarget: {
     minHeight: size.touch,

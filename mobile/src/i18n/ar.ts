@@ -153,4 +153,19 @@ export const ar: Strings = {
     directionsLabel: 'افتح الطريق لعند {name} بتطبيق الخرائط',
     directionsFailed: 'ما قدرنا نفتح تطبيق الخرائط.',
   },
+
+  saved: {
+    title: 'المحفوظات',
+    open: 'المحفوظات',
+    openCount: 'المحفوظات، {n}',
+    save: 'احفظ',
+    remove: 'شيل من المحفوظات',
+    removeNamed: 'شيل {name} من المحفوظات',
+    added: 'انحفظ',
+    removed: 'انشال من المحفوظات',
+    emptyTitle: 'ما حفظت حدا بعد',
+    emptyBody: 'اكبس عالقلب بصفحة أي حدا ليبقى هون للمرة الجاية.',
+    emptyAction: 'رجوع للبحث',
+    note: 'محفوظين على هالتلفون بس.',
+  },
 };

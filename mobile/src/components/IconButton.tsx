@@ -11,18 +11,34 @@ interface IconButtonProps {
   /** `scrim` is for buttons that sit on a photo. */
   tone?: 'plain' | 'scrim';
   style?: StyleProp<ViewStyle>;
+  /** For an on/off button (the heart): told to screen readers as selected or not. */
+  selected?: boolean;
+  /** Icon colour, when it is not the tone's own. */
+  color?: string;
+  /** Fills the icon's shape (a saved heart). */
+  fill?: string;
 }
 
 /** A 48 dp round icon button. */
-export function IconButton({ icon: Icon, label, onPress, tone = 'plain', style }: IconButtonProps) {
+export function IconButton({
+  icon: Icon,
+  label,
+  onPress,
+  tone = 'plain',
+  style,
+  selected,
+  color: iconColor,
+  fill,
+}: IconButtonProps) {
   const { colors } = useTheme();
   const styles = useStyles();
-  const color = tone === 'scrim' ? colors.onScrim : colors.text;
+  const color = iconColor ?? (tone === 'scrim' ? colors.onScrim : colors.text);
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={selected === undefined ? undefined : { selected }}
       onPress={onPress}
       android_ripple={{ color: colors.surfaceTintStrong, borderless: true }}
       style={({ pressed }) => [
@@ -32,7 +48,7 @@ export function IconButton({ icon: Icon, label, onPress, tone = 'plain', style }
         style,
       ]}
     >
-      <Icon color={color} size={size.iconLarge} strokeWidth={size.stroke} />
+      <Icon color={color} fill={fill ?? 'none'} size={size.iconLarge} strokeWidth={size.stroke} />
     </Pressable>
   );
 }

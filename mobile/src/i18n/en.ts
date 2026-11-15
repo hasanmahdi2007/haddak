@@ -147,6 +147,21 @@ export const en = {
     directionsLabel: 'Get directions to {name} in your maps app',
     directionsFailed: "Couldn't open the maps app.",
   },
+
+  saved: {
+    title: 'Saved',
+    open: 'Saved',
+    openCount: 'Saved, {n}',
+    save: 'Save',
+    remove: 'Remove from saved',
+    removeNamed: 'Remove {name} from saved',
+    added: 'Saved',
+    removed: 'Removed from saved',
+    emptyTitle: 'Nothing saved yet',
+    emptyBody: 'Tap the heart on a profile to keep it here for next time.',
+    emptyAction: 'Back to search',
+    note: 'Saved on this phone only.',
+  },
 };
 
 type DeepStringify<T> = { [K in keyof T]: T[K] extends string ? string : DeepStringify<T[K]> };

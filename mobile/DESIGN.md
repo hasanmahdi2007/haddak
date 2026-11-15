@@ -123,6 +123,7 @@ Lucide line icons (`lucide-react-native`), one stroke weight, coloured with toke
 - **Home** (`src/app/index.tsx`): teal wordmark and the language switch; the question; the aqua location pill with the coral pin; the search-by-name field; a two-column grid of category tiles; a docked bar with the distance track and one full-width search button whose label names the chosen category.
 - **Results** (`src/app/results.tsx`): back arrow, title (the quoted name when searching by name, else the category, or "Everyone nearby") with the result count under it, the list / map toggle, then the same distance track as Home. Below, a list of provider cards, or the map (see Map view).
 - **Provider profile** (`src/app/provider/[id].tsx`): photo gallery at the top; a white sheet with 24 dp top corners rises 24 dp over it, with the large seal across that edge on the end side. Then "category · area", the name, the verified line, tags, the facts strip, About, Reviews. WhatsApp and Call are docked at the bottom.
+- **Saved** (`src/app/saved.tsx`): back arrow and title, then the providers saved on this phone as short cards (see Saved).
 
 ## Components
 
@@ -193,6 +194,13 @@ The map side of the Results toggle. It fills the screen below the header and the
 - **Dark:** the map follows the app's theme (`userInterfaceStyle`); pins, circle and card use the dark tokens.
 - **Arabic:** the map itself never mirrors (east stays on the right); the docked card lays out right to left.
 - **Screen readers:** each pin is labelled with the name and category (plus "Featured, paid placement" and "selected"); the docked card has one spoken description like a list card. Map pins are hard to reach with TalkBack, so the list stays the accessible way through the results.
+
+### Saved (`src/lib/favourites.tsx`, `src/app/saved.tsx`)
+Favourites are kept on the phone only (AsyncStorage): no account, no backend. Each one stores a small snapshot (name, category, area, first photo) so the list draws at once and offline; opening one loads the profile fresh.
+- **Heart on the profile:** a `scrim` icon button beside Share on the photo. Not saved: white outline. Saved: filled coral (`accent`). Shape (outline or filled) carries the state, not colour alone; it is announced as selected, and its label changes from "Save" to "Remove from saved". On a tap it swells to 1.2 and back (`motion.fast` each way).
+- **Heart on Home:** a plain icon button before the language switch. With saved providers it carries a count: a teal (`primary`) pill with `onPrimary` `caption` digits and a 2 dp ground-colour ring, at the top end corner. No badge at zero.
+- **Saved screen:** back arrow and the `headline` title. Short cards with the result card's edge and radius: 64 dp photo or category icon, name (`title`, one line), "category · area" (`label`, muted). The card opens the profile; the filled coral heart at its end removes it at once. A `caption` line under the list says they are saved on this phone only.
+- **Empty:** the usual `StateView` with a heart, "Nothing saved yet", and a button back to search.
 
 ### States (`StateView`, `Skeleton`)
 - **Loading**: aqua skeleton blocks (`surfaceTintStrong`) in the shape of the content: tiles, cards with their aqua strip, the profile. Never a centred spinner.

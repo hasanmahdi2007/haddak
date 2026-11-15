@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Banknote,
+  Heart,
   MapPin,
   MessageCircle,
   Navigation,
@@ -16,9 +17,12 @@ import {
 } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import {
+  AccessibilityInfo,
+  Animated,
   Linking,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  Platform,
   Pressable,
   ScrollView,
   Share,
@@ -38,9 +42,10 @@ import { StateView } from '@/components/StateView';
 import { Txt } from '@/components/Txt';
 import { useI18n } from '@/i18n';
 import { directionsUrl, shareUrl, telUrl, whatsappUrl } from '@/lib/links';
+import { useFavourites } from '@/lib/favourites';
 import { useLocation } from '@/lib/location';
 import { useAsync } from '@/lib/useAsync';
-import { makeStyles, radius, size, space, useTheme } from '@/theme';
+import { makeStyles, motion, radius, size, space, useTheme } from '@/theme';
 
 const REVIEW_PAGE = 10;
 
@@ -223,6 +228,10 @@ export default function ProviderScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { coords, status: locationStatus } = useLocation();
   const [notice, setNotice] = useState<string | null>(null);
+  const favourites = useFavourites();
+  const saved = favourites.isFavourite(id);
+  // Scale of the heart; kept in state so the same value lives for the whole screen.
+  const [pulse] = useState(() => new Animated.Value(1));
 
   // Same origin as the search (the device position, or Haret Hreik), so distances agree.
   const from = locationStatus === 'locating' ? undefined : coords;
@@ -273,6 +282,17 @@ export default function ProviderScreen() {
     Share.share({ message: f(s.provider.shareMessage, { name: target.name, url }) }).catch(
       () => undefined,
     );
+  };
+
+  // Saves or removes the provider on this phone, with a short pulse and a spoken confirmation.
+  const toggleSaved = (target: ProviderDetail) => {
+    const nowSaved = favourites.toggle(target);
+    AccessibilityInfo.announceForAccessibility(nowSaved ? s.saved.added : s.saved.removed);
+    const native = Platform.OS !== 'web';
+    Animated.sequence([
+      Animated.timing(pulse, { toValue: 1.2, duration: motion.fast, useNativeDriver: native }),
+      Animated.timing(pulse, { toValue: 1, duration: motion.fast, useNativeDriver: native }),
+    ]).start();
   };
 
   if (load.status !== 'ready' || !provider) {
@@ -459,7 +479,21 @@ export default function ProviderScreen() {
         pointerEvents="box-none"
       >
         <IconButton icon={BackIcon} label={s.common.back} onPress={goBack} tone="scrim" />
-        <IconButton icon={Share2} label={s.provider.share} onPress={() => share(provider)} tone="scrim" />
+        <View style={[styles.overlayGroup, { flexDirection: row }]}>
+          {/* The heart: outline when not saved, filled coral when saved. It swells for a moment on a tap. */}
+          <Animated.View style={{ transform: [{ scale: pulse }] }}>
+            <IconButton
+              icon={Heart}
+              label={saved ? s.saved.remove : s.saved.save}
+              selected={saved}
+              color={saved ? colors.accent : undefined}
+              fill={saved ? colors.accent : undefined}
+              onPress={() => toggleSaved(provider)}
+              tone="scrim"
+            />
+          </Animated.View>
+          <IconButton icon={Share2} label={s.provider.share} onPress={() => share(provider)} tone="scrim" />
+        </View>
       </View>
 
       <View style={[styles.dock, { paddingBottom: insets.bottom + space.md }]}>
@@ -527,6 +561,9 @@ const useStyles = makeStyles((c) => ({
     left: space.sm,
     right: space.sm,
     justifyContent: 'space-between',
+  },
+  overlayGroup: {
+    gap: space.sm,
   },
   // Photo counter; it sits above the part of the photo the sheet covers.
   counter: {

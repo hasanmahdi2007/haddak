@@ -14,6 +14,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { I18nProvider } from '@/i18n';
 import { CategoriesProvider } from '@/lib/categories';
+import { FavouritesProvider } from '@/lib/favourites';
 import { LocationProvider } from '@/lib/location';
 import { useTheme } from '@/theme';
 
@@ -47,13 +48,15 @@ export default function RootLayout() {
       <I18nProvider>
         <LocationProvider>
           <CategoriesProvider>
-            <StatusBar style={dark ? 'light' : 'dark'} />
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: colors.background },
-              }}
-            />
+            <FavouritesProvider>
+              <StatusBar style={dark ? 'light' : 'dark'} />
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: colors.background },
+                }}
+              />
+            </FavouritesProvider>
           </CategoriesProvider>
         </LocationProvider>
       </I18nProvider>
