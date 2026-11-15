@@ -19,12 +19,15 @@ import { useLocation } from '@/lib/location';
 import { DEFAULT_RADIUS, type RadiusM } from '@/lib/radius';
 import { makeStyles, radius, size, space, useTheme } from '@/theme';
 
+/** Category tiles per row. */
+const COLUMNS = 2;
+
 /** Split a list into grid rows, padding the last row so tiles keep their width. */
-function toRows<T>(items: T[], columns: number): (T | null)[][] {
+function toRows<T>(items: T[]): (T | null)[][] {
   const rows: (T | null)[][] = [];
-  for (let i = 0; i < items.length; i += columns) {
-    const row: (T | null)[] = items.slice(i, i + columns);
-    while (row.length < columns) row.push(null);
+  for (let i = 0; i < items.length; i += COLUMNS) {
+    const row: (T | null)[] = items.slice(i, i + COLUMNS);
+    while (row.length < COLUMNS) row.push(null);
     rows.push(row);
   }
   return rows;
@@ -33,8 +36,8 @@ function toRows<T>(items: T[], columns: number): (T | null)[][] {
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { colors, look } = useTheme();
-  const { s, f, row, rtl, end, alignStart, language, setLanguage, categoryName } = useI18n();
+  const { colors, dark } = useTheme();
+  const { s, f, row, rtl, alignStart, language, setLanguage, categoryName } = useI18n();
   const styles = useStyles();
   const location = useLocation();
   const categories = useCategories();
@@ -64,11 +67,6 @@ export default function HomeScreen() {
     });
   };
 
-  // Tiles take the option's tile colours in turn, by their position in the grid.
-  const toneAt = (index: number) => look.tones[index % look.tones.length];
-  const tileHeight = look.tile === 'row' ? size.tileRow : size.tile;
-  const columnList = Array.from({ length: look.columns }, (_, i) => i);
-
   const BackIcon = rtl ? ArrowRight : ArrowLeft;
   const LocationIcon = location.status === 'located' ? LocateFixed : MapPin;
   const locationText =
@@ -80,71 +78,46 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar style="dark" />
+      <StatusBar style={dark ? 'light' : 'dark'} />
 
-      <View
-        style={[
-          styles.shell,
-          look.header === 'wash' ? styles.shellWash : null,
-          { paddingTop: insets.top + space.sm },
-        ]}
-      >
-        {/* The sun: a yellow disc half out of the corner. Decoration only. */}
-        {look.header === 'wash' ? <View style={[styles.sun, end(-size.sun / 3)]} /> : null}
+      <View style={[styles.header, { paddingTop: insets.top + space.sm }]}>
         <View style={styles.column}>
           <View style={[styles.brandRow, { flexDirection: row }]}>
-            {look.header === 'sticker' ? (
-              <View style={styles.sticker}>
-                <Txt role="headline" color="onAccent" accessibilityRole="header">
-                  {s.appName}
-                </Txt>
-              </View>
-            ) : (
-              <Txt role="headline" color="ink" accessibilityRole="header">
-                {s.appName}
-              </Txt>
-            )}
+            <Txt role="headline" color="primary" accessibilityRole="header">
+              {s.appName}
+            </Txt>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={s.language.switchToLabel}
               onPress={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
-              android_ripple={{ color: colors.shellLine }}
+              android_ripple={{ color: colors.surfaceTintStrong }}
               style={styles.languageTarget}
             >
               <View style={styles.language}>
-                <Txt role="label" color="onShell">
+                <Txt role="label" color="text">
                   {s.language.switchTo}
                 </Txt>
               </View>
             </Pressable>
           </View>
 
-          <Txt role="display" color="onShell" accessibilityRole="header">
+          <Txt role="display" accessibilityRole="header">
             {s.home.question}
           </Txt>
 
           <View
-            style={[
-              styles.locationRow,
-              look.header === 'plain' ? [styles.locationPill, { alignSelf: alignStart }] : null,
-              { flexDirection: row },
-            ]}
+            style={[styles.locationPill, { alignSelf: alignStart, flexDirection: row }]}
             accessibilityLiveRegion="polite"
           >
             {location.status === 'locating' ? (
-              <ActivityIndicator size="small" color={colors.ink} />
-            ) : look.header === 'plain' ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              // The one coral point of the design: a "you are here" disc.
               <View style={styles.pin}>
                 <LocationIcon color={colors.onAccent} size={size.iconSmall} strokeWidth={size.lineBold} />
               </View>
-            ) : (
-              <LocationIcon color={colors.ink} size={size.icon} strokeWidth={size.stroke} />
             )}
-            <Txt
-              role="label"
-              color="onShellMuted"
-              style={look.header === 'plain' ? styles.locationTextPill : styles.locationText}
-            >
+            <Txt role="label" color="textMuted" style={styles.locationText}>
               {locationText}
             </Txt>
             {location.status === 'fallback' ? (
@@ -152,10 +125,10 @@ export default function HomeScreen() {
                 accessibilityRole="button"
                 accessibilityHint={s.home.fallbackHint}
                 onPress={location.retry}
-                android_ripple={{ color: colors.shellLine }}
+                android_ripple={{ color: colors.surfaceTintStrong }}
                 style={styles.locationAction}
               >
-                <Txt role="label" color="onInkWash" style={styles.underline}>
+                <Txt role="label" color="onPrimarySoft" style={styles.underline}>
                   {s.home.useMyLocation}
                 </Txt>
               </Pressable>
@@ -180,12 +153,11 @@ export default function HomeScreen() {
           )}
 
           {categories.status === 'loading' ? (
-            <View style={styles.grid} accessibilityLabel={s.results.loading}>
+            <View style={styles.grid} accessible accessibilityLabel={s.results.loading}>
               {[0, 1, 2, 3].map((r) => (
                 <View key={r} style={[styles.gridRow, { flexDirection: row }]}>
-                  {columnList.map((c) => (
-                    <Skeleton key={c} height={tileHeight} round={look.tileRadius} style={styles.cell} />
-                  ))}
+                  <Skeleton height={size.tile} round={radius.lg} style={styles.cell} />
+                  <Skeleton height={size.tile} round={radius.lg} style={styles.cell} />
                 </View>
               ))}
             </View>
@@ -205,13 +177,12 @@ export default function HomeScreen() {
 
           {categories.status === 'ready' && !openParent ? (
             <View style={styles.grid}>
-              {toRows(categories.tree, look.columns).map((cells, r) => (
+              {toRows(categories.tree).map((cells, r) => (
                 <View key={r} style={[styles.gridRow, { flexDirection: row }]}>
                   {cells.map((node, c) =>
                     node ? (
                       <CategoryTile
                         key={node.id}
-                        tone={toneAt(r * look.columns + c)}
                         icon={node.icon}
                         label={categoryName(node)}
                         hasChildren={node.children.length > 0}
@@ -232,13 +203,12 @@ export default function HomeScreen() {
 
           {categories.status === 'ready' && openParent ? (
             <View style={styles.grid}>
-              {toRows<Category>([openParent, ...openParent.children], look.columns).map((cells, r) => (
+              {toRows<Category>([openParent, ...openParent.children]).map((cells, r) => (
                 <View key={r} style={[styles.gridRow, { flexDirection: row }]}>
                   {cells.map((category, c) =>
                     category ? (
                       <CategoryTile
                         key={category.id}
-                        tone={toneAt(r * look.columns + c)}
                         icon={category.icon}
                         label={
                           category.id === openParent.id
@@ -276,10 +246,10 @@ export default function HomeScreen() {
   );
 }
 
-const useStyles = makeStyles((c, look) => ({
+const useStyles = makeStyles((c) => ({
   screen: {
     flex: 1,
-    backgroundColor: c.paper,
+    backgroundColor: c.background,
   },
   // Keeps content at a readable width on tablets and web.
   column: {
@@ -287,32 +257,9 @@ const useStyles = makeStyles((c, look) => ({
     maxWidth: size.maxContent,
     alignSelf: 'center',
   },
-  shell: {
-    backgroundColor: c.shell,
+  header: {
     paddingHorizontal: space.lg,
     paddingBottom: space.sm,
-  },
-  // Option A: a tinted header with soft bottom corners; it clips the sun.
-  shellWash: {
-    paddingBottom: space.md,
-    borderBottomLeftRadius: radius.sheet,
-    borderBottomRightRadius: radius.sheet,
-    overflow: 'hidden',
-  },
-  sun: {
-    position: 'absolute',
-    top: -size.sun / 2,
-    width: size.sun,
-    height: size.sun,
-    borderRadius: radius.pill,
-    backgroundColor: c.accent,
-  },
-  // Option C: the name sits on a yellow sticker, set at a slight angle.
-  sticker: {
-    backgroundColor: c.accent,
-    borderRadius: radius.md,
-    paddingHorizontal: space.md,
-    transform: [{ rotate: '-3deg' }],
   },
   brandRow: {
     alignItems: 'center',
@@ -324,22 +271,24 @@ const useStyles = makeStyles((c, look) => ({
     justifyContent: 'center',
   },
   language: {
-    backgroundColor: c.sheet,
+    backgroundColor: c.surface,
     borderWidth: size.lineMid,
-    borderColor: c.shellLine,
+    borderColor: c.outline,
     borderRadius: radius.pill,
     paddingHorizontal: space.md,
     paddingVertical: space.sm,
   },
-  // Option B: the location line is a tinted pill.
+  // The location line is an aqua pill.
   locationPill: {
-    backgroundColor: c.manila,
+    alignItems: 'center',
+    gap: space.sm,
+    minHeight: size.touch,
+    backgroundColor: c.surfaceTint,
     borderRadius: radius.pill,
     paddingHorizontal: space.sm,
     marginTop: space.sm,
     maxWidth: '100%',
   },
-  // The one coral point of option B: a "you are here" disc.
   pin: {
     width: size.pin,
     height: size.pin,
@@ -348,16 +297,8 @@ const useStyles = makeStyles((c, look) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  locationTextPill: {
-    flexShrink: 1,
-  },
-  locationRow: {
-    alignItems: 'center',
-    gap: space.sm,
-    minHeight: size.touch,
-  },
   locationText: {
-    flex: 1,
+    flexShrink: 1,
   },
   locationAction: {
     justifyContent: 'center',
@@ -369,7 +310,7 @@ const useStyles = makeStyles((c, look) => ({
   },
   scroll: {
     paddingHorizontal: space.lg,
-    paddingTop: look.header === 'wash' ? space.lg : space.sm,
+    paddingTop: space.sm,
     paddingBottom: space.lg,
   },
   sectionTitle: {
@@ -394,9 +335,9 @@ const useStyles = makeStyles((c, look) => ({
     minWidth: 0,
   },
   dock: {
-    backgroundColor: c.sheet,
+    backgroundColor: c.surface,
     borderTopWidth: size.hairline,
-    borderTopColor: c.hairline,
+    borderTopColor: c.border,
     paddingHorizontal: space.lg,
     paddingTop: space.md,
   },

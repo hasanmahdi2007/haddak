@@ -26,7 +26,7 @@ export function Rating({ rating, count }: { rating: number; count: number }) {
       accessible
       accessibilityLabel={plural(s.rating.label, count, { rating: rating.toFixed(1) })}
     >
-      <Star color={colors.saffron} fill={colors.saffron} size={size.iconSmall} />
+      <Star color={colors.rating} fill={colors.rating} size={size.iconSmall} />
       <Txt role="data">{rating.toFixed(1)}</Txt>
       <Txt role="data" color="textSubtle">
         ({count})
@@ -51,8 +51,8 @@ export function Stars({ value }: { value: number }) {
         <Star
           key={n}
           size={size.star}
-          color={n <= value ? colors.saffron : colors.outline}
-          fill={n <= value ? colors.saffron : 'none'}
+          color={n <= value ? colors.rating : colors.outline}
+          fill={n <= value ? colors.rating : 'none'}
           strokeWidth={size.stroke}
         />
       ))}

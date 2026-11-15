@@ -15,29 +15,25 @@ Content: categories (two levels), radius (500 m, 1 km, 5 km, city), provider car
 
 Constraints: Arabic and English as equals with full right-to-left; Material 3 structure and 48 dp targets; tokens only; mock data until the backend exists.
 
-How the direction was chosen: the round ran unattended (subagent, no question tool, no user to open the decision page). Seven grounded candidates from the audience's world, ordered by resonance: (1) hand-painted Arabic shop signs, (2) Beirut cement floor tiles, (3) stamped paperwork: the mukhtar's round ink seal and the fiscal stamp, (4) blue enamel street and sector plaques, (5) classified-ads paper and the yellow pages, (6) sandstone house with green shutters, (7) sweets-shop box. The roll assigned candidate 3. All six catalog challengers were declined (dark instrument and poster worlds lose on both audience identification and product clarity for a daylight, trust-first directory); two raises were kept from them.
+How the direction was chosen: the first direction (stamped paperwork: navy header, beige ground) was rejected by the founder as dull and sleepy. Three bright Home options were then built (`design-preview/options/OPTIONS.md`) and the founder chose option B, "Corniche", on 2026-11-15. Results and Provider profile were restyled to match, and a dark theme was derived from it.
 
 ## Direction contract
 
-THESIS: In Lebanon a thing is true once it carries the stamp. Haddak's verification is drawn as that stamp, so trust is the first thing seen on every provider. Refused: the delivery-app arrangement of gradient hero, promo carousel and floating shadowed cards.
+THESIS: Bright, crisp and awake. Trust comes from clarity: a white page, a teal seal, plain facts. Refused: beige or grey grounds, navy headers, gradients, drop shadows, promo carousels.
 
-OWN-WORLD: Stamp-pad ink blue as the one shell and action colour, on warm document paper with white sheets and a manila tint for tiles. Four inks with one meaning each: ink blue (trust and action), saffron (merit: ratings and featured), cedar green (founding member), carmine (errors only). WhatsApp green belongs to WhatsApp. Type: Beiruti for titles, Readex Pro for text and controls, both drawn for Arabic and Latin together; Aref Ruqaa only inside the seal. Flat surfaces with hairlines, no drop shadows.
+OWN-WORLD: Sea and white. Pure white ground, sea teal `#00708A` for the brand and every action, pale aqua surfaces for grouping, one coral point for "you are here". Amber for ratings and Featured, green for founding members, red for errors, WhatsApp green for WhatsApp only. Type: Beiruti for titles, Readex Pro for text and controls; Aref Ruqaa only inside the seal. Flat, no shadows.
 
-STORY: The visitor understands in one screen that this is a list of checked people near them, believes it because the seal, the review count and the price sit on every card, and taps WhatsApp.
+FIRST VIEWPORT: Home. Teal wordmark, language switch, the question, the aqua location pill with a coral pin, a two-column grid of white tiles with solid teal icon squares, a docked distance track and one full-width teal search button.
 
-FIRST VIEWPORT: Home. An ink-blue header holds the Haddak wordmark, the language switch, the question "Who do you need nearby?" and the current area. Below on paper, a three-column category grid of line icons on manila tiles. A docked bottom bar holds the four radius chips and one full-width search button whose label names the chosen category.
+SIGNATURE MOVE: the verified seal, a round double-ring teal mark: small with a check beside the word "Verified" on every card, large with the word موثّق across the edge of the profile sheet.
 
-SIGNATURE MOVE: the verified seal, a round double-ring ink stamp set at a slight angle, large where the profile photo meets the page and small beside every name in the list; the founding-member badge is its companion, a perforated fiscal stamp.
+RAISE (kept): rating, distance and price sit in the same fixed columns on every result card, in an aqua strip.
 
-RAISE (from the split-flap board): rating, distance and price sit in the same fixed columns on every result row, so the list scans vertically like a board.
+RAISE (kept): each colour has exactly one meaning and is never borrowed for decoration.
 
-RAISE (from the orienteering legend): each ink has exactly one meaning and is never borrowed for decoration.
-
-FORM: stamped paperwork, position 3 of 7 on the ordered list. seed:154d08f3fc916849
-
-FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+FINISH: documented in `DESIGN.md`. Verified in the web build only; not yet on an Android device.
 
 ## Unresolved
 
-- The founder has not seen or approved this direction (task M4). A re-roll or a different candidate is cheap before M5 to M9 are built.
 - No logo exists; the wordmark is set in type.
+- The Android adaptive icon background in `app.json` is still the old navy `#24338F`.

@@ -20,19 +20,21 @@ import { makeStyles, radius, size, space, useTheme } from '@/theme';
 
 type ViewMode = 'list' | 'map';
 
+/** A loading card in the shape of ProviderCard: photo, two lines, a badge, the facts strip. */
 function CardSkeleton() {
   const styles = useStyles();
   const { row } = useI18n();
   return (
     <View style={styles.skeletonCard}>
       <View style={[styles.skeletonTop, { flexDirection: row }]}>
-        <Skeleton width={size.thumb} height={size.thumb} />
+        <Skeleton width={size.thumb} height={size.thumb} round={radius.md} />
         <View style={styles.skeletonLines}>
           <Skeleton width="70%" height={space.xl} />
           <Skeleton width="50%" height={space.lg} />
+          <Skeleton width="30%" height={space.lg} />
         </View>
       </View>
-      <Skeleton height={space.lg} />
+      <View style={styles.skeletonFacts} />
     </View>
   );
 }
@@ -70,7 +72,8 @@ export default function ResultsScreen() {
       ? plural(s.results.count, search.data.total, { where })
       : search.status === 'loading'
         ? f(s.results.searching, { where })
-        : ' ';
+        : // A non-breaking space keeps the line's height, so the title does not jump.
+          '\u00A0';
 
   const BackIcon = rtl ? ArrowRight : ArrowLeft;
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
@@ -110,12 +113,14 @@ export default function ResultsScreen() {
                     accessibilityLabel={label}
                     accessibilityState={{ selected: active }}
                     onPress={() => setMode(key)}
-                    android_ripple={{ color: colors.manilaDeep }}
-                    style={[styles.segment, { flexDirection: row }, active ? styles.segmentActive : null]}
+                    // The visible segment is 40 dp high; hitSlop makes the touch target 48.
+                    hitSlop={{ top: space.xs, bottom: space.xs }}
+                    android_ripple={{ color: colors.surfaceTintStrong }}
+                    style={[styles.segment, active ? styles.segmentActive : null]}
                   >
                     <Icon
-                      color={active ? colors.onInkWash : colors.textMuted}
-                      size={size.iconSmall}
+                      color={active ? colors.onPrimary : colors.text}
+                      size={size.icon}
                       strokeWidth={size.stroke}
                     />
                   </Pressable>
@@ -187,7 +192,7 @@ export default function ResultsScreen() {
 const useStyles = makeStyles((c) => ({
   screen: {
     flex: 1,
-    backgroundColor: c.paper,
+    backgroundColor: c.background,
   },
   column: {
     width: '100%',
@@ -196,61 +201,68 @@ const useStyles = makeStyles((c) => ({
   },
   header: {
     borderBottomWidth: size.hairline,
-    borderBottomColor: c.hairline,
+    borderBottomColor: c.border,
     paddingBottom: space.md,
   },
   bar: {
     alignItems: 'center',
     gap: space.xs,
+    // The back button has its own 12 dp of air around the arrow, so the bar starts closer to the edge.
     paddingHorizontal: space.sm,
     paddingTop: space.xs,
     paddingBottom: space.sm,
   },
   titles: {
     flex: 1,
+    minWidth: 0,
   },
   controls: {
     paddingHorizontal: space.lg,
-    gap: space.sm,
   },
+  // List / map: a small version of the distance track.
   segmented: {
-    borderWidth: size.hairline,
-    borderColor: c.outline,
+    backgroundColor: c.surfaceTint,
     borderRadius: radius.lg,
-    backgroundColor: c.sheet,
-    overflow: 'hidden',
+    padding: space.xs,
+    gap: space.xxs,
+    marginHorizontal: space.sm,
   },
   segment: {
     width: size.touch,
-    minHeight: size.touch,
+    height: size.segment,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: space.sm,
+    overflow: 'hidden',
   },
   segmentActive: {
-    backgroundColor: c.inkWash,
+    backgroundColor: c.primary,
   },
   list: {
     padding: space.lg,
-    gap: space.none,
   },
   separator: {
     height: space.md,
   },
   skeletonCard: {
-    backgroundColor: c.sheet,
-    borderRadius: radius.md,
-    borderWidth: size.hairline,
-    borderColor: c.hairline,
-    padding: space.md,
-    gap: space.md,
+    backgroundColor: c.surface,
+    borderRadius: radius.lg,
+    borderWidth: size.lineMid,
+    borderColor: c.surfaceTintStrong,
     marginBottom: space.md,
+    overflow: 'hidden',
   },
   skeletonTop: {
+    padding: space.md,
     gap: space.md,
   },
   skeletonLines: {
     flex: 1,
     gap: space.sm,
+    paddingTop: space.xs,
+  },
+  skeletonFacts: {
+    height: space.xxl + space.lg,
+    backgroundColor: c.surfaceTint,
   },
 }));

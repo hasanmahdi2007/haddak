@@ -4,52 +4,47 @@
  */
 
 export interface ColorTokens {
-  /** Page ground: document paper. */
-  paper: string;
-  /** Raised content: a white sheet on the paper. */
-  sheet: string;
-  /** Manila: category tiles, photo placeholders. */
-  manila: string;
-  /** Pressed manila, skeleton blocks. */
-  manilaDeep: string;
+  /** Page ground. */
+  background: string;
+  /** Raised content: cards, tiles, docked bars. */
+  surface: string;
+  /** Pale aqua: location pill, chip track, fact strips, photo placeholders. */
+  surfaceTint: string;
+  /** Stronger aqua: tile and card edges, pressed surfaces, skeleton blocks. */
+  surfaceTintStrong: string;
 
-  /** Stamp-pad ink blue: trust and action. */
-  ink: string;
-  inkPressed: string;
-  onInk: string;
-  /** Tonal ink: selected tiles, secondary buttons. */
-  inkWash: string;
-  onInkWash: string;
-
-  /** The coloured header on Home. */
-  shell: string;
-  onShell: string;
-  onShellMuted: string;
-  shellLine: string;
+  /** Sea teal: the brand, actions and the verified seal. */
+  primary: string;
+  primaryPressed: string;
+  onPrimary: string;
+  /** Soft teal fill behind secondary things (the verified line). */
+  primarySoft: string;
+  onPrimarySoft: string;
 
   text: string;
   textMuted: string;
+  /** Captions and quiet icons. */
   textSubtle: string;
 
-  /** Dividers and card edges. */
-  hairline: string;
+  /** Dividers. */
+  border: string;
   /** Control boundaries (3:1 against the ground). */
   outline: string;
 
-  /** Merit: rating stars and the featured label. */
-  saffron: string;
-  saffronWash: string;
-  onSaffronWash: string;
+  /** Rating stars and the Featured label. */
+  rating: string;
+  ratingSoft: string;
+  onRatingSoft: string;
 
   /** Founding member. */
-  cedar: string;
-  cedarWash: string;
-  onCedarWash: string;
+  success: string;
+  successSoft: string;
+  onSuccessSoft: string;
 
   /** Errors only. */
-  carmine: string;
-  carmineWash: string;
-  onCarmineWash: string;
+  danger: string;
+  dangerSoft: string;
+  onDangerSoft: string;
 
   /** WhatsApp's own green, used only on the WhatsApp action. */
   whatsapp: string;
@@ -60,297 +55,95 @@ export interface ColorTokens {
   scrim: string;
   onScrim: string;
 
-  /** The one bright accent of a design option (a sun, a sticker). Never text on white. */
+  /** Coral: the one bright point (the "you are here" dot, the tick on a chosen tile). Never text on white. */
   accent: string;
   onAccent: string;
 }
 
+/** Light theme: white ground, sea teal, aqua surfaces, one coral point. */
 export const lightColors: ColorTokens = {
-  paper: '#F4F1EA',
-  sheet: '#FFFFFF',
-  manila: '#EAE3D2',
-  manilaDeep: '#DDD4BE',
+  background: '#FFFFFF',
+  surface: '#FFFFFF',
+  surfaceTint: '#E6F7FA',
+  surfaceTintStrong: '#C9EBF1',
 
-  ink: '#24338F',
-  inkPressed: '#1B2770',
-  onInk: '#FFFFFF',
-  inkWash: '#E2E6F8',
-  onInkWash: '#1B2770',
+  primary: '#00708A',
+  primaryPressed: '#005A70',
+  onPrimary: '#FFFFFF',
+  primarySoft: '#D3F1F6',
+  onPrimarySoft: '#004E61',
 
-  shell: '#24338F',
-  onShell: '#FFFFFF',
-  onShellMuted: '#CDD3F4',
-  shellLine: '#8F99DC',
-
-  text: '#17192B',
-  textMuted: '#4A4E63',
-  textSubtle: '#5C6074',
-
-  hairline: '#DAD4C5',
-  outline: '#8A8473',
-
-  saffron: '#C48600',
-  saffronWash: '#FBE7B0',
-  onSaffronWash: '#553B00',
-
-  cedar: '#1F6B4C',
-  cedarWash: '#DCEDE2',
-  onCedarWash: '#154D36',
-
-  carmine: '#B3261E',
-  carmineWash: '#FBE4E1',
-  onCarmineWash: '#7A1410',
-
-  whatsapp: '#25D366',
-  whatsappPressed: '#1EB958',
-  onWhatsapp: '#062E17',
-
-  scrim: 'rgba(23, 25, 43, 0.62)',
-  onScrim: '#FFFFFF',
-
-  accent: '#C48600',
-  onAccent: '#FFFFFF',
-};
-
-export const darkColors: ColorTokens = {
-  paper: '#111325',
-  sheet: '#1A1D33',
-  manila: '#272B47',
-  manilaDeep: '#343959',
-
-  ink: '#B4BDFF',
-  inkPressed: '#9AA5F5',
-  onInk: '#121A55',
-  inkWash: '#2B3170',
-  onInkWash: '#DDE1FF',
-
-  shell: '#1B2260',
-  onShell: '#FFFFFF',
-  onShellMuted: '#C3CAF5',
-  shellLine: '#7E88CC',
-
-  text: '#ECEDF7',
-  textMuted: '#BDC0D4',
-  textSubtle: '#A1A5BD',
-
-  hairline: '#2E3252',
-  outline: '#7F84A6',
-
-  saffron: '#F2BE4A',
-  saffronWash: '#4A3A10',
-  onSaffronWash: '#FBE3A6',
-
-  cedar: '#7FCFA6',
-  cedarWash: '#173D2D',
-  onCedarWash: '#BFE8D2',
-
-  carmine: '#FFB4AB',
-  carmineWash: '#5C1612',
-  onCarmineWash: '#FFDAD5',
-
-  whatsapp: '#25D366',
-  whatsappPressed: '#1EB958',
-  onWhatsapp: '#062E17',
-
-  scrim: 'rgba(10, 11, 24, 0.66)',
-  onScrim: '#FFFFFF',
-
-  accent: '#F2BE4A',
-  onAccent: '#3A2A00',
-};
-
-/**
- * DESIGN OPTIONS (temporary, until the founder picks one).
- * Three bright looks for the Home screen. Choose one with the env var
- * EXPO_PUBLIC_DESIGN_VARIANT=a|b|c (default a). See design-preview/options/OPTIONS.md.
- * The token names above are kept (paper, ink, manila...) so Results and Profile
- * still compile; each option only gives them new values.
- */
-export type VariantId = 'a' | 'b' | 'c';
-
-/** Colours of one category tile. */
-export interface TileTone {
-  bg: string;
-  /** Small shape behind the icon; the same as bg when there is none. */
-  bubble: string;
-  icon: string;
-  label: string;
-}
-
-/** Everything that differs between the options besides colour. */
-export interface Look {
-  id: VariantId;
-  name: string;
-  /** bubble: icon in a circle over a centred label. row: icon beside the label. poster: icon top, label bottom. */
-  tile: 'bubble' | 'row' | 'poster';
-  columns: 2 | 3;
-  /** Tiles take these in turn. */
-  tones: TileTone[];
-  /** How a chosen tile is shown: filled with the primary colour, or ringed. */
-  selectedTile: 'fill' | 'ring';
-  /** wash: tinted header with a sun. plain: white with a location pill. sticker: white with the name on a sticker. */
-  header: 'wash' | 'plain' | 'sticker';
-  /** pills: separate chips. track: one segmented track. */
-  chips: 'pills' | 'track';
-  tileRadius: number;
-  buttonRadius: number;
-  chipRadius: number;
-}
-
-// Shared by all three options: one meaning each, as before.
-const sharedColors = {
-  sheet: '#FFFFFF',
-  onInk: '#FFFFFF',
-  saffron: '#B97A00',
-  saffronWash: '#FFEFC2',
-  onSaffronWash: '#553B00',
-  cedar: '#1F6B4C',
-  cedarWash: '#DCEDE2',
-  onCedarWash: '#154D36',
-  carmine: '#B3261E',
-  carmineWash: '#FBE4E1',
-  onCarmineWash: '#7A1410',
-  whatsapp: '#25D366',
-  whatsappPressed: '#1EB958',
-  onWhatsapp: '#062E17',
-  onScrim: '#FFFFFF',
-};
-
-/** A. Dekkaneh: warm. Vermilion and sun yellow on white, peach and butter tiles. */
-const colorsA: ColorTokens = {
-  ...sharedColors,
-  paper: '#FFFFFF',
-  manila: '#FFF1E7',
-  manilaDeep: '#FFDFCB',
-  ink: '#D9361A',
-  inkPressed: '#B52A12',
-  inkWash: '#FFE3D3',
-  onInkWash: '#8F1F0A',
-  shell: '#FFF1E7',
-  onShell: '#2A1610',
-  onShellMuted: '#6B4A40',
-  shellLine: '#AD8172',
-  text: '#2A1610',
-  textMuted: '#6B4A40',
-  textSubtle: '#7A5A50',
-  hairline: '#F3DDD0',
-  outline: '#AD8172',
-  scrim: 'rgba(42, 22, 16, 0.62)',
-  accent: '#FFC233',
-  onAccent: '#3A2400',
-};
-
-/** B. Corniche: fresh. Sea teal on white with aqua washes and one coral point. */
-const colorsB: ColorTokens = {
-  ...sharedColors,
-  paper: '#FFFFFF',
-  manila: '#E6F7FA',
-  manilaDeep: '#C9EBF1',
-  ink: '#00708A',
-  inkPressed: '#005A70',
-  inkWash: '#D3F1F6',
-  onInkWash: '#004E61',
-  shell: '#FFFFFF',
-  onShell: '#0C2A33',
-  onShellMuted: '#45636C',
-  shellLine: '#6A96A1',
   text: '#0C2A33',
   textMuted: '#45636C',
   textSubtle: '#52707A',
-  hairline: '#D5ECF1',
+
+  border: '#D5ECF1',
   outline: '#6A96A1',
-  scrim: 'rgba(12, 42, 51, 0.62)',
+
+  rating: '#B97A00',
+  ratingSoft: '#FFEFC2',
+  onRatingSoft: '#553B00',
+
+  success: '#1F6B4C',
+  successSoft: '#DCEDE2',
+  onSuccessSoft: '#154D36',
+
+  danger: '#B3261E',
+  dangerSoft: '#FBE4E1',
+  onDangerSoft: '#7A1410',
+
+  whatsapp: '#25D366',
+  whatsappPressed: '#1EB958',
+  onWhatsapp: '#062E17',
+
+  scrim: 'rgba(12, 42, 51, 0.72)',
+  onScrim: '#FFFFFF',
+
   accent: '#FF6A4D',
   onAccent: '#4A1206',
 };
 
-/** C. Balat: bold. Five tile colours on white, held together by one indigo-black. */
-const colorsC: ColorTokens = {
-  ...sharedColors,
-  paper: '#FFFFFF',
-  manila: '#F1F0F8',
-  manilaDeep: '#DDDBEC',
-  ink: '#17153B',
-  inkPressed: '#2C2A5C',
-  inkWash: '#E9E8F7',
-  onInkWash: '#17153B',
-  shell: '#FFFFFF',
-  onShell: '#17153B',
-  onShellMuted: '#55536F',
-  shellLine: '#8D8BA3',
-  text: '#17153B',
-  textMuted: '#55536F',
-  textSubtle: '#646280',
-  hairline: '#E6E5EF',
-  outline: '#8D8BA3',
-  scrim: 'rgba(23, 21, 59, 0.62)',
-  accent: '#FFD12E',
-  onAccent: '#17153B',
-};
+/** Dark theme: the same sea at night. Deep blue-green ground, a lighter teal that keeps its contrast. */
+export const darkColors: ColorTokens = {
+  background: '#061A20',
+  surface: '#0B252D',
+  surfaceTint: '#11343F',
+  surfaceTintStrong: '#1A4856',
 
-const WHITE = '#FFFFFF';
+  primary: '#4CC2DB',
+  primaryPressed: '#7AD3E6',
+  onPrimary: '#00232C',
+  primarySoft: '#104452',
+  onPrimarySoft: '#C2EDF6',
 
-export const variants: Record<VariantId, { colors: ColorTokens; look: Look }> = {
-  a: {
-    colors: colorsA,
-    look: {
-      id: 'a',
-      name: 'Dekkaneh',
-      tile: 'bubble',
-      columns: 3,
-      // Two tones over three columns make a checkerboard.
-      tones: [
-        { bg: '#FFE7D6', bubble: WHITE, icon: '#D9361A', label: '#2A1610' },
-        { bg: '#FFEFAE', bubble: WHITE, icon: '#9A5B00', label: '#2A1610' },
-      ],
-      selectedTile: 'fill',
-      header: 'wash',
-      chips: 'pills',
-      tileRadius: 22,
-      buttonRadius: 999,
-      chipRadius: 999,
-    },
-  },
-  b: {
-    colors: colorsB,
-    look: {
-      id: 'b',
-      name: 'Corniche',
-      tile: 'row',
-      columns: 2,
-      // White tiles; the colour sits in a solid teal square behind a white icon.
-      tones: [{ bg: WHITE, bubble: '#00708A', icon: WHITE, label: '#0C2A33' }],
-      selectedTile: 'fill',
-      header: 'plain',
-      chips: 'track',
-      tileRadius: 16,
-      buttonRadius: 16,
-      chipRadius: 12,
-    },
-  },
-  c: {
-    colors: colorsC,
-    look: {
-      id: 'c',
-      name: 'Balat',
-      tile: 'poster',
-      columns: 3,
-      // Five tones over three columns: no two neighbours match.
-      tones: [
-        { bg: '#2D4FE0', bubble: '#2D4FE0', icon: WHITE, label: WHITE },
-        { bg: '#FFC629', bubble: '#FFC629', icon: '#2B1D00', label: '#2B1D00' },
-        { bg: '#D4330F', bubble: '#D4330F', icon: WHITE, label: WHITE },
-        { bg: '#087F4E', bubble: '#087F4E', icon: WHITE, label: WHITE },
-        { bg: '#D61F69', bubble: '#D61F69', icon: WHITE, label: WHITE },
-      ],
-      selectedTile: 'ring',
-      header: 'sticker',
-      chips: 'pills',
-      tileRadius: 20,
-      buttonRadius: 18,
-      chipRadius: 14,
-    },
-  },
+  text: '#E9F6F9',
+  textMuted: '#AECAD1',
+  textSubtle: '#93B3BC',
+
+  border: '#1C3E49',
+  outline: '#6C96A1',
+
+  rating: '#F2BE4A',
+  ratingSoft: '#4A3A10',
+  onRatingSoft: '#FBE3A6',
+
+  success: '#7FCFA6',
+  successSoft: '#173D2D',
+  onSuccessSoft: '#BFE8D2',
+
+  danger: '#FFB4AB',
+  dangerSoft: '#5C1612',
+  onDangerSoft: '#FFDAD5',
+
+  whatsapp: '#25D366',
+  whatsappPressed: '#1EB958',
+  onWhatsapp: '#062E17',
+
+  scrim: 'rgba(3, 14, 18, 0.72)',
+  onScrim: '#FFFFFF',
+
+  accent: '#FF7A5F',
+  onAccent: '#3A0D03',
 };
 
 /** Font family names as loaded in src/theme/fonts.ts. */
@@ -410,15 +203,15 @@ export const space = {
 } as const;
 
 export const radius = {
-  /** Tags and the fiscal stamp. */
-  sm: 6,
-  /** Tiles, cards, thumbnails. */
-  md: 10,
-  /** Buttons. */
-  lg: 14,
-  /** Bottom corners of the tinted Home header. */
-  sheet: 28,
-  /** Chips and round controls. */
+  /** Tags. */
+  sm: 8,
+  /** Chips, thumbnails, the icon square on a tile. */
+  md: 12,
+  /** Tiles, cards, buttons, the chip track. */
+  lg: 16,
+  /** The top corners of the profile sheet where it overlaps the photo. */
+  sheet: 24,
+  /** Round controls and pills. */
   pill: 999,
 } as const;
 
@@ -426,10 +219,9 @@ export const radius = {
 export const size = {
   /** Minimum touch target (Material: 48 dp). */
   touch: 48,
-  /** Visible height of a chip (its touch target is still 48). */
-  chip: 44,
-  /** Icon in an empty or error state. */
+  /** Icon in an empty or error state, and the disc behind it. */
   stateIcon: 36,
+  stateDisc: 88,
   /** Widest a centred message runs. */
   measure: 340,
   /** Primary buttons. */
@@ -440,20 +232,18 @@ export const size = {
   /** Icon on a category tile. */
   tileIcon: 28,
   /** Category tile minimum height. */
-  tile: 98,
-  /** The same, for the row layout (icon beside the label). */
-  tileRow: 66,
-  /** Shape behind a tile icon. */
-  tileBubble: 44,
+  tile: 66,
+  /** The teal square behind a tile icon. */
+  tileIconBox: 44,
   /** The coral "you are here" disc in the location pill. */
   pin: 28,
-  /** The sun in the corner of the warm header. */
-  sun: 150,
   /** Thumbnail on a provider card. */
-  thumb: 84,
-  /** Seal sizes: beside a name, and on the profile. */
+  thumb: 88,
+  /** Visible height of a view-toggle segment (its touch target is still 48). */
+  segment: 40,
+  /** Seal sizes: in a badge, and on the profile. */
   sealSmall: 22,
-  sealLarge: 96,
+  sealLarge: 92,
   /** Check mark inside the small seal. */
   sealCheck: 11,
   strokeHeavy: 3.5,
@@ -472,7 +262,9 @@ export const size = {
   /** Gallery height as a share of its width. */
   galleryRatio: 0.72,
   /** The same, when the provider has no photos. */
-  galleryRatioEmpty: 0.42,
+  galleryRatioEmpty: 0.46,
+  /** How far the profile sheet rises over the photo. */
+  sheetOverlap: 24,
   /** Stars in a review. */
   star: 14,
   /** Widest the content column grows on tablets and web. */

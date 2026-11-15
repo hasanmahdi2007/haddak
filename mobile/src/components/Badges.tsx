@@ -6,12 +6,13 @@ import { fonts, makeStyles, radius, size, space, useTheme } from '@/theme';
 
 import { Txt } from './Txt';
 
-/** How far the seal is turned, like a stamp pressed by hand. */
-const SEAL_TILT = '-9deg';
+/** How far the large seal is turned, like a stamp pressed by hand. */
+const SEAL_TILT = '-8deg';
 
 /**
- * The verified seal: Haddak's signature. A round double-ring ink stamp.
- * Small, it carries a check mark; large, it carries the word "موثّق" (verified)
+ * The verified seal: Haddak's trust mark, always teal.
+ * Small, it is a teal disc inside a teal ring, with a white check.
+ * Large, it is a white disc with two teal rings and the word "موثّق" (verified)
  * in ruqaa, the script of Lebanese stamps, whatever the app language.
  */
 export function Seal({ large = false }: { large?: boolean }) {
@@ -22,7 +23,7 @@ export function Seal({ large = false }: { large?: boolean }) {
     return (
       <View style={styles.sealSmall}>
         <View style={styles.sealSmallCore}>
-          <Check color={colors.onInk} size={size.sealCheck} strokeWidth={size.strokeHeavy} />
+          <Check color={colors.onPrimary} size={size.sealCheck} strokeWidth={size.strokeHeavy} />
         </View>
       </View>
     );
@@ -35,48 +36,58 @@ export function Seal({ large = false }: { large?: boolean }) {
         <Text allowFontScaling={false} style={styles.sealWord}>
           موثّق
         </Text>
-        <Check color={colors.ink} size={size.iconSmall} strokeWidth={size.strokeBold} />
+        <Check color={colors.primary} size={size.iconSmall} strokeWidth={size.strokeBold} />
       </View>
     </View>
   );
 }
 
-/** Seal plus the word "Verified": the inline form used beside a name or in a badge row. */
-export function VerifiedBadge() {
+/**
+ * Small seal plus the word "Verified": the form used on cards and on the profile.
+ * `decorative` hides it from screen readers when a parent already says "Verified".
+ */
+export function VerifiedBadge({ decorative = false }: { decorative?: boolean }) {
   const { s, row } = useI18n();
   const styles = useStyles();
   return (
-    <View style={[styles.inline, { flexDirection: row }]} accessible accessibilityLabel={s.badges.verified}>
+    <View
+      style={[styles.inline, { flexDirection: row }]}
+      accessible={!decorative}
+      accessibilityLabel={decorative ? undefined : s.badges.verified}
+    >
       <Seal />
-      <Txt role="label" color="ink">
+      <Txt role="label" color="primary">
         {s.badges.verified}
       </Txt>
     </View>
   );
 }
 
-/** Founding member: a small fiscal stamp with a perforated edge. */
-export function FoundingStamp() {
+/** Founding member: a green tag with a medal. */
+export function FoundingBadge() {
   const { colors } = useTheme();
   const { s, row } = useI18n();
   const styles = useStyles();
   return (
-    <View style={[styles.stamp, { flexDirection: row }]} accessible accessibilityLabel={s.badges.founding}>
-      <Award color={colors.onCedarWash} size={size.iconSmall} strokeWidth={size.stroke} />
-      <Txt role="caption" color="onCedarWash" style={styles.tagText}>
+    <View style={[styles.tag, styles.founding, { flexDirection: row }]} accessible accessibilityLabel={s.badges.founding}>
+      <Award color={colors.onSuccessSoft} size={size.star} strokeWidth={size.stroke} />
+      <Txt role="caption" color="onSuccessSoft" style={styles.tagText}>
         {s.badges.founding}
       </Txt>
     </View>
   );
 }
 
-/** Featured means paid placement, and the screen-reader label says so. */
+/**
+ * Featured means paid placement, and the screen-reader label says so.
+ * It is a plain amber tag with no star or medal, so it is not read as a quality award.
+ */
 export function FeaturedTag() {
   const { s } = useI18n();
   const styles = useStyles();
   return (
-    <View style={styles.featured} accessible accessibilityLabel={s.badges.featuredLabel}>
-      <Txt role="caption" color="onSaffronWash" style={styles.tagText}>
+    <View style={[styles.tag, styles.featured]} accessible accessibilityLabel={s.badges.featuredLabel}>
+      <Txt role="caption" color="onRatingSoft" style={styles.tagText}>
         {s.badges.featured}
       </Txt>
     </View>
@@ -89,14 +100,13 @@ const useStyles = makeStyles((c) => ({
     height: size.sealSmall,
     borderRadius: radius.pill,
     borderWidth: size.lineMid,
-    borderColor: c.ink,
+    borderColor: c.primary,
     padding: size.lineMid,
-    transform: [{ rotate: SEAL_TILT }],
   },
   sealSmallCore: {
     flex: 1,
     borderRadius: radius.pill,
-    backgroundColor: c.ink,
+    backgroundColor: c.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -105,8 +115,8 @@ const useStyles = makeStyles((c) => ({
     height: size.sealLarge,
     borderRadius: radius.pill,
     borderWidth: size.lineBold,
-    borderColor: c.ink,
-    backgroundColor: c.sheet,
+    borderColor: c.primary,
+    backgroundColor: c.surface,
     padding: size.sealGap,
     transform: [{ rotate: SEAL_TILT }],
   },
@@ -114,7 +124,7 @@ const useStyles = makeStyles((c) => ({
     flex: 1,
     borderRadius: radius.pill,
     borderWidth: size.hairline,
-    borderColor: c.ink,
+    borderColor: c.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -122,7 +132,7 @@ const useStyles = makeStyles((c) => ({
     fontFamily: fonts.seal,
     fontSize: size.sealWord,
     lineHeight: size.sealWordLine,
-    color: c.ink,
+    color: c.primary,
     textAlign: 'center',
     marginTop: -space.xs,
   },
@@ -130,22 +140,18 @@ const useStyles = makeStyles((c) => ({
     alignItems: 'center',
     gap: space.xs + space.xxs,
   },
-  stamp: {
+  tag: {
     alignItems: 'center',
     gap: space.xs,
     paddingHorizontal: space.sm,
     paddingVertical: space.xxs,
     borderRadius: radius.sm,
-    borderWidth: size.hairline,
-    borderStyle: 'dashed',
-    borderColor: c.cedar,
-    backgroundColor: c.cedarWash,
+  },
+  founding: {
+    backgroundColor: c.successSoft,
   },
   featured: {
-    paddingHorizontal: space.sm,
-    paddingVertical: space.xxs,
-    borderRadius: radius.sm,
-    backgroundColor: c.saffronWash,
+    backgroundColor: c.ratingSoft,
   },
   tagText: {
     fontFamily: fonts.bodyMedium,

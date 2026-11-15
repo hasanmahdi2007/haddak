@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { useI18n } from '@/i18n';
-import { makeStyles, opacity, size, space, useTheme, type ColorTokens } from '@/theme';
+import { makeStyles, opacity, radius, size, space, useTheme, type ColorTokens } from '@/theme';
 
 import { Txt } from './Txt';
 
@@ -15,10 +15,10 @@ const VARIANTS: Record<
   ButtonVariant,
   { bg: ColorName | null; pressed: ColorName; fg: ColorName; border: ColorName | null }
 > = {
-  primary: { bg: 'ink', pressed: 'inkPressed', fg: 'onInk', border: null },
+  primary: { bg: 'primary', pressed: 'primaryPressed', fg: 'onPrimary', border: null },
   whatsapp: { bg: 'whatsapp', pressed: 'whatsappPressed', fg: 'onWhatsapp', border: null },
-  tonal: { bg: 'inkWash', pressed: 'manilaDeep', fg: 'onInkWash', border: null },
-  outline: { bg: null, pressed: 'manila', fg: 'ink', border: 'outline' },
+  tonal: { bg: 'surfaceTint', pressed: 'surfaceTintStrong', fg: 'onPrimarySoft', border: null },
+  outline: { bg: null, pressed: 'surfaceTint', fg: 'primary', border: 'outline' },
 };
 
 interface ButtonProps {
@@ -66,7 +66,7 @@ export function Button({
         { flexDirection: row },
         v.bg ? { backgroundColor: colors[pressed ? v.pressed : v.bg] } : null,
         !v.bg && pressed ? { backgroundColor: colors[v.pressed] } : null,
-        v.border ? { borderWidth: size.hairline, borderColor: colors[v.border] } : null,
+        v.border ? { borderWidth: size.lineMid, borderColor: colors[v.border] } : null,
         disabled ? styles.disabled : null,
         style,
       ]}
@@ -86,10 +86,10 @@ export function Button({
   );
 }
 
-const useStyles = makeStyles((_c, look) => ({
+const useStyles = makeStyles(() => ({
   base: {
     minHeight: size.button,
-    borderRadius: look.buttonRadius,
+    borderRadius: radius.lg,
     paddingHorizontal: space.xl,
     paddingVertical: space.md,
     alignItems: 'center',

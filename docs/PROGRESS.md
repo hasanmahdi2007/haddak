@@ -10,7 +10,7 @@ What has been built, how it was checked, and what is still open. Newest entry fi
 | GitHub | Private repo https://github.com/hasanmahdi2007/haddak, CI running |
 | Local database | Postgres 16 + PostGIS in Docker, port 5433, seeded |
 | Backend | All version 1 endpoints built, hardened and tested (103 tests); Docker image ready |
-| Mobile app | Home, Results and Profile screens work on a phone against the backend; visual design being redone (founder rejected the first direction) |
+| Mobile app | Home, Results and Profile built in the chosen design (option B, white and sea teal), light and dark, English and Arabic. Map, sign-in, provider sign-up and reviews not started |
 | Hosting | Not started (plan in `SYSTEM_DESIGN.md` section 6) |
 
 ## Validation benchmark (from `PROJECT.md`)
@@ -24,6 +24,25 @@ The app is judged in the first area by this, not by code:
 Current: 0 real providers (app not released). Seed data only.
 
 ## Log
+
+### 2026-11-15 — design chosen (option B) and applied to all three screens
+
+**Decision:** from three Home screen options (A warm, B teal, C multi-colour) the founder chose **B, "Corniche"**: white ground, sea teal `#00708A` primary, pale aqua surfaces, one coral accent.
+
+**Built** (`mobile/`): B is the only design in the code (options A and C and the switching code removed). Results and Provider profile restyled to match Home. Colour tokens renamed from the old concept names to plain roles (`background`, `surface`, `primary`, `rating`, `success`, `danger`...). Dark mode restored. `mobile/DESIGN.md` rewritten for B. 15 new screenshots in `mobile/design-preview/` replace the old ones.
+
+**Checked by the coordinating session:**
+
+- `npx tsc --noEmit` and `npx expo lint` → no errors.
+- Opened the Results (light), Provider profile (light) and Results (Arabic, dark) screenshots: real content, no placeholders, layout mirrored correctly in Arabic.
+
+**Reported by the agent, not re-checked:** the other 12 screenshots; the accessibility audit (code and contrast calculation only, not a TalkBack test) and its fixes.
+
+**Not verified:** the restyled screens on a real phone (web build only so far); large system font sizes; screen-reader order.
+
+**Known small issues:** a long price wraps awkwardly on a results card; the photo gallery swipes left-to-right in Arabic; the WhatsApp button uses a generic chat icon; `app.json` still has the old navy as the Android icon background; tile and card edges are faint (about 1.3:1) by design.
+
+**Cost note:** this agent was cut off once by the usage limit and ended at about 260k tokens of context. Later phases are split into smaller jobs, one fresh agent each.
 
 ### 2026-11-15 — mobile phase 1 runs on a phone; design direction rejected
 

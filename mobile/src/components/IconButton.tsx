@@ -9,7 +9,7 @@ interface IconButtonProps {
   label: string;
   onPress: () => void;
   /** `scrim` is for buttons that sit on a photo. */
-  tone?: 'plain' | 'scrim' | 'shell';
+  tone?: 'plain' | 'scrim';
   style?: StyleProp<ViewStyle>;
 }
 
@@ -17,14 +17,14 @@ interface IconButtonProps {
 export function IconButton({ icon: Icon, label, onPress, tone = 'plain', style }: IconButtonProps) {
   const { colors } = useTheme();
   const styles = useStyles();
-  const color = tone === 'scrim' ? colors.onScrim : tone === 'shell' ? colors.onShell : colors.text;
+  const color = tone === 'scrim' ? colors.onScrim : colors.text;
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      android_ripple={{ color: colors.manilaDeep, borderless: true }}
+      android_ripple={{ color: colors.surfaceTintStrong, borderless: true }}
       style={({ pressed }) => [
         styles.base,
         tone === 'scrim' ? styles.scrim : null,
@@ -49,6 +49,6 @@ const useStyles = makeStyles((c) => ({
     backgroundColor: c.scrim,
   },
   pressed: {
-    backgroundColor: c.manila,
+    backgroundColor: c.surfaceTint,
   },
 }));

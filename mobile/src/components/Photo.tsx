@@ -8,7 +8,7 @@ import { CategoryIcon } from './CategoryIcon';
 
 interface Props {
   uri: string | null;
-  /** Category icon key, shown on manila when there is no photo or it fails to load. */
+  /** Category icon key, shown on pale aqua when there is no photo or it fails to load. */
   fallbackIcon: string;
   fallbackIconSize?: number;
   /** Describe the photo for screen readers; leave out when it is decorative. */
@@ -30,7 +30,7 @@ export function Photo({ uri, fallbackIcon, fallbackIconSize = size.tileIcon, lab
       accessibilityRole={label ? 'image' : undefined}
       accessibilityLabel={label}
     >
-      <CategoryIcon icon={fallbackIcon} color={colors.outline} size={fallbackIconSize} />
+      <CategoryIcon icon={fallbackIcon} color={colors.primary} size={fallbackIconSize} />
       {showImage ? (
         <Image
           source={{ uri }}
@@ -46,7 +46,7 @@ export function Photo({ uri, fallbackIcon, fallbackIconSize = size.tileIcon, lab
 
 const useStyles = makeStyles((c) => ({
   frame: {
-    backgroundColor: c.manila,
+    backgroundColor: c.surfaceTint,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',

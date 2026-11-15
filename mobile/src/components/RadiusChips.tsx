@@ -2,7 +2,7 @@ import { Pressable, View } from 'react-native';
 
 import { useI18n } from '@/i18n';
 import { RADIUS_OPTIONS, radiusLabel, type RadiusM } from '@/lib/radius';
-import { makeStyles, size, space, useTheme } from '@/theme';
+import { makeStyles, radius, size, space, useTheme } from '@/theme';
 
 import { Txt } from './Txt';
 
@@ -13,19 +13,18 @@ interface Props {
 
 /**
  * One choice of four: 500 m, 1 km, 5 km, City.
- * Drawn as separate pills, or as one segmented track, depending on the design option.
+ * Drawn as one aqua track with the chosen segment filled teal.
  */
 export function RadiusChips({ value, onChange }: Props) {
-  const { colors, look } = useTheme();
+  const { colors } = useTheme();
   const { s, row } = useI18n();
   const styles = useStyles();
-  const track = look.chips === 'track';
 
   return (
     <View
       accessibilityRole="radiogroup"
       accessibilityLabel={s.radius.label}
-      style={[track ? styles.track : styles.group, { flexDirection: row }]}
+      style={[styles.track, { flexDirection: row }]}
     >
       {RADIUS_OPTIONS.map((option) => {
         const selected = option === value;
@@ -35,19 +34,18 @@ export function RadiusChips({ value, onChange }: Props) {
             accessibilityRole="radio"
             accessibilityState={{ selected, checked: selected }}
             onPress={() => onChange(option)}
-            android_ripple={{ color: colors.manilaDeep }}
+            android_ripple={{ color: colors.surfaceTintStrong }}
             style={styles.target}
           >
             {({ pressed }) => (
               <View
                 style={[
                   styles.chip,
-                  track ? styles.chipInTrack : null,
                   selected ? styles.chipSelected : null,
                   pressed && !selected ? styles.chipPressed : null,
                 ]}
               >
-                <Txt role="action" color={selected ? 'onInk' : 'text'} center numberOfLines={1}>
+                <Txt role="action" color={selected ? 'onPrimary' : 'text'} center numberOfLines={1}>
                   {radiusLabel(s, option)}
                 </Txt>
               </View>
@@ -59,43 +57,31 @@ export function RadiusChips({ value, onChange }: Props) {
   );
 }
 
-const useStyles = makeStyles((c, look) => ({
-  group: {
-    gap: space.sm,
-  },
-  // The segmented track: one tinted bar, the chosen segment filled.
+const useStyles = makeStyles((c) => ({
   track: {
-    backgroundColor: c.manila,
-    borderRadius: look.chipRadius + space.xs,
+    backgroundColor: c.surfaceTint,
+    borderRadius: radius.lg,
     padding: space.xs,
     gap: space.xxs,
   },
-  // The touch target is at least 48 dp tall; the visible chip sits inside it.
   target: {
     flex: 1,
     minHeight: size.touch,
-    justifyContent: 'center',
+    borderRadius: radius.md,
+    overflow: 'hidden',
   },
   chip: {
-    minHeight: size.chip,
-    borderRadius: look.chipRadius,
-    borderWidth: size.lineMid,
-    borderColor: c.outline,
-    backgroundColor: c.sheet,
+    flex: 1,
+    minHeight: size.touch,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: space.sm,
   },
-  chipInTrack: {
-    minHeight: size.touch,
-    borderColor: c.manila,
-    backgroundColor: c.manila,
-  },
   chipSelected: {
-    backgroundColor: c.ink,
-    borderColor: c.ink,
+    backgroundColor: c.primary,
   },
   chipPressed: {
-    backgroundColor: c.manilaDeep,
+    backgroundColor: c.surfaceTintStrong,
   },
 }));

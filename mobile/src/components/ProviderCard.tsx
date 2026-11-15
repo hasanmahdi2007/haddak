@@ -5,7 +5,7 @@ import type { ProviderSummary } from '@/api';
 import { useI18n } from '@/i18n';
 import { makeStyles, radius, size, space, useTheme } from '@/theme';
 
-import { FeaturedTag, FoundingStamp, Seal } from './Badges';
+import { FeaturedTag, FoundingBadge, VerifiedBadge } from './Badges';
 import { Photo } from './Photo';
 import { Rating } from './Rating';
 import { Txt } from './Txt';
@@ -16,47 +16,59 @@ interface Props {
 }
 
 /**
- * One search result. The bottom row keeps rating, distance and price in the
- * same three columns on every card, so a list can be compared at a glance.
+ * One search result. Top: photo, name, "category · area" and the badges.
+ * Bottom: an aqua strip that keeps rating, distance and price in the same
+ * three columns on every card, so a list can be compared at a glance.
+ * A featured (paid) card has a teal edge and the Featured tag.
  */
 export function ProviderCard({ provider, onPress }: Props) {
   const { colors } = useTheme();
-  const { s, row, categoryName, distance } = useI18n();
+  const { s, f, row, plural, categoryName, distance } = useI18n();
   const styles = useStyles();
-  const hasTags = provider.featured || provider.founding_member;
+  const hasBadges = provider.verified || provider.featured || provider.founding_member;
+  const place = `${categoryName(provider.category)} · ${provider.area_name}`;
+
+  // The whole card is one button, so it gets one spoken description.
+  const spoken = [
+    provider.name,
+    place,
+    provider.verified ? s.badges.verified : null,
+    provider.featured ? s.badges.featuredLabel : null,
+    provider.founding_member ? s.badges.founding : null,
+    plural(s.rating.label, provider.review_count, { rating: provider.avg_rating.toFixed(1) }),
+    provider.distance_m !== null ? f(s.provider.away, { distance: distance(provider.distance_m) }) : null,
+    provider.price_text,
+  ]
+    .filter(Boolean)
+    .join(', ');
 
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={spoken}
       accessibilityHint={s.results.openProfile}
       onPress={onPress}
-      android_ripple={{ color: colors.manila }}
-      style={({ pressed }) => [styles.card, pressed ? styles.pressed : null]}
+      android_ripple={{ color: colors.surfaceTintStrong }}
+      style={({ pressed }) => [
+        styles.card,
+        provider.featured ? styles.cardFeatured : null,
+        pressed ? styles.pressed : null,
+      ]}
     >
       <View style={[styles.top, { flexDirection: row }]}>
-        <Photo
-          uri={provider.cover_photo_url}
-          fallbackIcon={provider.category.icon}
-          style={styles.thumb}
-        />
+        <Photo uri={provider.cover_photo_url} fallbackIcon={provider.category.icon} style={styles.thumb} />
         <View style={styles.main}>
-          <View style={[styles.nameRow, { flexDirection: row }]}>
-            <Txt role="title" numberOfLines={2} style={styles.name} content>
-              {provider.name}
-            </Txt>
-            {provider.verified ? (
-              <View style={styles.seal} accessible accessibilityLabel={s.badges.verified}>
-                <Seal />
-              </View>
-            ) : null}
-          </View>
-          <Txt role="label" color="textMuted" numberOfLines={1}>
-            {categoryName(provider.category)} · {provider.area_name}
+          <Txt role="title" numberOfLines={2} content>
+            {provider.name}
           </Txt>
-          {hasTags ? (
-            <View style={[styles.tags, { flexDirection: row }]}>
+          <Txt role="label" color="textMuted" numberOfLines={1}>
+            {place}
+          </Txt>
+          {hasBadges ? (
+            <View style={[styles.badges, { flexDirection: row }]}>
+              {provider.verified ? <VerifiedBadge decorative /> : null}
               {provider.featured ? <FeaturedTag /> : null}
-              {provider.founding_member ? <FoundingStamp /> : null}
+              {provider.founding_member ? <FoundingBadge /> : null}
             </View>
           ) : null}
         </View>
@@ -69,7 +81,7 @@ export function ProviderCard({ provider, onPress }: Props) {
         <View style={[styles.fact, styles.factDistance, { flexDirection: row }]}>
           {provider.distance_m !== null ? (
             <>
-              <MapPin color={colors.textSubtle} size={size.iconSmall} strokeWidth={size.stroke} />
+              <MapPin color={colors.primary} size={size.iconSmall} strokeWidth={size.stroke} />
               <Txt role="data" numberOfLines={1}>
                 {distance(provider.distance_m)}
               </Txt>
@@ -79,8 +91,9 @@ export function ProviderCard({ provider, onPress }: Props) {
         <View style={[styles.fact, styles.factPrice, { flexDirection: row }]}>
           {provider.price_text ? (
             <>
-              <Banknote color={colors.textSubtle} size={size.iconSmall} strokeWidth={size.stroke} />
-              <Txt role="data" numberOfLines={1} style={styles.priceText} content>
+              <Banknote color={colors.primary} size={size.iconSmall} strokeWidth={size.stroke} />
+              {/* Prices are typed by providers and can be long: two lines rather than cut off. */}
+              <Txt role="data" numberOfLines={2} style={styles.priceText} content>
                 {provider.price_text}
               </Txt>
             </>
@@ -93,14 +106,17 @@ export function ProviderCard({ provider, onPress }: Props) {
 
 const useStyles = makeStyles((c) => ({
   card: {
-    backgroundColor: c.sheet,
-    borderRadius: radius.md,
-    borderWidth: size.hairline,
-    borderColor: c.hairline,
+    backgroundColor: c.surface,
+    borderRadius: radius.lg,
+    borderWidth: size.lineMid,
+    borderColor: c.surfaceTintStrong,
     overflow: 'hidden',
   },
+  cardFeatured: {
+    borderColor: c.primary,
+  },
   pressed: {
-    backgroundColor: c.manila,
+    backgroundColor: c.surfaceTint,
   },
   top: {
     padding: space.md,
@@ -109,30 +125,22 @@ const useStyles = makeStyles((c) => ({
   thumb: {
     width: size.thumb,
     height: size.thumb,
-    borderRadius: radius.sm,
+    borderRadius: radius.md,
   },
   main: {
     flex: 1,
+    minWidth: 0,
     gap: space.xxs,
   },
-  nameRow: {
-    alignItems: 'flex-start',
-    gap: space.sm,
-  },
-  name: {
-    flexShrink: 1,
-  },
-  seal: {
-    paddingTop: space.xs,
-  },
-  tags: {
+  badges: {
     flexWrap: 'wrap',
-    gap: space.sm,
+    alignItems: 'center',
+    columnGap: space.md,
+    rowGap: space.xs,
     marginTop: space.xs,
   },
   facts: {
-    borderTopWidth: size.hairline,
-    borderTopColor: c.hairline,
+    backgroundColor: c.surfaceTint,
     paddingHorizontal: space.md,
     paddingVertical: space.sm,
     gap: space.sm,
@@ -153,6 +161,7 @@ const useStyles = makeStyles((c) => ({
     flex: 8,
   },
   priceText: {
-    flexShrink: 1,
+    flex: 1,
+    minWidth: 0,
   },
 }));

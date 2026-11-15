@@ -1,5 +1,7 @@
 # Home screen: three design options
 
+**Decision: option B, "Corniche", was chosen on 2026-11-15.** It is now the only design in the code; options A and C and the variant switch described below were removed. The rest of this file is kept as a record. The current design system is in `mobile/DESIGN.md`.
+
 Three bright looks for the Home screen, to pick one. Only Home is designed; Results and Profile take the new colours but are not restyled yet. All three are light only for now (the dark theme returns once one is chosen).
 
 Screenshots are in this folder: `a-home-en.png`, `a-home-ar.png`, `b-home-en.png`, `b-home-ar.png`, `c-home-en.png`, `c-home-ar.png` (390 x 844, 2x, mock data).

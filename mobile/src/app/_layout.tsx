@@ -37,8 +37,8 @@ export default function RootLayout() {
   }, [ready]);
 
   useEffect(() => {
-    void SystemUI.setBackgroundColorAsync(colors.paper);
-  }, [colors.paper]);
+    void SystemUI.setBackgroundColorAsync(colors.background);
+  }, [colors.background]);
 
   if (!ready) return null;
 
@@ -51,7 +51,7 @@ export default function RootLayout() {
             <Stack
               screenOptions={{
                 headerShown: false,
-                contentStyle: { backgroundColor: colors.paper },
+                contentStyle: { backgroundColor: colors.background },
               }}
             />
           </CategoriesProvider>

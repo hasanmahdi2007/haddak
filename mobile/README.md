@@ -54,7 +54,7 @@ Everything in mock mode is fake, including names, reviews and prices. Photos are
 | `src/api/` | `types.ts` (every shape in `docs/API.md`), `http.ts` (real client), `mock.ts` + `mockData.ts` (mock client), `index.ts` (picks one) |
 | `src/i18n/` | `en.ts`, `ar.ts` (all strings) and the language and direction logic |
 | `src/lib/` | Location with fallback to Haret Hreik, categories, radius choices, link builders |
-| `design-preview/` | Screenshots of the screens in English and Arabic |
+| `design-preview/` | Screenshots of the screens in English and Arabic, light and dark (`dark/`); `options/` keeps the three Home options the design was chosen from |
 
 ## Rules for new screens
 
@@ -68,4 +68,4 @@ The app asks for location when it opens. If permission is denied or no position 
 
 ## Screenshots
 
-The files in `design-preview/` were taken from the web build (`npx expo start --web`) with a headless Chrome at a 390 x 844 phone viewport. They show layout, type and colour faithfully, but they are not captures from an Android device: status bar, ripple effects and system fonts for fallback glyphs will differ slightly on a phone.
+The files in `design-preview/` were taken from the web build (`npx expo start --web`) with a headless Chrome at a 390 x 844 phone viewport, at 2x, in mock mode. They show layout, type and colour faithfully, but they are not captures from an Android device: status bar, ripple effects and system fonts for fallback glyphs will differ slightly on a phone.

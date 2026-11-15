@@ -3,9 +3,12 @@ import { StatusBar } from 'expo-status-bar';
 import {
   ArrowLeft,
   ArrowRight,
+  Banknote,
+  MapPin,
   MessageCircle,
   Phone,
   Share2,
+  Star,
   UserX,
   WifiOff,
   X,
@@ -24,7 +27,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { api, type ContactEventType, type ProviderDetail, type Review } from '@/api';
-import { FeaturedTag, FoundingStamp, Seal, VerifiedBadge } from '@/components/Badges';
+import { FeaturedTag, FoundingBadge, Seal } from '@/components/Badges';
 import { Button } from '@/components/Button';
 import { IconButton } from '@/components/IconButton';
 import { Photo } from '@/components/Photo';
@@ -90,7 +93,7 @@ function Gallery({ provider, width }: { provider: ProviderDetail; width: number 
         ))}
       </ScrollView>
       {photos.length > 1 ? (
-        <View style={[styles.counter, start(space.lg)]}>
+        <View style={[styles.counter, start(space.lg)]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
           <Txt role="caption" color="onScrim" ltr>
             {index + 1} / {photos.length}
           </Txt>
@@ -130,7 +133,7 @@ function ReviewItem({ review }: { review: Review }) {
 }
 
 function Reviews({ provider }: { provider: ProviderDetail }) {
-  const { s, f, plural } = useI18n();
+  const { s, f, row, plural } = useI18n();
   const styles = useStyles();
   const [items, setItems] = useState<Review[]>([]);
   const [total, setTotal] = useState(provider.review_count);
@@ -163,8 +166,8 @@ function Reviews({ provider }: { provider: ProviderDetail }) {
 
   return (
     <View style={styles.section}>
-      <View style={styles.sectionHead}>
-        <Txt role="title" accessibilityRole="header">
+      <View style={[styles.sectionHead, { flexDirection: row }]}>
+        <Txt role="title" accessibilityRole="header" style={styles.sectionTitle}>
           {s.provider.reviews}
         </Txt>
         {total > 0 ? (
@@ -175,7 +178,7 @@ function Reviews({ provider }: { provider: ProviderDetail }) {
       </View>
 
       {state === 'ready' && total === 0 ? (
-        <View>
+        <View style={styles.noReviews}>
           <Txt role="bodyStrong">{s.provider.noReviews}</Txt>
           <Txt color="textMuted">{f(s.provider.noReviewsBody, { name: provider.name })}</Txt>
         </View>
@@ -214,7 +217,7 @@ export default function ProviderScreen() {
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
   const { colors, dark } = useTheme();
-  const { s, f, row, rtl, end, categoryName, distance } = useI18n();
+  const { s, f, row, rtl, end, plural, categoryName, distance } = useI18n();
   const styles = useStyles();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { coords, status: locationStatus } = useLocation();
@@ -270,10 +273,10 @@ export default function ProviderScreen() {
         </View>
         {load.status === 'loading' ? (
           <View style={[styles.column, styles.loading]} accessible accessibilityLabel={s.provider.loading}>
-            <Skeleton height={galleryHeight} round={radius.md} />
+            <Skeleton height={galleryHeight} round={radius.lg} />
             <Skeleton width="40%" height={space.lg} />
             <Skeleton width="70%" height={space.xxxl} />
-            <Skeleton height={space.huge + space.lg} round={radius.md} />
+            <Skeleton height={space.huge + space.xxl} round={radius.lg} />
             <Skeleton height={space.lg} />
             <Skeleton width="85%" height={space.lg} />
           </View>
@@ -312,66 +315,93 @@ export default function ProviderScreen() {
         <View style={styles.column}>
           <Gallery provider={provider} width={width} />
 
-          {provider.verified ? (
-            <View
-              style={[styles.sealSpot, { top: galleryHeight - size.sealLarge / 2 }, end(space.lg)]}
-              accessible
-              accessibilityRole="image"
-              accessibilityLabel={`${s.badges.verified}. ${s.badges.verifiedBody}`}
-            >
-              <Seal large />
-            </View>
-          ) : null}
-
+          {/* The white sheet rises over the photo with round top corners. */}
           <View style={styles.body}>
             <View style={styles.identity}>
-              <Txt role="label" color="textMuted" style={styles.beside}>
-                {categoryName(provider.category)} · {provider.area_name}
-              </Txt>
+              {/* The first line shares its height with the seal, so it stops short of it. */}
+              <View style={{ flexDirection: row }}>
+                <Txt role="label" color="textMuted" style={styles.place}>
+                  {categoryName(provider.category)} · {provider.area_name}
+                </Txt>
+                {provider.verified ? <View style={styles.sealRoom} /> : null}
+              </View>
               <Txt role="headline" accessibilityRole="header" content>
                 {provider.name}
               </Txt>
-              <View style={[styles.badges, { flexDirection: row }]}>
-                {provider.verified ? <VerifiedBadge /> : null}
-                {provider.founding_member ? <FoundingStamp /> : null}
-                {provider.featured ? <FeaturedTag /> : null}
-              </View>
+
               {provider.verified ? (
-                <Txt role="caption" color="textSubtle">
-                  {s.badges.verifiedBody}
-                </Txt>
+                <View
+                  style={[styles.verified, { flexDirection: row }]}
+                  accessible
+                  accessibilityLabel={`${s.badges.verified}. ${s.badges.verifiedBody}`}
+                >
+                  <View style={styles.verifiedSeal}>
+                    <Seal />
+                  </View>
+                  <View style={styles.verifiedText}>
+                    <Txt role="bodyStrong" color="primary">
+                      {s.badges.verified}
+                    </Txt>
+                    <Txt role="label" color="textMuted">
+                      {s.badges.verifiedBody}
+                    </Txt>
+                  </View>
+                </View>
+              ) : null}
+
+              {provider.featured || provider.founding_member ? (
+                <View style={[styles.badges, { flexDirection: row }]}>
+                  {provider.featured ? <FeaturedTag /> : null}
+                  {provider.founding_member ? <FoundingBadge /> : null}
+                </View>
               ) : null}
             </View>
 
+            {/* Rating, distance, price: the same three facts, icons and order as on a result card. */}
             <View style={[styles.facts, { flexDirection: row }]}>
-              <View style={styles.fact}>
-                <Txt role="caption" color="textSubtle" center>
+              <View
+                style={styles.fact}
+                accessible
+                accessibilityLabel={plural(s.rating.label, provider.review_count, {
+                  rating: provider.avg_rating.toFixed(1),
+                })}
+              >
+                <View style={[styles.factValue, { flexDirection: row }]}>
+                  {provider.review_count > 0 ? (
+                    <Star color={colors.rating} fill={colors.rating} size={size.iconSmall} />
+                  ) : null}
+                  <Txt role="title">
+                    {provider.review_count > 0 ? provider.avg_rating.toFixed(1) : s.rating.none}
+                  </Txt>
+                </View>
+                <Txt role="caption" color="textMuted" center>
                   {s.provider.rating}
-                </Txt>
-                <Txt role="title" center>
-                  {provider.review_count > 0 ? provider.avg_rating.toFixed(1) : s.rating.none}
                 </Txt>
               </View>
               {provider.distance_m !== null ? (
                 <>
                   <View style={styles.factDivider} />
-                  <View style={styles.fact}>
-                  <Txt role="caption" color="textSubtle" center>
-                    {s.provider.distance}
-                  </Txt>
-                  <Txt role="title" center>
-                    {distance(provider.distance_m)}
-                  </Txt>
-                </View>
+                  <View style={styles.fact} accessible>
+                    <View style={[styles.factValue, { flexDirection: row }]}>
+                      <MapPin color={colors.primary} size={size.iconSmall} strokeWidth={size.stroke} />
+                      <Txt role="title">{distance(provider.distance_m)}</Txt>
+                    </View>
+                    <Txt role="caption" color="textMuted" center>
+                      {s.provider.distance}
+                    </Txt>
+                  </View>
                 </>
               ) : null}
               <View style={styles.factDivider} />
-              <View style={[styles.fact, styles.factWide]}>
-                <Txt role="caption" color="textSubtle" center>
+              <View style={[styles.fact, styles.factWide]} accessible>
+                <View style={[styles.factValue, { flexDirection: row }]}>
+                  <Banknote color={colors.primary} size={size.iconSmall} strokeWidth={size.stroke} />
+                  <Txt role="title" numberOfLines={2} style={styles.factText} content>
+                    {provider.price_text ?? s.provider.askPrice}
+                  </Txt>
+                </View>
+                <Txt role="caption" color="textMuted" center>
                   {s.provider.price}
-                </Txt>
-                <Txt role="title" center numberOfLines={2} content>
-                  {provider.price_text ?? s.provider.askPrice}
                 </Txt>
               </View>
             </View>
@@ -387,12 +417,24 @@ export default function ProviderScreen() {
 
             <Reviews provider={provider} />
           </View>
+
+          {/* The large seal sits across the top edge of the sheet, on the end side. Decorative: the verified line says it in words. */}
+          {provider.verified ? (
+            <View
+              style={[styles.sealSpot, { top: galleryHeight - size.sheetOverlap - size.sealLarge / 2 }, end(space.lg)]}
+              pointerEvents="none"
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+            >
+              <Seal large />
+            </View>
+          ) : null}
         </View>
       </ScrollView>
 
       {/* Controls over the photo. */}
       <View
-        style={[styles.overlayBar, { top: insets.top + space.xs, flexDirection: row }]}
+        style={[styles.overlayBar, { top: insets.top + space.sm, flexDirection: row }]}
         pointerEvents="box-none"
       >
         <IconButton icon={BackIcon} label={s.common.back} onPress={goBack} tone="scrim" />
@@ -403,17 +445,17 @@ export default function ProviderScreen() {
         <View style={[styles.column, styles.dockInner]}>
           {notice ? (
             <View style={[styles.notice, { flexDirection: row }]} accessibilityRole="alert">
-              <Txt role="label" color="onCarmineWash" style={styles.noticeText}>
+              <Txt role="label" color="onDangerSoft" style={styles.noticeText}>
                 {notice}
               </Txt>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={s.provider.dismiss}
                 onPress={() => setNotice(null)}
-                hitSlop={space.md}
+                hitSlop={space.sm}
                 style={styles.noticeClose}
               >
-                <X color={colors.onCarmineWash} size={size.icon} strokeWidth={size.stroke} />
+                <X color={colors.onDangerSoft} size={size.icon} strokeWidth={size.stroke} />
               </Pressable>
             </View>
           ) : null}
@@ -430,7 +472,7 @@ export default function ProviderScreen() {
               label={s.provider.call}
               accessibilityLabel={f(s.provider.callLabel, { name: provider.name })}
               icon={Phone}
-              variant="tonal"
+              variant="primary"
               onPress={() => void contact('call', provider)}
               style={styles.actionSecondary}
             />
@@ -444,7 +486,7 @@ export default function ProviderScreen() {
 const useStyles = makeStyles((c) => ({
   screen: {
     flex: 1,
-    backgroundColor: c.paper,
+    backgroundColor: c.background,
   },
   column: {
     width: '100%',
@@ -465,9 +507,10 @@ const useStyles = makeStyles((c) => ({
     right: space.sm,
     justifyContent: 'space-between',
   },
+  // Photo counter; it sits above the part of the photo the sheet covers.
   counter: {
     position: 'absolute',
-    bottom: space.md,
+    bottom: size.sheetOverlap + space.md,
     backgroundColor: c.scrim,
     borderRadius: radius.pill,
     paddingHorizontal: space.md,
@@ -475,51 +518,87 @@ const useStyles = makeStyles((c) => ({
   },
   sealSpot: {
     position: 'absolute',
-    zIndex: 1,
   },
   body: {
+    marginTop: -size.sheetOverlap,
+    borderTopLeftRadius: radius.sheet,
+    borderTopRightRadius: radius.sheet,
+    backgroundColor: c.background,
     paddingHorizontal: space.lg,
-    paddingTop: space.xl,
+    paddingTop: space.xxl,
     gap: space.xxl,
   },
   identity: {
     gap: space.xs,
   },
-  // The first line shares its row with the seal; keep text clear of it.
-  beside: {
-    marginBottom: space.xs,
+  place: {
+    flex: 1,
+  },
+  // Empty room the width of the large seal, so the line beside it never runs under it.
+  sealRoom: {
+    width: size.sealLarge + space.sm,
+  },
+  verified: {
+    alignItems: 'flex-start',
+    gap: space.sm,
+    marginTop: space.sm,
+  },
+  // Lines the small seal up with the first line of text.
+  verifiedSeal: {
+    paddingTop: space.xxs,
+  },
+  verifiedText: {
+    flex: 1,
   },
   badges: {
     flexWrap: 'wrap',
     alignItems: 'center',
-    gap: space.md,
-    marginTop: space.xs,
+    gap: space.sm,
+    marginTop: space.sm,
   },
   facts: {
-    backgroundColor: c.sheet,
-    borderRadius: radius.md,
-    borderWidth: size.hairline,
-    borderColor: c.hairline,
+    backgroundColor: c.surfaceTint,
+    borderRadius: radius.lg,
     paddingVertical: space.md,
   },
   fact: {
     flex: 1,
     paddingHorizontal: space.sm,
+    alignItems: 'center',
     justifyContent: 'center',
     gap: space.xxs,
   },
   factWide: {
     flex: 1.5,
   },
+  factValue: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.xs,
+    maxWidth: '100%',
+  },
+  factText: {
+    flexShrink: 1,
+  },
   factDivider: {
     width: size.hairline,
-    backgroundColor: c.hairline,
+    backgroundColor: c.surfaceTintStrong,
   },
   section: {
     gap: space.sm,
   },
   sectionHead: {
-    gap: space.none,
+    alignItems: 'baseline',
+    gap: space.md,
+  },
+  sectionTitle: {
+    flex: 1,
+  },
+  noReviews: {
+    backgroundColor: c.surfaceTint,
+    borderRadius: radius.lg,
+    padding: space.lg,
+    gap: space.xxs,
   },
   review: {
     gap: space.xs,
@@ -534,7 +613,7 @@ const useStyles = makeStyles((c) => ({
   },
   reviewDivider: {
     borderTopWidth: size.hairline,
-    borderTopColor: c.hairline,
+    borderTopColor: c.border,
     paddingTop: space.md,
     marginTop: space.xs,
   },
@@ -546,9 +625,9 @@ const useStyles = makeStyles((c) => ({
     gap: space.sm,
   },
   dock: {
-    backgroundColor: c.sheet,
+    backgroundColor: c.surface,
     borderTopWidth: size.hairline,
-    borderTopColor: c.hairline,
+    borderTopColor: c.border,
     paddingHorizontal: space.lg,
     paddingTop: space.md,
   },
@@ -567,7 +646,7 @@ const useStyles = makeStyles((c) => ({
   notice: {
     alignItems: 'center',
     gap: space.sm,
-    backgroundColor: c.carmineWash,
+    backgroundColor: c.dangerSoft,
     borderRadius: radius.md,
     paddingHorizontal: space.md,
     paddingVertical: space.sm,
@@ -575,7 +654,11 @@ const useStyles = makeStyles((c) => ({
   noticeText: {
     flex: 1,
   },
+  // 32 dp visible, 48 dp with its hitSlop.
   noticeClose: {
-    padding: space.xs,
+    width: space.xxxl,
+    height: space.xxxl,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 }));
