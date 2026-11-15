@@ -9,7 +9,7 @@ What has been built, how it was checked, and what is still open. Newest entry fi
 | Project docs | Written: PROJECT, V1_SCOPE, SCHEMA, API, SYSTEM_DESIGN, TASKS, this log |
 | GitHub | Private repo https://github.com/hasanmahdi2007/haddak, CI running |
 | Local database | Postgres 16 + PostGIS in Docker, port 5433, seeded |
-| Backend | All version 1 endpoints built, hardened and tested (161 tests); Docker image ready |
+| Backend | All version 1 endpoints built, hardened and tested (244 tests); Docker image ready |
 | Mobile app | Home, Results (list and map), Profile, Saved and Suggest screens built in the chosen design (option B), light and dark, English and Arabic; name search, directions, opening hours, favourites. Sign-in, provider sign-up, reviews and stats not started (need Supabase) |
 | Hosting | Not started (plan in `SYSTEM_DESIGN.md` section 6) |
 
@@ -24,6 +24,34 @@ The app is judged in the first area by this, not by code:
 Current: 0 real providers (app not released). Seed data only.
 
 ## Log
+
+### 2026-11-15 (evening) — unverified listings, Supabase project, AI verifier plan
+
+**Founder decisions:**
+
+- A provider can be listed without being verified. Search shows verified only by default; a switch "Include unverified" adds the rest, always ranked below verified. Proof is optional at sign-up; no proof means not verified.
+- A suggestion from another person does not publish itself: the founder publishes it from the admin page as an unverified, unclaimed listing (privacy and abuse reasons). The founder accepted this.
+- Verification stays a human decision for now. An AI verification assistant (Claude Opus 5.5 with vision and tools: place lookup, web search, duplicate checks) comes after sign-up and proof upload exist. It starts in shadow mode (AI verdict recorded next to the founder's decision) and only auto-approves kinds of proof where it agreed with him over 50 to 100 cases.
+- Order of work: finish these features, then deployment, then AI search and the AI verifier.
+
+**Built, backend** (commit `9cefc86`, migration `0003_unverified_listings_reports`): statuses `unverified`, `pending`, `verified`, `rejected`; `include_unverified` on search; public `verified` and `claimed` flags; admin "decline proof" and "restore"; `POST /admin/suggestions/{id}/publish`; provider reports (public create, admin list and delete); admin page tabs for these.
+
+**Checked by the coordinating session:** `ruff check .` clean; `pytest` → 244 passed (was 161); migration applied to the dev database; live search at Haret Hreik, 1 km: 15 verified-only, 17 with the switch on, the 2 extra flagged `verified: false`.
+
+**Not done / not verified:** the agent was cut off by a session restart before finishing. The seed script still creates only 2 non-verified samples (both `pending`, none from a suggestion); `backend/README.md` is not updated for the new statuses; the new admin page tabs were not opened in a browser; publish-from-suggestion and reports were not tried live (tests only).
+
+**Supabase:** the founder created the hosted project (ref `ginifqwdlqkbsptiahun`, URL `https://ginifqwdlqkbsptiahun.supabase.co`). Its public URL and publishable key are in `mobile/.env` (git-ignored). Its login service signs tokens with ES256, which the backend's JWKS path supports. A Supabase MCP connector is configured in `.mcp.json`; ask the founder before changing anything in the hosted project. Nothing has been created in it yet (no tables, buckets or PostGIS). A local Supabase stack (`supabase/config.toml`) was being set up for development; whether its Docker images finished downloading is unknown.
+
+**Next, in order:**
+
+1. App: "Include unverified" switch on Results, "Not verified" and "Listed by the community" labels, Report action on the profile.
+2. Sign-in with an email code (Supabase Auth), then provider sign-up (form, pin drop, proof photo, hours, contact-count switch).
+3. Reviews, provider stats screen, share link and QR code.
+4. Deployment (Supabase hosted database, API host, Play Store).
+5. AI search and the AI verification assistant.
+
+**Local servers are not permanent:** the backend (`uvicorn app.main:app --host 0.0.0.0`) and the Expo server stop when the Claude Code session that started them ends. Restart both before testing on the phone.
+
 
 ### 2026-11-15 — app screens for favourites, hours, contact count and suggestions
 
