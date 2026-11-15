@@ -53,6 +53,7 @@ export const ar: Strings = {
     searchPlaceholder: 'ابحث بالاسم',
     searchHint: 'اكتب حرفين أو أكتر وبعدين ابحث.',
     clearSearch: 'امحي الاسم',
+    suggest: 'بتعرف حدا شاطر؟ اقترحه',
   },
 
   results: {
@@ -111,7 +112,37 @@ export const ar: Strings = {
     stars: '{n} نجوم من 5',
   },
 
+  hours: {
+    title: 'أوقات الدوام',
+    openNow: 'فاتح هلّق',
+    closedNow: 'مسكّر',
+    closedDay: 'مسكّر',
+    today: 'اليوم',
+    am: 'ص',
+    pm: 'م',
+    time: '{h}:{mm} {period}',
+    range: 'من {open} لـ {close}',
+    days: {
+      mon: 'الاثنين',
+      tue: 'الثلاثاء',
+      wed: 'الأربعاء',
+      thu: 'الخميس',
+      fri: 'الجمعة',
+      sat: 'السبت',
+      sun: 'الأحد',
+    },
+  },
+
   provider: {
+    // Arabic counts in four ways: one, two, 3 to 10, and 11 and up (see pluralForm in index.tsx).
+    contactCount: {
+      zero: '',
+      one: 'شخص واحد تواصل معه هالشهر',
+      two: 'شخصين تواصلوا معه هالشهر',
+      few: '{n} أشخاص تواصلوا معه هالشهر',
+      many: '{n} شخص تواصلوا معه هالشهر',
+      other: '{n} شخص تواصلوا معه هالشهر',
+    },
     whatsapp: 'واتساب',
     call: 'اتصال',
     whatsappLabel: 'راسل {name} على واتساب',
@@ -152,6 +183,34 @@ export const ar: Strings = {
     directions: 'دلّني عالطريق',
     directionsLabel: 'افتح الطريق لعند {name} بتطبيق الخرائط',
     directionsFailed: 'ما قدرنا نفتح تطبيق الخرائط.',
+  },
+
+  suggest: {
+    title: 'اقترح حدا',
+    intro: 'خبّرنا عن معلّم أو محل بتوثق فيه، ونحنا مندعيه على حدّك.',
+    optional: 'اختياري',
+    name: 'اسمه أو اسم المحل',
+    namePlaceholder: 'خيّاط أبو علي',
+    nameRequired: 'اكتب الاسم لنعرف عن مين عم نفتّش.',
+    phone: 'رقم التلفون',
+    phoneHint: 'مع رمز البلد، متل {example}',
+    phoneInvalid: 'اكتب الرقم مع رمز البلد، متل {example}.',
+    category: 'شو شغله؟',
+    categoryChoose: 'اختار فئة',
+    categorySearch: 'فتّش بالفئات',
+    categoryNone: 'ما في فئة بهالاسم',
+    categoryClear: 'شيل الفئة',
+    area: 'المنطقة',
+    areaPlaceholder: 'المزرعة',
+    note: 'بدّك تضيف شي؟',
+    notePlaceholder: 'شو اللي بيميّزه؟',
+    privacy: 'ما منحفظ أي شي عنّك.',
+    submit: 'ابعت الاقتراح',
+    rateLimited: 'بعتت كم اقتراح. جرّب مرة تانية بعدين.',
+    failed: 'ما قدرنا نبعته. تأكّد من الإنترنت وجرّب مرة تانية.',
+    successTitle: 'شكراً، رح نتواصل معه',
+    successBody: 'إذا انضمّ، بتلاقيه على حدّك مع ختم «موثّق».',
+    successAction: 'رجوع للرئيسية',
   },
 
   saved: {

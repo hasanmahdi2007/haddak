@@ -1,3 +1,5 @@
+import { isOpenAt } from '@/lib/hours';
+
 import { MOCK_CATEGORIES, MOCK_PROVIDERS, REVIEW_AUTHORS, REVIEW_COMMENTS } from './mockData';
 import {
   ApiError,
@@ -70,6 +72,8 @@ function toSummary(provider: ProviderDetail, distance_m: number | null): Provide
     lng,
     distance_m,
     cover_photo_url,
+    // The backend works this out in Lebanon time; the mock uses the device clock.
+    open_now: isOpenAt(provider.opening_hours, new Date()),
   };
 }
 
@@ -118,6 +122,8 @@ export function createMockApi(): HaddakApi & { controls: MockControls } {
   let failures = 0;
   const events: Record<string, Record<ContactEventType, number>> = {};
   const reviewCache = new Map<string, Review[]>();
+  // Times of the suggestions sent in this session, for the 5-per-hour limit.
+  let suggestionTimes: number[] = [];
 
   async function respond<T>(build: () => T): Promise<T> {
     // A realistic pause so loading states are visible.
@@ -141,6 +147,7 @@ export function createMockApi(): HaddakApi & { controls: MockControls } {
       // The backend always returns a WhatsApp number, falling back to the phone.
       whatsapp: provider.whatsapp ?? provider.phone,
       distance_m: from ? Math.round(haversineM(from, provider)) : null,
+      open_now: isOpenAt(provider.opening_hours, new Date()),
     };
   }
 
@@ -200,6 +207,30 @@ export function createMockApi(): HaddakApi & { controls: MockControls } {
         const counts = (events[providerId] ??= { view: 0, whatsapp: 0, call: 0 });
         counts[type] += 1;
         if (__DEV__) console.log(`[mock] contact event: ${type} for ${providerId}`);
+      }),
+
+    submitSuggestion: (input) =>
+      respond(() => {
+        const now = Date.now();
+        suggestionTimes = suggestionTimes.filter((time) => now - time < 3_600_000);
+        if (suggestionTimes.length >= 5) {
+          const waitS = Math.ceil((suggestionTimes[0] + 3_600_000 - now) / 1000);
+          throw new ApiError(429, 'Too many requests', waitS);
+        }
+        // Like the backend, a request refused for a validation error still counts.
+        suggestionTimes.push(now);
+        const name = input.name.trim();
+        if (name.length < 1 || name.length > 100) throw new ApiError(422, 'name must be 1 to 100 characters');
+        if (input.phone !== undefined && !/^\+\d{8,15}$/.test(input.phone)) {
+          throw new ApiError(422, 'phone must be in international format');
+        }
+        if ((input.area_name ?? '').length > 100) throw new ApiError(422, 'area_name is too long');
+        if ((input.note ?? '').length > 500) throw new ApiError(422, 'note is too long');
+        if (input.category_id !== undefined && !MOCK_CATEGORIES.some((c) => c.id === input.category_id)) {
+          throw new ApiError(400, 'Unknown category');
+        }
+        if (__DEV__) console.log('[mock] suggestion:', input);
+        return { id: `00000000-0000-4000-9000-${String(now).slice(-12).padStart(12, '0')}` };
       }),
 
     upsertMyReview: () => Promise.reject(new ApiError(401, NOT_IN_MOCK)),

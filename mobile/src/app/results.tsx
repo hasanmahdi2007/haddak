@@ -173,6 +173,14 @@ export default function ResultsScreen() {
                   : s.results.emptyCityAction
             }
             onAction={() => (wider ? setRadiusM(wider) : goBack())}
+            // Nobody here yet: the user may know who is missing.
+            secondaryLabel={s.home.suggest}
+            onSecondary={() =>
+              router.push({
+                pathname: '/suggest',
+                params: categoryId !== undefined ? { category_id: String(categoryId) } : {},
+              })
+            }
           />
         </View>
       ) : mode === 'map' ? (

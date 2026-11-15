@@ -202,6 +202,24 @@ Favourites are kept on the phone only (AsyncStorage): no account, no backend. Ea
 - **Saved screen:** back arrow and the `headline` title. Short cards with the result card's edge and radius: 64 dp photo or category icon, name (`title`, one line), "category · area" (`label`, muted). The card opens the profile; the filled coral heart at its end removes it at once. A `caption` line under the list says they are saved on this phone only.
 - **Empty:** the usual `StateView` with a heart, "Nothing saved yet", and a button back to search.
 
+### Open indicator (`OpenStatus`)
+"Open now" or "Closed" with an 8 dp dot before the words, from the API's `open_now`. Open: a filled `success` dot and `success` text. Closed: a hollow `textSubtle` ring and `textMuted` text. The words and the dot's shape carry the state, not colour alone. Nothing is drawn when `open_now` is `null` (the provider gave no hours). It is the last item in the badges row of a result card and in the facts line of the map's docked card, and both cards say it in their spoken description.
+
+### Opening hours (on the profile)
+A section between Get directions and About, hidden when `opening_hours` is `null`. The `title` heading has the open indicator at its end. Under it, the seven days from Monday to Sunday: the day name at the start, its hours at the end (`data`). A day with a break shows its periods one under the other; a day without hours says "Closed" in `textMuted`. **Today** is an aqua band (`surfaceTint`, radius `md`) with `bodyStrong` text and the word "Today" beside the day name. Times are 12-hour in both languages ("9:00 AM", "9:00 ص"). Each time is its own piece of text in a row that follows the reading direction, so in Arabic the opening time sits on the right. Each day is read as one line by a screen reader ("Monday, Today, 9:00 AM to 1:00 PM, 3:00 PM to 7:00 PM").
+
+### Contact count (on the profile)
+One quiet line under the verified line and badges: a small `textSubtle` people icon and "12 people contacted this month" in `label`, `textMuted`. Shown only when `contacts_this_month` is a number above 0 (the provider chooses to show it). It is a fact, not a badge: no fill, no colour. Arabic uses the plural forms (one, two, 3 to 10, 11 and up).
+
+### Suggest a provider (`src/app/suggest.tsx`, `TextLink`)
+- **Entry:** a `TextLink` ("Know someone good? Suggest them"): underlined `primary` `label` text in a 48 dp target, announced as a link. Under the Home categories, and under the button of the Results empty state (`StateView`'s secondary action).
+- **Form:** back arrow and `headline` title, one muted sentence, then the fields 20 dp apart. Every field has its `label` above it, with "(optional)" in `textSubtle`; a placeholder is only ever an example. Fields are the Home search field: `surfaceTint`, radius `lg`, 48 dp, a 1.5 dp border that turns `primary` on focus and `danger` on an error.
+- **Phone:** phone keyboard, always left to right, with a `caption` hint showing the format. Spaces and dashes are removed and a leading `00` becomes `+` before sending.
+- **Category:** the field opens a panel under it (`surface`, 1.5 dp `surfaceTintStrong` edge): a search box, then top-level categories (`bodyStrong`) each followed by its sub-categories with the parent in `caption`. Rows are 48 dp; the chosen one has a teal check. A chosen category shows an X to clear it.
+- **Errors:** checked on Send, then while typing. The message replaces the hint under its field: a small alert icon and `danger` `label` text, announced as an alert; focus moves to the first field with a problem.
+- **Send:** a primary button docked at the bottom, above the keyboard, with a spinner while sending. A failure shows a `dangerSoft` notice above it: "You've sent a few already. Try again later." for the limit (429), otherwise a message to check the connection and try again.
+- **Success:** the usual `StateView` with a handshake icon, "Thanks, we'll contact them" and a button back to Home.
+
 ### States (`StateView`, `Skeleton`)
 - **Loading**: aqua skeleton blocks (`surfaceTintStrong`) in the shape of the content: tiles, cards with their aqua strip, the profile. Never a centred spinner.
 - **Empty**: an 88 dp aqua disc with a teal icon and the coral dot at its top end corner; a `headline` title that says what happened ("No one within 500 m yet"), one sentence, and one button that fixes it (search the next distance).

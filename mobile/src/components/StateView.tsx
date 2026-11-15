@@ -5,6 +5,7 @@ import { useI18n } from '@/i18n';
 import { makeStyles, radius, size, space, useTheme } from '@/theme';
 
 import { Button, type ButtonVariant } from './Button';
+import { TextLink } from './TextLink';
 import { Txt } from './Txt';
 
 interface Props {
@@ -14,6 +15,9 @@ interface Props {
   actionLabel?: string;
   onAction?: () => void;
   actionVariant?: ButtonVariant;
+  /** A second, quieter way forward, drawn as a text link under the button. */
+  secondaryLabel?: string;
+  onSecondary?: () => void;
   /** Errors are announced to screen readers as alerts and drawn in the error colours. */
   alert?: boolean;
 }
@@ -30,6 +34,8 @@ export function StateView({
   actionLabel,
   onAction,
   actionVariant = 'primary',
+  secondaryLabel,
+  onSecondary,
   alert = false,
 }: Props) {
   const { colors } = useTheme();
@@ -55,6 +61,9 @@ export function StateView({
       </View>
       {actionLabel && onAction ? (
         <Button label={actionLabel} onPress={onAction} variant={actionVariant} style={styles.action} />
+      ) : null}
+      {secondaryLabel && onSecondary ? (
+        <TextLink label={secondaryLabel} onPress={onSecondary} style={styles.secondary} />
       ) : null}
     </View>
   );
@@ -95,5 +104,9 @@ const useStyles = makeStyles((c) => ({
   action: {
     alignSelf: 'stretch',
     marginTop: space.xs,
+  },
+  // Pulled up towards the button: the link's own 48 dp box already gives it air.
+  secondary: {
+    marginTop: -space.md,
   },
 }));

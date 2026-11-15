@@ -7,6 +7,7 @@ import type { RadiusM } from '@/lib/radius';
 import { makeStyles, radius, size, space, useTheme } from '@/theme';
 
 import { FeaturedTag, VerifiedBadge } from './Badges';
+import { OpenStatus } from './OpenStatus';
 import { Photo } from './Photo';
 import { Rating } from './Rating';
 import { Txt } from './Txt';
@@ -142,6 +143,7 @@ export function MapProviderCard({ provider, onPress }: DockProps) {
     place,
     provider.verified ? s.badges.verified : null,
     provider.featured ? s.badges.featuredLabel : null,
+    provider.open_now === null ? null : provider.open_now ? s.hours.openNow : s.hours.closedNow,
     plural(s.rating.label, provider.review_count, { rating: provider.avg_rating.toFixed(1) }),
     provider.distance_m !== null ? f(s.provider.away, { distance: distance(provider.distance_m) }) : null,
   ]
@@ -184,6 +186,7 @@ export function MapProviderCard({ provider, onPress }: DockProps) {
               </Txt>
             </View>
           ) : null}
+          <OpenStatus open={provider.open_now} />
         </View>
       </View>
     </Pressable>

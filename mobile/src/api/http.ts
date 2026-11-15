@@ -16,6 +16,7 @@ import {
   type ReviewInput,
   type ReviewListParams,
   type SearchParams,
+  type SuggestionInput,
 } from './types';
 
 type Query = Record<string, string | number | undefined>;
@@ -84,7 +85,13 @@ export function createHttpApi(
       } catch {
         // Keep the generic message.
       }
-      throw new ApiError(response.status, detail);
+      // Retry-After is in seconds; only rate-limited (429) answers carry it.
+      const retryAfter = Number(response.headers.get('Retry-After'));
+      throw new ApiError(
+        response.status,
+        detail,
+        Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : null,
+      );
     }
 
     if (response.status === 204) return undefined as T;
@@ -112,6 +119,8 @@ export function createHttpApi(
         method: 'POST',
         body: { type },
       }),
+    submitSuggestion: (input: SuggestionInput) =>
+      request<{ id: string }>('/suggestions', { method: 'POST', body: input }),
 
     upsertMyReview: (providerId: string, input: ReviewInput) =>
       request<Review>(`/providers/${id(providerId)}/reviews/mine`, {

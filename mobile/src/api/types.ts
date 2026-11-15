@@ -42,7 +42,17 @@ export interface ProviderSummary {
   /** Null in ProviderDetail unless lat and lng were passed. */
   distance_m: number | null;
   cover_photo_url: string | null;
+  /** Open at this moment (Lebanon time). Null when the provider gave no opening hours. */
+  open_now: boolean | null;
 }
+
+export type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+
+/** One opening period: 24-hour "HH:MM" strings, open before close, never across midnight. */
+export type TimeRange = [open: string, close: string];
+
+/** A missing day (or an empty list) means closed that day. */
+export type OpeningHours = Partial<Record<DayKey, TimeRange[]>>;
 
 export interface ProviderDetail extends ProviderSummary {
   description: string;
@@ -51,6 +61,10 @@ export interface ProviderDetail extends ProviderSummary {
   whatsapp: string | null;
   photos: string[];
   created_at: string;
+  /** Null means the provider did not give opening hours. */
+  opening_hours: OpeningHours | null;
+  /** WhatsApp taps and calls this month. Null unless the provider chose to show it. */
+  contacts_this_month: number | null;
 }
 
 export type ProviderStatus = 'pending' | 'verified' | 'rejected';
@@ -139,13 +153,29 @@ export interface AdminProviderPatch {
   featured_until?: string | null;
 }
 
+/** Body of POST /suggestions. Only `name` is required. */
+export interface SuggestionInput {
+  /** 1 to 100 characters. */
+  name: string;
+  /** International format: "+" and 8 to 15 digits. */
+  phone?: string;
+  category_id?: number;
+  /** Up to 100 characters. */
+  area_name?: string;
+  /** Up to 500 characters. */
+  note?: string;
+}
+
 /** Error body: {"detail": "human-readable message"}. */
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, detail: string) {
+  /** Seconds to wait, from the Retry-After header of a 429 (too many requests). */
+  retryAfterS: number | null;
+  constructor(status: number, detail: string, retryAfterS: number | null = null) {
     super(detail);
     this.name = 'ApiError';
     this.status = status;
+    this.retryAfterS = retryAfterS;
   }
 }
 
@@ -158,6 +188,8 @@ export interface HaddakApi {
   getProviderBySlug(slug: string, from?: Coordinates): Promise<ProviderDetail>;
   getReviews(providerId: string, params?: ReviewListParams): Promise<Page<Review>>;
   logContactEvent(providerId: string, type: ContactEventType): Promise<void>;
+  /** Suggest a provider who is not on Haddak yet. 429 after 5 in an hour. */
+  submitSuggestion(input: SuggestionInput): Promise<{ id: string }>;
 
   // Auth endpoints. Typed and wired now; the screens that use them are tasks M6 and M7.
   upsertMyReview(providerId: string, input: ReviewInput): Promise<Review>;

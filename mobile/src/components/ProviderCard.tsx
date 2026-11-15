@@ -6,6 +6,7 @@ import { useI18n } from '@/i18n';
 import { makeStyles, radius, size, space, useTheme } from '@/theme';
 
 import { FeaturedTag, FoundingBadge, VerifiedBadge } from './Badges';
+import { OpenStatus } from './OpenStatus';
 import { Photo } from './Photo';
 import { Rating } from './Rating';
 import { Txt } from './Txt';
@@ -25,7 +26,8 @@ export function ProviderCard({ provider, onPress }: Props) {
   const { colors } = useTheme();
   const { s, f, row, plural, categoryName, distance } = useI18n();
   const styles = useStyles();
-  const hasBadges = provider.verified || provider.featured || provider.founding_member;
+  const hasBadges =
+    provider.verified || provider.featured || provider.founding_member || provider.open_now !== null;
   const place = `${categoryName(provider.category)} · ${provider.area_name}`;
 
   // The whole card is one button, so it gets one spoken description.
@@ -35,6 +37,7 @@ export function ProviderCard({ provider, onPress }: Props) {
     provider.verified ? s.badges.verified : null,
     provider.featured ? s.badges.featuredLabel : null,
     provider.founding_member ? s.badges.founding : null,
+    provider.open_now === null ? null : provider.open_now ? s.hours.openNow : s.hours.closedNow,
     plural(s.rating.label, provider.review_count, { rating: provider.avg_rating.toFixed(1) }),
     provider.distance_m !== null ? f(s.provider.away, { distance: distance(provider.distance_m) }) : null,
     provider.price_text,
@@ -69,6 +72,7 @@ export function ProviderCard({ provider, onPress }: Props) {
               {provider.verified ? <VerifiedBadge decorative /> : null}
               {provider.featured ? <FeaturedTag /> : null}
               {provider.founding_member ? <FoundingBadge /> : null}
+              <OpenStatus open={provider.open_now} />
             </View>
           ) : null}
         </View>

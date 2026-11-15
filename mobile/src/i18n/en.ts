@@ -47,6 +47,7 @@ export const en = {
     searchPlaceholder: 'Search by name',
     searchHint: 'Type at least 2 letters, then search.',
     clearSearch: 'Clear the name',
+    suggest: 'Know someone good? Suggest them',
   },
 
   results: {
@@ -105,7 +106,37 @@ export const en = {
     stars: '{n} out of 5 stars',
   },
 
+  hours: {
+    title: 'Opening hours',
+    openNow: 'Open now',
+    closedNow: 'Closed',
+    closedDay: 'Closed',
+    today: 'Today',
+    am: 'AM',
+    pm: 'PM',
+    time: '{h}:{mm} {period}',
+    /** Spoken by screen readers; on screen the two times sit either side of a dash. */
+    range: '{open} to {close}',
+    days: {
+      mon: 'Monday',
+      tue: 'Tuesday',
+      wed: 'Wednesday',
+      thu: 'Thursday',
+      fri: 'Friday',
+      sat: 'Saturday',
+      sun: 'Sunday',
+    },
+  },
+
   provider: {
+    contactCount: {
+      zero: '',
+      one: '1 person contacted this month',
+      two: '2 people contacted this month',
+      few: '{n} people contacted this month',
+      many: '{n} people contacted this month',
+      other: '{n} people contacted this month',
+    },
     whatsapp: 'WhatsApp',
     call: 'Call',
     whatsappLabel: 'Message {name} on WhatsApp',
@@ -146,6 +177,34 @@ export const en = {
     directions: 'Get directions',
     directionsLabel: 'Get directions to {name} in your maps app',
     directionsFailed: "Couldn't open the maps app.",
+  },
+
+  suggest: {
+    title: 'Suggest someone',
+    intro: "Tell us about a professional or a shop you trust. We'll invite them to Haddak.",
+    optional: 'optional',
+    name: 'Their name or shop name',
+    namePlaceholder: 'Abu Ali Tailor',
+    nameRequired: 'Add their name so we know who to look for.',
+    phone: 'Phone number',
+    phoneHint: 'With the country code, like {example}',
+    phoneInvalid: 'Write the number with the country code, like {example}.',
+    category: 'What do they do?',
+    categoryChoose: 'Choose a category',
+    categorySearch: 'Search categories',
+    categoryNone: 'No category with that name',
+    categoryClear: 'Clear the category',
+    area: 'Area',
+    areaPlaceholder: 'Mazraa',
+    note: 'Anything to add?',
+    notePlaceholder: 'What makes them good?',
+    privacy: "We don't save anything about you.",
+    submit: 'Send suggestion',
+    rateLimited: "You've sent a few already. Try again later.",
+    failed: "Couldn't send it. Check your connection and try again.",
+    successTitle: "Thanks, we'll contact them",
+    successBody: "If they join, you'll find them on Haddak with the verified seal.",
+    successAction: 'Back to Home',
   },
 
   saved: {

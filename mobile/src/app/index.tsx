@@ -21,6 +21,7 @@ import { IconButton } from '@/components/IconButton';
 import { RadiusChips } from '@/components/RadiusChips';
 import { Skeleton } from '@/components/Skeleton';
 import { StateView } from '@/components/StateView';
+import { TextLink } from '@/components/TextLink';
 import { Txt } from '@/components/Txt';
 import { useI18n } from '@/i18n';
 import { useCategories, type CategoryNode } from '@/lib/categories';
@@ -321,6 +322,11 @@ export default function HomeScreen() {
               ))}
             </View>
           ) : null}
+
+          {/* A quiet way to tell Haddak about someone who is not listed yet. */}
+          {categories.status === 'ready' ? (
+            <TextLink label={s.home.suggest} onPress={() => router.push('/suggest')} style={styles.suggest} />
+          ) : null}
         </View>
       </ScrollView>
 
@@ -480,6 +486,9 @@ const useStyles = makeStyles((c) => ({
   cell: {
     flex: 1,
     minWidth: 0,
+  },
+  suggest: {
+    marginTop: space.md,
   },
   dock: {
     backgroundColor: c.surface,

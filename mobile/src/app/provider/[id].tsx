@@ -11,6 +11,7 @@ import {
   Phone,
   Share2,
   Star,
+  Users,
   UserX,
   WifiOff,
   X,
@@ -31,10 +32,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { api, type ContactEventType, type ProviderDetail, type Review } from '@/api';
+import { api, type ContactEventType, type OpeningHours, type ProviderDetail, type Review } from '@/api';
 import { FeaturedTag, FoundingBadge, Seal } from '@/components/Badges';
 import { Button } from '@/components/Button';
 import { IconButton } from '@/components/IconButton';
+import { OpenStatus } from '@/components/OpenStatus';
 import { Photo } from '@/components/Photo';
 import { Stars } from '@/components/Rating';
 import { Skeleton } from '@/components/Skeleton';
@@ -43,6 +45,7 @@ import { Txt } from '@/components/Txt';
 import { useI18n } from '@/i18n';
 import { directionsUrl, shareUrl, telUrl, whatsappUrl } from '@/lib/links';
 import { useFavourites } from '@/lib/favourites';
+import { DAY_KEYS, dayKeyOf, to12Hour } from '@/lib/hours';
 import { useLocation } from '@/lib/location';
 import { useAsync } from '@/lib/useAsync';
 import { makeStyles, motion, radius, size, space, useTheme } from '@/theme';
@@ -105,6 +108,89 @@ function Gallery({ provider, width }: { provider: ProviderDetail; width: number 
           </Txt>
         </View>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * The week from Monday to Sunday, with today marked and the open / closed status
+ * beside the title. A day with a break shows its periods one under the other.
+ */
+function OpeningHoursSection({ hours, open }: { hours: OpeningHours; open: boolean | null }) {
+  const { s, f, row, alignStart } = useI18n();
+  const styles = useStyles();
+  // Read the clock once, when the section first shows.
+  const [today] = useState(() => dayKeyOf(new Date()));
+  const alignEnd = alignStart === 'flex-start' ? 'flex-end' : 'flex-start';
+
+  // "15:00" -> "3:00 PM", or "3:00 م" in Arabic.
+  const clock = (time: string) => {
+    const { h, mm, pm } = to12Hour(time);
+    return f(s.hours.time, { h, mm, period: pm ? s.hours.pm : s.hours.am });
+  };
+
+  return (
+    <View style={styles.section}>
+      <View style={[styles.hoursHead, { flexDirection: row }]}>
+        <Txt role="title" accessibilityRole="header" style={styles.sectionTitle}>
+          {s.hours.title}
+        </Txt>
+        <OpenStatus open={open} role="data" />
+      </View>
+
+      <View>
+        {DAY_KEYS.map((day) => {
+          const ranges = hours[day] ?? [];
+          const isToday = day === today;
+          const spoken = [
+            s.hours.days[day],
+            isToday ? s.hours.today : null,
+            ranges.length === 0
+              ? s.hours.closedDay
+              : ranges
+                  .map(([from, to]) => f(s.hours.range, { open: clock(from), close: clock(to) }))
+                  .join(', '),
+          ]
+            .filter(Boolean)
+            .join(', ');
+          return (
+            <View
+              key={day}
+              accessible
+              accessibilityLabel={spoken}
+              style={[styles.hoursRow, { flexDirection: row }, isToday ? styles.hoursToday : null]}
+            >
+              <View style={[styles.hoursDay, { flexDirection: row }]}>
+                <Txt role={isToday ? 'bodyStrong' : 'body'}>{s.hours.days[day]}</Txt>
+                {isToday ? (
+                  <Txt role="caption" color="onPrimarySoft">
+                    {s.hours.today}
+                  </Txt>
+                ) : null}
+              </View>
+              <View style={{ alignItems: alignEnd }}>
+                {ranges.length === 0 ? (
+                  <Txt role="data" color="textMuted">
+                    {s.hours.closedDay}
+                  </Txt>
+                ) : (
+                  // Each time is its own piece of text in a row that follows the reading
+                  // direction, so in Arabic the opening time is on the right, as it is read.
+                  ranges.map(([from, to]) => (
+                    <View key={from} style={[styles.hoursRange, { flexDirection: row }]}>
+                      <Txt role={isToday ? 'bodyStrong' : 'data'}>{clock(from)}</Txt>
+                      <Txt role="data" color="textMuted">
+                        –
+                      </Txt>
+                      <Txt role={isToday ? 'bodyStrong' : 'data'}>{clock(to)}</Txt>
+                    </View>
+                  ))
+                )}
+              </View>
+            </View>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -386,6 +472,16 @@ export default function ProviderScreen() {
                   {provider.founding_member ? <FoundingBadge /> : null}
                 </View>
               ) : null}
+
+              {/* Shown only when the provider chose to, and only when there is something to say. */}
+              {provider.contacts_this_month !== null && provider.contacts_this_month > 0 ? (
+                <View style={[styles.contactCount, { flexDirection: row }]}>
+                  <Users color={colors.textSubtle} size={size.iconSmall} strokeWidth={size.stroke} />
+                  <Txt role="label" color="textMuted" style={styles.verifiedText}>
+                    {plural(s.provider.contactCount, provider.contacts_this_month)}
+                  </Txt>
+                </View>
+              ) : null}
             </View>
 
             {/* The facts and the way there read as one group. */}
@@ -446,6 +542,10 @@ export default function ProviderScreen() {
               onPress={() => void directions(provider)}
             />
             </View>
+
+            {provider.opening_hours ? (
+              <OpeningHoursSection hours={provider.opening_hours} open={provider.open_now} />
+            ) : null}
 
             {provider.description ? (
               <View style={styles.section}>
@@ -614,8 +714,38 @@ const useStyles = makeStyles((c) => ({
     gap: space.sm,
     marginTop: space.sm,
   },
+  contactCount: {
+    alignItems: 'center',
+    gap: space.sm,
+    marginTop: space.sm,
+  },
   factsGroup: {
     gap: space.sm,
+  },
+  hoursHead: {
+    alignItems: 'center',
+    gap: space.md,
+  },
+  hoursRow: {
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: space.md,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderRadius: radius.md,
+  },
+  // Today: an aqua band, heavier text and the word "Today".
+  hoursToday: {
+    backgroundColor: c.surfaceTint,
+  },
+  hoursDay: {
+    flex: 1,
+    alignItems: 'center',
+    gap: space.sm,
+  },
+  hoursRange: {
+    alignItems: 'center',
+    gap: space.xs,
   },
   facts: {
     backgroundColor: c.surfaceTint,

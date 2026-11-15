@@ -3,7 +3,7 @@
  * the reviews and the prices. Photos are placeholder stock images.
  * The real seed data lives in the backend.
  */
-import type { Category, ProviderDetail } from './types';
+import type { Category, DayKey, OpeningHours, ProviderDetail, TimeRange } from './types';
 
 /** Haret Hreik: the seed area and the fallback when location is unavailable. */
 export const HARET_HREIK = { lat: 33.8547, lng: 35.5097 } as const;
@@ -578,6 +578,28 @@ function categoryRef(id: number) {
   return { id, slug, name_en, name_ar, icon };
 }
 
+// Opening hours, shared out by position in the list so the mock shows every case:
+// a split day, a short Saturday, long days, evenings only, and no hours given.
+const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri'] as const;
+const everyDay = (ranges: TimeRange[], days: readonly DayKey[]): OpeningHours =>
+  Object.fromEntries(days.map((day) => [day, ranges]));
+
+const HOURS_PATTERNS: (OpeningHours | null)[] = [
+  // Shop with a lunch break, a short Saturday, closed on Sunday.
+  { ...everyDay([['09:00', '13:00'], ['15:00', '19:00']], WEEKDAYS), sat: [['10:00', '14:00']] },
+  // Open long hours every day.
+  everyDay([['08:00', '22:00']], [...WEEKDAYS, 'sat', 'sun']),
+  // Mornings only, Monday to Saturday.
+  everyDay([['08:00', '14:00']], [...WEEKDAYS, 'sat']),
+  // Afternoons and evenings (after-school teachers), closed on Friday.
+  everyDay([['15:00', '21:00']], ['mon', 'tue', 'wed', 'thu', 'sat', 'sun']),
+  // Hours not provided.
+  null,
+];
+
+/** Providers (by position) that chose to show how many people contacted them this month. */
+const CONTACT_COUNTS: Record<number, number> = { 0: 12, 1: 31, 3: 2, 6: 1, 10: 104, 14: 7 };
+
 /** Stable fake UUID so links keep working between reloads. */
 const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
@@ -605,6 +627,10 @@ export const MOCK_PROVIDERS: ProviderDetail[] = SEEDS.map((seed, index) => {
     whatsapp: seed.whatsapp ?? null,
     photos: seed.photos,
     created_at: seed.joined,
+    opening_hours: HOURS_PATTERNS[index % HOURS_PATTERNS.length],
+    contacts_this_month: CONTACT_COUNTS[index] ?? null,
+    // Filled in per request from the clock (see mock.ts).
+    open_now: null,
   };
 });
 
