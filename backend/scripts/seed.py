@@ -287,9 +287,11 @@ def seed_provider(
         "This is sample text for development; real providers write their own."
     )
     provider.price_text = price
-    provider.phone = f"+96170{100000 + number * 1111}"
+    # Sample numbers must never reach a real person. Lebanese numbers never
+    # start with 0 after +961, so +9610000xxxx cannot be dialled or messaged.
+    provider.phone = f"+9610000{1000 + number}"
     # Every third provider has a separate WhatsApp number; the rest use the phone.
-    provider.whatsapp = f"+96171{200000 + number * 1111}" if number % 3 == 0 else None
+    provider.whatsapp = f"+9610000{5000 + number}" if number % 3 == 0 else None
     provider.location = point_for_storage(lat, lng)
     provider.area_name = area
     if "no-photos" in flags:

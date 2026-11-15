@@ -70,7 +70,7 @@ export default function ResultsScreen() {
       ? plural(s.results.count, search.data.total, { where })
       : search.status === 'loading'
         ? f(s.results.searching, { where })
-        : '';
+        : ' ';
 
   const BackIcon = rtl ? ArrowRight : ArrowLeft;
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));

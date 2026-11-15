@@ -17,7 +17,8 @@ const mock = isMockMode ? createMockApi() : null;
 
 export const api: HaddakApi = mock ?? createHttpApi(baseUrl);
 
-// Development only: lets the screenshot script trigger the error state in mock mode.
-if (__DEV__ && mock) {
+// Lets the screenshot script trigger the error state in mock mode. Off in normal
+// builds: only in development, or when EXPO_PUBLIC_MOCK_CONTROLS=1 is set on purpose.
+if (mock && (__DEV__ || process.env.EXPO_PUBLIC_MOCK_CONTROLS === '1')) {
   (globalThis as { __haddakMock?: unknown }).__haddakMock = mock.controls;
 }

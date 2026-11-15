@@ -149,10 +149,14 @@ export function createMockApi(): HaddakApi & { controls: MockControls } {
 
     getCategories: () => respond(() => MOCK_CATEGORIES),
 
-    searchProviders: ({ lat, lng, radius_m, category_id, limit = 30, offset = 0 }) =>
+    searchProviders: ({ lat, lng, radius_m, category_id, q, limit = 30, offset = 0 }) =>
       respond(() => {
         if (radius_m < 100 || radius_m > 50_000) {
           throw new ApiError(422, 'radius_m must be between 100 and 50000');
+        }
+        const name = q?.trim().toLowerCase();
+        if (name !== undefined && (name.length < 2 || name.length > 60)) {
+          throw new ApiError(422, 'q must be between 2 and 60 characters');
         }
         // The category itself plus its direct children (one level).
         const categoryIds =
@@ -165,6 +169,7 @@ export function createMockApi(): HaddakApi & { controls: MockControls } {
 
         const matches = MOCK_PROVIDERS.filter((p) => p.verified)
           .filter((p) => !categoryIds || categoryIds.has(p.category.id))
+          .filter((p) => !name || p.name.toLowerCase().includes(name))
           .map((p) => toSummary(p, Math.round(haversineM({ lat, lng }, p))))
           .filter((p) => (p.distance_m ?? 0) <= radius_m);
 

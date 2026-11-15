@@ -257,6 +257,8 @@ export const size = {
   sealGap: 4,
   /** Gallery height as a share of its width. */
   galleryRatio: 0.72,
+  /** The same, when the provider has no photos. */
+  galleryRatioEmpty: 0.42,
   /** Stars in a review. */
   star: 14,
   /** Widest the content column grows on tablets and web. */

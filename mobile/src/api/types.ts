@@ -87,6 +87,8 @@ export interface SearchParams {
   /** 100 to 50000. */
   radius_m: number;
   category_id?: number;
+  /** 2 to 60 characters; keeps providers whose name contains it (case-insensitive). */
+  q?: string;
   limit?: number;
   offset?: number;
 }

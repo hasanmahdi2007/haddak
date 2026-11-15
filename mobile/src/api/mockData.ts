@@ -162,7 +162,7 @@ const SEEDS: ProviderSeed[] = [
     rating: 4.7,
     reviews: 23,
     founding: true,
-    phone: '+96170123456',
+    phone: '+96100001001',
     description:
       'Laptop repair for all brands: screens, keyboards, batteries, overheating and Windows reinstalls. Most repairs are done the same day, and you get the replaced part back. Diagnosis is free if you go ahead with the repair.',
     photos: [PHOTOS.laptop, PHOTOS.laptopCode, PHOTOS.craftTools],
@@ -178,7 +178,7 @@ const SEEDS: ProviderSeed[] = [
     rating: 4.4,
     reviews: 41,
     featured: true,
-    phone: '+96171234567',
+    phone: '+96100001002',
     description:
       'Phone screens, batteries and charging ports replaced while you wait. iPhone, Samsung, Xiaomi and Huawei. Three-month warranty on every part.',
     photos: [PHOTOS.craftTools],
@@ -193,7 +193,7 @@ const SEEDS: ProviderSeed[] = [
     price: 'Diagnosis $5',
     rating: 4.9,
     reviews: 8,
-    phone: '+96176345678',
+    phone: '+96100001003',
     description:
       'Motherboard-level repair and data recovery. I open the laptop in front of you and tell you honestly whether it is worth fixing.',
     photos: [PHOTOS.laptopCode, PHOTOS.laptop],
@@ -208,7 +208,7 @@ const SEEDS: ProviderSeed[] = [
     price: null,
     rating: 4.1,
     reviews: 12,
-    phone: '+96103456789',
+    phone: '+96100001004',
     description:
       'Washing machines, fridges, microwaves and TVs repaired at your home or in the shop. Original spare parts when available.',
     photos: [],
@@ -224,7 +224,7 @@ const SEEDS: ProviderSeed[] = [
     rating: 4.6,
     reviews: 57,
     founding: true,
-    phone: '+96170456789',
+    phone: '+96100001005',
     description:
       'Leaks, water heaters, pumps and full bathroom installations. Thirty years in the neighbourhood. Available for emergencies until 10 at night.',
     photos: [PHOTOS.pipes],
@@ -240,7 +240,7 @@ const SEEDS: ProviderSeed[] = [
     rating: 4.8,
     reviews: 34,
     founding: true,
-    phone: '+96171567890',
+    phone: '+96100001006',
     description:
       'Home wiring, breaker panels, generator and solar changeover switches, UPS and battery installation. Licensed electrician.',
     photos: [PHOTOS.electrician],
@@ -255,7 +255,7 @@ const SEEDS: ProviderSeed[] = [
     price: '$3 per m²',
     rating: 4.2,
     reviews: 9,
-    phone: '+96176678901',
+    phone: '+96100001007',
     description:
       'Interior and exterior painting, damp treatment and gypsum board. Free visit and quote.',
     photos: [PHOTOS.roller],
@@ -271,7 +271,7 @@ const SEEDS: ProviderSeed[] = [
     rating: 4.5,
     reviews: 18,
     featured: true,
-    phone: '+96103789012',
+    phone: '+96100001008',
     description:
       'Split AC installation, gas refill, cleaning and repair. Same-week appointments in summer.',
     photos: [],
@@ -286,7 +286,7 @@ const SEEDS: ProviderSeed[] = [
     price: '$20 per lesson',
     rating: 5.0,
     reviews: 6,
-    phone: '+96170890123',
+    phone: '+96100001009',
     description:
       'Saxophone lessons for beginners and returning players, alto and tenor. Conservatory graduate, ten years of teaching. The first lesson is a free trial, and I can lend you an instrument for the first month.',
     photos: [PHOTOS.brass, PHOTOS.sheetMusic, PHOTOS.studio],
@@ -302,7 +302,7 @@ const SEEDS: ProviderSeed[] = [
     rating: 4.9,
     reviews: 31,
     founding: true,
-    phone: '+96171901234',
+    phone: '+96100001010',
     description:
       'Piano for children from age six and for adults. Classical and oriental repertoire, preparation for conservatory exams.',
     photos: [PHOTOS.piano, PHOTOS.sheetMusic],
@@ -317,7 +317,7 @@ const SEEDS: ProviderSeed[] = [
     price: '$18 per lesson',
     rating: 4.7,
     reviews: 15,
-    phone: '+96176012345',
+    phone: '+96100001011',
     description:
       'Oud and maqam lessons, one to one or in small groups. Instruments available to rent.',
     photos: [PHOTOS.studio],
@@ -334,7 +334,7 @@ const SEEDS: ProviderSeed[] = [
     reviews: 44,
     founding: true,
     featured: true,
-    phone: '+96170112233',
+    phone: '+96100001012',
     description:
       'Math tutoring for grades 7 to 12, Lebanese and French programmes. Brevet and Terminale exam preparation, at my place or yours.',
     photos: [PHOTOS.writing, PHOTOS.books],
@@ -349,7 +349,7 @@ const SEEDS: ProviderSeed[] = [
     price: '$10 per hour',
     rating: 4.3,
     reviews: 19,
-    phone: '+96171223344',
+    phone: '+96100001013',
     description:
       'English and French conversation and school support. Small groups of four at most.',
     photos: [PHOTOS.studyGroup, PHOTOS.bookStack],
@@ -364,7 +364,7 @@ const SEEDS: ProviderSeed[] = [
     price: '$15 per hour',
     rating: 0,
     reviews: 0,
-    phone: '+96176334455',
+    phone: '+96100001014',
     description:
       'Physics and chemistry for secondary classes. Engineering graduate, new on Haddak.',
     photos: [PHOTOS.classroom],
@@ -379,8 +379,8 @@ const SEEDS: ProviderSeed[] = [
     price: 'Consultation $40',
     rating: 4.6,
     reviews: 62,
-    phone: '+96101445566',
-    whatsapp: '+96170445566',
+    phone: '+96100001015',
+    whatsapp: '+96100001016',
     description:
       'Dermatology clinic: acne, eczema, hair loss, moles and skin checks for children and adults. Appointments by WhatsApp, Monday to Saturday.',
     photos: [PHOTOS.stethoscope],
@@ -395,8 +395,8 @@ const SEEDS: ProviderSeed[] = [
     price: 'Consultation $60',
     rating: 4.9,
     reviews: 120,
-    phone: '+96101556677',
-    whatsapp: '+96103556677',
+    phone: '+96100001017',
+    whatsapp: '+96100001018',
     description:
       'Dermatologist, member of the Lebanese Order of Physicians. Medical and cosmetic dermatology, laser treatments.',
     photos: [PHOTOS.doctor, PHOTOS.stethoscope],
@@ -411,8 +411,8 @@ const SEEDS: ProviderSeed[] = [
     price: 'Checkup $20',
     rating: 4.5,
     reviews: 28,
-    phone: '+96101667788',
-    whatsapp: '+96171667788',
+    phone: '+96100001019',
+    whatsapp: '+96100001020',
     description:
       'General dentistry, fillings, whitening and braces. Evening appointments available.',
     photos: [],
@@ -427,8 +427,8 @@ const SEEDS: ProviderSeed[] = [
     price: 'Visit $30',
     rating: 4.7,
     reviews: 36,
-    phone: '+96101778899',
-    whatsapp: '+96176778899',
+    phone: '+96100001021',
+    whatsapp: '+96100001022',
     description: 'Pediatrician. Vaccinations, newborn follow-up and same-day sick visits.',
     photos: [PHOTOS.doctor],
     joined: '2026-10-03T09:00:00Z',
@@ -442,7 +442,7 @@ const SEEDS: ProviderSeed[] = [
     price: '$15 per class',
     rating: 4.8,
     reviews: 11,
-    phone: '+96170889900',
+    phone: '+96100001023',
     description:
       'Drawing, watercolour and acrylic classes for children and adults. All materials included.',
     photos: [PHOTOS.paints],
@@ -457,7 +457,7 @@ const SEEDS: ProviderSeed[] = [
     price: '$20 per class',
     rating: 5.0,
     reviews: 3,
-    phone: '+96171990011',
+    phone: '+96100001024',
     description:
       'Arabic calligraphy with Mahmoud Zein: ruqaa, naskh and diwani, from the first pen stroke.',
     photos: [],
@@ -473,8 +473,8 @@ const SEEDS: ProviderSeed[] = [
     rating: 4.6,
     reviews: 88,
     founding: true,
-    phone: '+96101001122',
-    whatsapp: '+96170001122',
+    phone: '+96100001025',
+    whatsapp: '+96100001026',
     description:
       'Baklava, maamoul and knefeh every morning, and trays to order for occasions. Family shop since 1994. Delivery inside Dahieh.',
     photos: [PHOTOS.pastry, PHOTOS.kitchen],
@@ -489,7 +489,7 @@ const SEEDS: ProviderSeed[] = [
     price: 'Cakes from $18',
     rating: 4.4,
     reviews: 25,
-    phone: '+96176112244',
+    phone: '+96100001027',
     description: 'Birthday and wedding cakes made to order, with two days of notice.',
     photos: [PHOTOS.kitchen],
     joined: '2026-10-09T09:00:00Z',
@@ -503,7 +503,7 @@ const SEEDS: ProviderSeed[] = [
     price: 'Haircut $5',
     rating: 4.3,
     reviews: 67,
-    phone: '+96170223355',
+    phone: '+96100001028',
     description:
       'Haircut, beard and hot-towel shave. No appointment needed, open until 9 at night.',
     photos: [PHOTOS.barber],
@@ -518,7 +518,7 @@ const SEEDS: ProviderSeed[] = [
     price: 'Inspection $10',
     rating: 4.5,
     reviews: 39,
-    phone: '+96103334466',
+    phone: '+96100001029',
     description:
       'Mechanics, brakes, oil change and computer diagnosis for all car makes. You see the old part before you pay.',
     photos: [PHOTOS.engine],
@@ -533,7 +533,7 @@ const SEEDS: ProviderSeed[] = [
     price: 'From $3',
     rating: 4.9,
     reviews: 14,
-    phone: '+96171445577',
+    phone: '+96100001030',
     description:
       'Trousers shortened, zips replaced, dresses and suits adjusted. Ready the next day.',
     photos: [],
@@ -548,7 +548,7 @@ const SEEDS: ProviderSeed[] = [
     price: '$8 per hour',
     rating: 4.0,
     reviews: 7,
-    phone: '+96176556688',
+    phone: '+96100001031',
     description:
       'House and office cleaning by trained teams of two. We bring our own supplies.',
     photos: [PHOTOS.cleaning],
@@ -563,7 +563,7 @@ const SEEDS: ProviderSeed[] = [
     price: '$15 per session',
     rating: 4.6,
     reviews: 21,
-    phone: '+96170667799',
+    phone: '+96100001032',
     description:
       'Personal training at home or outdoors: weight loss, strength and injury recovery.',
     photos: [],

@@ -28,6 +28,7 @@ Keep these docs current. When a decision, endpoint or table changes, change the 
 - UI work uses the installed design skills (`impeccable`, `design:*`) and follows `mobile/DESIGN.md`. No generic template look.
 - The founder is stronger in Java than Python and is learning FastAPI: keep backend code plain and readable, and explain non-obvious choices in short comments.
 - Never commit `.env` files or keys.
+- To understand code structure (where something is defined, who calls it, what a file depends on), query the Graphify code graph (`mcp__claude_ai_Graphify__*`, repository `hasanmahdi2007/haddak`) before opening files. It reflects the last pushed commit, so read the file itself for anything changed since. It does not index `docs/`.
 
 ## Commands
 

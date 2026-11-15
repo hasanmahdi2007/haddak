@@ -40,12 +40,17 @@ import { makeStyles, radius, size, space, useTheme } from '@/theme';
 
 const REVIEW_PAGE = 10;
 
+function galleryHeightFor(width: number, hasPhotos: boolean): number {
+  return Math.round(width * (hasPhotos ? size.galleryRatio : size.galleryRatioEmpty));
+}
+
 function Gallery({ provider, width }: { provider: ProviderDetail; width: number }) {
   const { s, f, start } = useI18n();
   const styles = useStyles();
   const [index, setIndex] = useState(0);
-  const height = Math.round(width * size.galleryRatio);
   const photos = provider.photos;
+  // Without photos the header is shorter, so the page does not open on an empty block.
+  const height = galleryHeightFor(width, photos.length > 0);
 
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const next = Math.round(event.nativeEvent.contentOffset.x / width);
@@ -227,7 +232,7 @@ export default function ProviderScreen() {
   }, [providerId]);
 
   const width = Math.min(window.width, size.maxContent);
-  const galleryHeight = Math.round(width * size.galleryRatio);
+  const galleryHeight = galleryHeightFor(width, (provider?.photos.length ?? 1) > 0);
   const BackIcon = rtl ? ArrowRight : ArrowLeft;
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
