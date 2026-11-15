@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { useI18n } from '@/i18n';
-import { makeStyles, opacity, radius, size, space, useTheme, type ColorTokens } from '@/theme';
+import { makeStyles, opacity, size, space, useTheme, type ColorTokens } from '@/theme';
 
 import { Txt } from './Txt';
 
@@ -86,10 +86,10 @@ export function Button({
   );
 }
 
-const useStyles = makeStyles(() => ({
+const useStyles = makeStyles((_c, look) => ({
   base: {
     minHeight: size.button,
-    borderRadius: radius.lg,
+    borderRadius: look.buttonRadius,
     paddingHorizontal: space.xl,
     paddingVertical: space.md,
     alignItems: 'center',

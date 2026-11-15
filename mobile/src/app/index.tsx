@@ -19,14 +19,12 @@ import { useLocation } from '@/lib/location';
 import { DEFAULT_RADIUS, type RadiusM } from '@/lib/radius';
 import { makeStyles, radius, size, space, useTheme } from '@/theme';
 
-const COLUMNS = 3;
-
 /** Split a list into grid rows, padding the last row so tiles keep their width. */
-function toRows<T>(items: T[]): (T | null)[][] {
+function toRows<T>(items: T[], columns: number): (T | null)[][] {
   const rows: (T | null)[][] = [];
-  for (let i = 0; i < items.length; i += COLUMNS) {
-    const row: (T | null)[] = items.slice(i, i + COLUMNS);
-    while (row.length < COLUMNS) row.push(null);
+  for (let i = 0; i < items.length; i += columns) {
+    const row: (T | null)[] = items.slice(i, i + columns);
+    while (row.length < columns) row.push(null);
     rows.push(row);
   }
   return rows;
@@ -35,8 +33,8 @@ function toRows<T>(items: T[]): (T | null)[][] {
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { colors } = useTheme();
-  const { s, f, row, rtl, language, setLanguage, categoryName } = useI18n();
+  const { colors, look } = useTheme();
+  const { s, f, row, rtl, end, alignStart, language, setLanguage, categoryName } = useI18n();
   const styles = useStyles();
   const location = useLocation();
   const categories = useCategories();
@@ -66,6 +64,11 @@ export default function HomeScreen() {
     });
   };
 
+  // Tiles take the option's tile colours in turn, by their position in the grid.
+  const toneAt = (index: number) => look.tones[index % look.tones.length];
+  const tileHeight = look.tile === 'row' ? size.tileRow : size.tile;
+  const columnList = Array.from({ length: look.columns }, (_, i) => i);
+
   const BackIcon = rtl ? ArrowRight : ArrowLeft;
   const LocationIcon = location.status === 'located' ? LocateFixed : MapPin;
   const locationText =
@@ -77,14 +80,30 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
-      <View style={[styles.shell, { paddingTop: insets.top + space.sm }]}>
+      <View
+        style={[
+          styles.shell,
+          look.header === 'wash' ? styles.shellWash : null,
+          { paddingTop: insets.top + space.sm },
+        ]}
+      >
+        {/* The sun: a yellow disc half out of the corner. Decoration only. */}
+        {look.header === 'wash' ? <View style={[styles.sun, end(-size.sun / 3)]} /> : null}
         <View style={styles.column}>
           <View style={[styles.brandRow, { flexDirection: row }]}>
-            <Txt role="headline" color="onShell" accessibilityRole="header">
-              {s.appName}
-            </Txt>
+            {look.header === 'sticker' ? (
+              <View style={styles.sticker}>
+                <Txt role="headline" color="onAccent" accessibilityRole="header">
+                  {s.appName}
+                </Txt>
+              </View>
+            ) : (
+              <Txt role="headline" color="ink" accessibilityRole="header">
+                {s.appName}
+              </Txt>
+            )}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={s.language.switchToLabel}
@@ -104,13 +123,28 @@ export default function HomeScreen() {
             {s.home.question}
           </Txt>
 
-          <View style={[styles.locationRow, { flexDirection: row }]} accessibilityLiveRegion="polite">
+          <View
+            style={[
+              styles.locationRow,
+              look.header === 'plain' ? [styles.locationPill, { alignSelf: alignStart }] : null,
+              { flexDirection: row },
+            ]}
+            accessibilityLiveRegion="polite"
+          >
             {location.status === 'locating' ? (
-              <ActivityIndicator size="small" color={colors.onShellMuted} />
+              <ActivityIndicator size="small" color={colors.ink} />
+            ) : look.header === 'plain' ? (
+              <View style={styles.pin}>
+                <LocationIcon color={colors.onAccent} size={size.iconSmall} strokeWidth={size.lineBold} />
+              </View>
             ) : (
-              <LocationIcon color={colors.onShellMuted} size={size.iconSmall} strokeWidth={size.stroke} />
+              <LocationIcon color={colors.ink} size={size.icon} strokeWidth={size.stroke} />
             )}
-            <Txt role="label" color="onShellMuted" style={styles.locationText}>
+            <Txt
+              role="label"
+              color="onShellMuted"
+              style={look.header === 'plain' ? styles.locationTextPill : styles.locationText}
+            >
               {locationText}
             </Txt>
             {location.status === 'fallback' ? (
@@ -121,7 +155,7 @@ export default function HomeScreen() {
                 android_ripple={{ color: colors.shellLine }}
                 style={styles.locationAction}
               >
-                <Txt role="label" color="onShell" style={styles.underline}>
+                <Txt role="label" color="onInkWash" style={styles.underline}>
                   {s.home.useMyLocation}
                 </Txt>
               </Pressable>
@@ -149,8 +183,8 @@ export default function HomeScreen() {
             <View style={styles.grid} accessibilityLabel={s.results.loading}>
               {[0, 1, 2, 3].map((r) => (
                 <View key={r} style={[styles.gridRow, { flexDirection: row }]}>
-                  {[0, 1, 2].map((c) => (
-                    <Skeleton key={c} height={size.tile} round={radius.md} style={styles.cell} />
+                  {columnList.map((c) => (
+                    <Skeleton key={c} height={tileHeight} round={look.tileRadius} style={styles.cell} />
                   ))}
                 </View>
               ))}
@@ -171,12 +205,13 @@ export default function HomeScreen() {
 
           {categories.status === 'ready' && !openParent ? (
             <View style={styles.grid}>
-              {toRows(categories.tree).map((cells, r) => (
+              {toRows(categories.tree, look.columns).map((cells, r) => (
                 <View key={r} style={[styles.gridRow, { flexDirection: row }]}>
                   {cells.map((node, c) =>
                     node ? (
                       <CategoryTile
                         key={node.id}
+                        tone={toneAt(r * look.columns + c)}
                         icon={node.icon}
                         label={categoryName(node)}
                         hasChildren={node.children.length > 0}
@@ -197,12 +232,13 @@ export default function HomeScreen() {
 
           {categories.status === 'ready' && openParent ? (
             <View style={styles.grid}>
-              {toRows<Category>([openParent, ...openParent.children]).map((cells, r) => (
+              {toRows<Category>([openParent, ...openParent.children], look.columns).map((cells, r) => (
                 <View key={r} style={[styles.gridRow, { flexDirection: row }]}>
                   {cells.map((category, c) =>
                     category ? (
                       <CategoryTile
                         key={category.id}
+                        tone={toneAt(r * look.columns + c)}
                         icon={category.icon}
                         label={
                           category.id === openParent.id
@@ -240,7 +276,7 @@ export default function HomeScreen() {
   );
 }
 
-const useStyles = makeStyles((c) => ({
+const useStyles = makeStyles((c, look) => ({
   screen: {
     flex: 1,
     backgroundColor: c.paper,
@@ -254,7 +290,29 @@ const useStyles = makeStyles((c) => ({
   shell: {
     backgroundColor: c.shell,
     paddingHorizontal: space.lg,
-    paddingBottom: space.lg,
+    paddingBottom: space.sm,
+  },
+  // Option A: a tinted header with soft bottom corners; it clips the sun.
+  shellWash: {
+    paddingBottom: space.md,
+    borderBottomLeftRadius: radius.sheet,
+    borderBottomRightRadius: radius.sheet,
+    overflow: 'hidden',
+  },
+  sun: {
+    position: 'absolute',
+    top: -size.sun / 2,
+    width: size.sun,
+    height: size.sun,
+    borderRadius: radius.pill,
+    backgroundColor: c.accent,
+  },
+  // Option C: the name sits on a yellow sticker, set at a slight angle.
+  sticker: {
+    backgroundColor: c.accent,
+    borderRadius: radius.md,
+    paddingHorizontal: space.md,
+    transform: [{ rotate: '-3deg' }],
   },
   brandRow: {
     alignItems: 'center',
@@ -266,11 +324,32 @@ const useStyles = makeStyles((c) => ({
     justifyContent: 'center',
   },
   language: {
-    borderWidth: size.hairline,
+    backgroundColor: c.sheet,
+    borderWidth: size.lineMid,
     borderColor: c.shellLine,
     borderRadius: radius.pill,
     paddingHorizontal: space.md,
-    paddingVertical: space.xs,
+    paddingVertical: space.sm,
+  },
+  // Option B: the location line is a tinted pill.
+  locationPill: {
+    backgroundColor: c.manila,
+    borderRadius: radius.pill,
+    paddingHorizontal: space.sm,
+    marginTop: space.sm,
+    maxWidth: '100%',
+  },
+  // The one coral point of option B: a "you are here" disc.
+  pin: {
+    width: size.pin,
+    height: size.pin,
+    borderRadius: radius.pill,
+    backgroundColor: c.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  locationTextPill: {
+    flexShrink: 1,
   },
   locationRow: {
     alignItems: 'center',
@@ -290,8 +369,8 @@ const useStyles = makeStyles((c) => ({
   },
   scroll: {
     paddingHorizontal: space.lg,
-    paddingTop: space.lg,
-    paddingBottom: space.xxl,
+    paddingTop: look.header === 'wash' ? space.lg : space.sm,
+    paddingBottom: space.lg,
   },
   sectionTitle: {
     marginBottom: space.md,
