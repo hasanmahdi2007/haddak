@@ -50,10 +50,17 @@ const VISIBLE_CATEGORIES = 5;
 // Web only: the field's own border shows focus, so the browser's ring is turned off.
 const NO_FOCUS_RING = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : null;
 
-/** "+961 70-123 456" and "00961 70 123 456" both become "+96170123456". */
+/**
+ * "+961 70-123 456" and "00961 70 123 456" both become "+96170123456".
+ * People in Lebanon usually type the local form, so "70 123 456" and
+ * "03 123 456" (7 or 8 digits, with or without the leading 0) get +961 added.
+ */
 function cleanPhone(typed: string): string {
   const compact = typed.replace(/[\s\-().]/g, '');
-  return compact.startsWith('00') ? `+${compact.slice(2)}` : compact;
+  if (compact.startsWith('00')) return `+${compact.slice(2)}`;
+  if (compact.startsWith('+')) return compact;
+  const local = compact.startsWith('0') ? compact.slice(1) : compact;
+  return /^\d{7,8}$/.test(local) ? `+961${local}` : compact;
 }
 
 type FieldKey = 'name' | 'phone' | 'category' | 'area' | 'note';
