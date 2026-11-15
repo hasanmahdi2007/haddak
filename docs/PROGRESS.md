@@ -10,7 +10,7 @@ What has been built, how it was checked, and what is still open. Newest entry fi
 | GitHub | Private repo https://github.com/hasanmahdi2007/haddak, CI running |
 | Local database | Postgres 16 + PostGIS in Docker, port 5433, seeded |
 | Backend | All version 1 endpoints built, hardened and tested (103 tests); Docker image ready |
-| Mobile app | In progress |
+| Mobile app | Home, Results and Profile screens work on a phone against the backend; visual design being redone (founder rejected the first direction) |
 | Hosting | Not started (plan in `SYSTEM_DESIGN.md` section 6) |
 
 ## Validation benchmark (from `PROJECT.md`)
@@ -24,6 +24,23 @@ The app is judged in the first area by this, not by code:
 Current: 0 real providers (app not released). Seed data only.
 
 ## Log
+
+### 2026-11-15 — mobile phase 1 runs on a phone; design direction rejected
+
+**Built** (`mobile/`): Expo project, theme tokens, 12 components, and the Home, Results and Provider profile screens, with a real API client and built-in mock data (used when `EXPO_PUBLIC_API_URL` is unset). Commit `3c768ae`.
+
+**Checked by the coordinating session:**
+
+- `npx tsc --noEmit` and `npx expo lint` → no errors.
+- The founder opened the app on his Android phone through Expo Go (`exp://<computer-ip>:8081`, backend on the same Wi-Fi). Categories, providers, profiles and reviews loaded from the real backend.
+
+**Found and fixed:** sample phone numbers in the seed script and the mock data looked like valid Lebanese mobile numbers (`+96170…`), so a tap on WhatsApp or Call could have reached a stranger. All sample numbers are now `+9610000xxxx`, which cannot be dialled (Lebanese numbers never start with 0 after `+961`). The local database was re-seeded: 32 of 32 providers have the safe numbers.
+
+**Founder decision:** the first visual direction ("stamped paperwork": navy header, beige ground, beige tiles) is rejected as dull. He wants a bright, light theme with a livelier palette and a better Home layout. A fresh agent is producing three Home screen options in `mobile/design-preview/options/` for him to choose from. `mobile/DESIGN.md` will be rewritten after the choice.
+
+**Known weakness:** the first agent's screenshots in `mobile/design-preview/` were mostly captured before data loaded and show placeholders; they are not a reliable record of the design.
+
+**Process change:** agents now use the Graphify code graph to find code, and each phase gets a fresh agent instead of resuming one with a very large context.
 
 ### 2026-11-15 — backend hardened and ready to deploy
 
