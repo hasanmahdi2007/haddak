@@ -3,6 +3,8 @@ import { StatusBar } from 'expo-status-bar';
 import {
   ArrowLeft,
   ArrowRight,
+  Badge,
+  BadgeCheck,
   Banknote,
   Heart,
   MapPin,
@@ -33,7 +35,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { api, type ContactEventType, type OpeningHours, type ProviderDetail, type Review } from '@/api';
-import { FeaturedTag, FoundingBadge, Seal } from '@/components/Badges';
+import { FeaturedTag, FoundingBadge } from '@/components/Badges';
 import { Button } from '@/components/Button';
 import { IconButton } from '@/components/IconButton';
 import { OpenStatus } from '@/components/OpenStatus';
@@ -309,7 +311,7 @@ export default function ProviderScreen() {
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
   const { colors, dark } = useTheme();
-  const { s, f, row, rtl, end, plural, categoryName, distance } = useI18n();
+  const { s, f, row, rtl, plural, categoryName, distance } = useI18n();
   const styles = useStyles();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { coords, status: locationStatus } = useLocation();
@@ -426,6 +428,12 @@ export default function ProviderScreen() {
   }
 
   const hasPhotos = provider.photos.length > 0;
+  // On the mint block every word is dark, whatever the theme.
+  const heroText = provider.verified ? 'onMint' : 'text';
+  const heroMuted = provider.verified ? 'onMint' : 'textMuted';
+  const TrustIcon = provider.verified ? BadgeCheck : Badge;
+  // Shown only when the provider chose to, and only when there is something to say.
+  const shownContacts = provider.contacts_this_month ?? 0;
   // The bar covers the status bar area and the row of round buttons.
   const barHeight = insets.top + space.sm * 2 + size.touch;
   // Fully solid when the white sheet's top edge reaches the bottom of the bar.
@@ -444,40 +452,64 @@ export default function ProviderScreen() {
         <View style={styles.column}>
           <Gallery provider={provider} width={width} />
 
-          {/* The white sheet rises over the photo with round top corners. */}
+          {/* The page rises over the photo with round top corners. */}
           <View style={styles.body}>
-            <View style={styles.identity}>
-              {/* The first line shares its height with the seal, so it stops short of it. */}
-              <View style={{ flexDirection: row }}>
-                <Txt role="label" color="textMuted" style={styles.place}>
-                  {categoryName(provider.category)} · {provider.area_name}
-                </Txt>
-                {provider.verified ? <View style={styles.sealRoom} /> : null}
-              </View>
-              <Txt role="headline" accessibilityRole="header" content>
+            {/* The hero block: mint when Haddak has verified this provider, grey when it has not.
+                Text on mint is dark in both themes. */}
+            <View style={[styles.hero, provider.verified ? styles.heroVerified : null]}>
+              <Txt role="label" color={heroMuted}>
+                {categoryName(provider.category)} · {provider.area_name}
+              </Txt>
+              <Txt role="display" color={heroText} accessibilityRole="header" content>
                 {provider.name}
               </Txt>
 
-              {provider.verified ? (
-                <View
-                  style={[styles.verified, { flexDirection: row }]}
-                  accessible
-                  accessibilityLabel={`${s.badges.verified}. ${s.badges.verifiedBody}`}
-                >
-                  <View style={styles.verifiedSeal}>
-                    <Seal />
+              <View
+                style={[styles.trust, { flexDirection: row }]}
+                accessible
+                accessibilityLabel={
+                  provider.verified
+                    ? `${s.badges.verified}. ${s.badges.verifiedBody}`
+                    : `${s.badges.notVerified}. ${s.badges.notVerifiedBody}`
+                }
+              >
+                <View style={[styles.trustDisc, provider.verified ? styles.trustDiscOn : null]}>
+                  <TrustIcon
+                    color={provider.verified ? colors.mint : colors.text}
+                    size={size.iconLarge}
+                    strokeWidth={size.lineBold}
+                  />
+                </View>
+                <View style={styles.trustText}>
+                  <Txt role="bodyStrong" color={heroText}>
+                    {provider.verified ? s.badges.verified : s.badges.notVerified}
+                  </Txt>
+                  <Txt role="label" color={heroMuted}>
+                    {provider.verified ? s.badges.verifiedBody : s.badges.notVerifiedBody}
+                  </Txt>
+                </View>
+              </View>
+
+              {/* Nobody owns this listing yet: it came from a suggestion. */}
+              {provider.claimed ? null : (
+                <View style={[styles.trust, { flexDirection: row }]}>
+                  <View style={styles.trustDisc}>
+                    <Users color={colors.text} size={size.icon} strokeWidth={size.stroke} />
                   </View>
-                  <View style={styles.verifiedText}>
-                    <Txt role="bodyStrong" color="primary">
-                      {s.badges.verified}
+                  <View style={styles.trustText}>
+                    <Txt role="bodyStrong" color={heroText}>
+                      {s.badges.community}
                     </Txt>
-                    <Txt role="label" color="textMuted">
-                      {s.badges.verifiedBody}
+                    <Txt role="label" color={heroMuted}>
+                      {s.badges.communityBody}
                     </Txt>
                   </View>
                 </View>
-              ) : null}
+              )}
+            </View>
 
+            {provider.featured || provider.founding_member || shownContacts > 0 ? (
+            <View style={styles.extras}>
               {provider.featured || provider.founding_member ? (
                 <View style={[styles.badges, { flexDirection: row }]}>
                   {provider.featured ? <FeaturedTag /> : null}
@@ -485,20 +517,18 @@ export default function ProviderScreen() {
                 </View>
               ) : null}
 
-              {/* Shown only when the provider chose to, and only when there is something to say. */}
-              {provider.contacts_this_month !== null && provider.contacts_this_month > 0 ? (
+              {shownContacts > 0 ? (
                 <View style={[styles.contactCount, { flexDirection: row }]}>
                   <Users color={colors.textSubtle} size={size.iconSmall} strokeWidth={size.stroke} />
-                  <Txt role="label" color="textMuted" style={styles.verifiedText}>
-                    {plural(s.provider.contactCount, provider.contacts_this_month)}
+                  <Txt role="label" color="textMuted" style={styles.trustText}>
+                    {plural(s.provider.contactCount, shownContacts)}
                   </Txt>
                 </View>
               ) : null}
             </View>
+            ) : null}
 
-            {/* The facts and the way there read as one group. */}
-            <View style={styles.factsGroup}>
-            {/* Rating, distance, price: the same three facts, icons and order as on a result card. */}
+            {/* Rating, distance, price: three blocks, in the same order as on a result card. */}
             <View style={[styles.facts, { flexDirection: row }]}>
               <View
                 style={styles.fact}
@@ -521,7 +551,6 @@ export default function ProviderScreen() {
               </View>
               {provider.distance_m !== null ? (
                 <>
-                  <View style={styles.factDivider} />
                   <View style={styles.fact} accessible>
                     <View style={[styles.factValue, { flexDirection: row }]}>
                       <MapPin color={colors.primary} size={size.iconSmall} strokeWidth={size.stroke} />
@@ -533,7 +562,6 @@ export default function ProviderScreen() {
                   </View>
                 </>
               ) : null}
-              <View style={styles.factDivider} />
               <View style={[styles.fact, styles.factWide]} accessible>
                 <View style={[styles.factValue, { flexDirection: row }]}>
                   <Banknote color={colors.primary} size={size.iconSmall} strokeWidth={size.stroke} />
@@ -545,14 +573,6 @@ export default function ProviderScreen() {
                   {s.provider.price}
                 </Txt>
               </View>
-            </View>
-            <Button
-              label={s.provider.directions}
-              accessibilityLabel={f(s.provider.directionsLabel, { name: provider.name })}
-              icon={Navigation}
-              variant="outline"
-              onPress={() => void directions(provider)}
-            />
             </View>
 
             {provider.opening_hours ? (
@@ -571,17 +591,6 @@ export default function ProviderScreen() {
             <Reviews provider={provider} />
           </View>
 
-          {/* The large seal sits across the top edge of the sheet, on the end side. Decorative: the verified line says it in words. */}
-          {provider.verified ? (
-            <View
-              style={[styles.sealSpot, { top: galleryHeight - size.sheetOverlap - size.sealLarge / 2 }, end(space.lg)]}
-              pointerEvents="none"
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-            >
-              <Seal large />
-            </View>
-          ) : null}
         </View>
       </ScrollView>
 
@@ -609,7 +618,7 @@ export default function ProviderScreen() {
       >
         <IconButton icon={BackIcon} label={s.common.back} onPress={goBack} tone="scrim" />
         <View style={[styles.overlayGroup, { flexDirection: row }]}>
-          {/* The heart: outline when not saved, filled coral when saved. It swells for a moment on a tap. */}
+          {/* The heart: outline when not saved, filled lavender when saved. It swells for a moment on a tap. */}
           <Animated.View style={{ transform: [{ scale: pulse }] }}>
             <IconButton
               icon={Heart}
@@ -649,6 +658,7 @@ export default function ProviderScreen() {
               accessibilityLabel={f(s.provider.whatsappLabel, { name: provider.name })}
               icon={MessageCircle}
               variant="whatsapp"
+              compact
               onPress={() => void contact('whatsapp', provider)}
               style={styles.actionPrimary}
             />
@@ -657,8 +667,18 @@ export default function ProviderScreen() {
               accessibilityLabel={f(s.provider.callLabel, { name: provider.name })}
               icon={Phone}
               variant="primary"
+              compact
               onPress={() => void contact('call', provider)}
               style={styles.actionSecondary}
+            />
+            <Button
+              label={s.provider.directions}
+              accessibilityLabel={f(s.provider.directionsLabel, { name: provider.name })}
+              icon={Navigation}
+              variant="tonal"
+              compact
+              onPress={() => void directions(provider)}
+              style={styles.actionPrimary}
             />
           </View>
         </View>
@@ -712,52 +732,56 @@ const useStyles = makeStyles((c) => ({
     paddingHorizontal: space.md,
     paddingVertical: space.xxs,
   },
-  sealSpot: {
-    position: 'absolute',
-  },
   body: {
     marginTop: -size.sheetOverlap,
     borderTopLeftRadius: radius.sheet,
     borderTopRightRadius: radius.sheet,
     backgroundColor: c.background,
     paddingHorizontal: space.lg,
-    paddingTop: space.xxl,
-    gap: space.xxl,
+    paddingTop: space.lg,
+    gap: space.md,
   },
-  identity: {
+  hero: {
+    backgroundColor: c.surfaceTint,
+    borderRadius: radius.lg,
+    padding: space.xl,
     gap: space.xs,
   },
-  place: {
+  heroVerified: {
+    backgroundColor: c.mint,
+  },
+  trust: {
+    alignItems: 'center',
+    gap: space.md,
+    marginTop: space.md,
+  },
+  // The round mark beside a trust line: ink with a mint badge when verified, grey otherwise.
+  trustDisc: {
+    width: size.trustDisc,
+    height: size.trustDisc,
+    borderRadius: radius.pill,
+    backgroundColor: c.surfaceTintStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trustDiscOn: {
+    backgroundColor: c.onMint,
+  },
+  trustText: {
     flex: 1,
+    minWidth: 0,
   },
-  // Empty room the width of the large seal, so the line beside it never runs under it.
-  sealRoom: {
-    width: size.sealLarge + space.sm,
-  },
-  verified: {
-    alignItems: 'flex-start',
+  extras: {
     gap: space.sm,
-    marginTop: space.sm,
-  },
-  // Lines the small seal up with the first line of text.
-  verifiedSeal: {
-    paddingTop: space.xxs,
-  },
-  verifiedText: {
-    flex: 1,
+    paddingHorizontal: space.xs,
   },
   badges: {
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: space.sm,
-    marginTop: space.sm,
   },
   contactCount: {
     alignItems: 'center',
-    gap: space.sm,
-    marginTop: space.sm,
-  },
-  factsGroup: {
     gap: space.sm,
   },
   hoursHead: {
@@ -772,9 +796,9 @@ const useStyles = makeStyles((c) => ({
     paddingVertical: space.sm,
     borderRadius: radius.md,
   },
-  // Today: an aqua band, heavier text and the word "Today".
+  // Today: a lighter band inside the card, heavier text and the word "Today".
   hoursToday: {
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.surface,
   },
   hoursDay: {
     flex: 1,
@@ -786,13 +810,16 @@ const useStyles = makeStyles((c) => ({
     gap: space.xs,
   },
   facts: {
-    backgroundColor: c.surfaceTint,
-    borderRadius: radius.lg,
-    paddingVertical: space.md,
+    gap: space.sm,
   },
+  // Each fact is its own grey block.
   fact: {
     flex: 1,
+    minWidth: 0,
+    backgroundColor: c.surfaceTint,
+    borderRadius: radius.lg,
     paddingHorizontal: space.sm,
+    paddingVertical: space.lg,
     alignItems: 'center',
     justifyContent: 'center',
     gap: space.xxs,
@@ -809,11 +836,11 @@ const useStyles = makeStyles((c) => ({
   factText: {
     flexShrink: 1,
   },
-  factDivider: {
-    width: size.hairline,
-    backgroundColor: c.surfaceTintStrong,
-  },
+  // Each section is a card: a soft grey block.
   section: {
+    backgroundColor: c.surfaceTint,
+    borderRadius: radius.lg,
+    padding: space.lg,
     gap: space.sm,
   },
   sectionHead: {
@@ -824,9 +851,6 @@ const useStyles = makeStyles((c) => ({
     flex: 1,
   },
   noReviews: {
-    backgroundColor: c.surfaceTint,
-    borderRadius: radius.lg,
-    padding: space.lg,
     gap: space.xxs,
   },
   review: {
@@ -854,23 +878,22 @@ const useStyles = makeStyles((c) => ({
     gap: space.sm,
   },
   dock: {
-    backgroundColor: c.surface,
-    borderTopWidth: size.hairline,
-    borderTopColor: c.border,
-    paddingHorizontal: space.lg,
+    backgroundColor: c.background,
+    paddingHorizontal: space.md,
     paddingTop: space.md,
   },
   dockInner: {
     gap: space.sm,
   },
   actions: {
-    gap: space.md,
+    gap: space.sm,
   },
+  // Each button is as wide as its words need, and they share what is left over.
   actionPrimary: {
-    flex: 1.6,
+    flexGrow: 1,
   },
   actionSecondary: {
-    flex: 1,
+    flexGrow: 1,
   },
   notice: {
     alignItems: 'center',

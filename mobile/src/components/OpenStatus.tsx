@@ -9,21 +9,24 @@ interface Props {
   /** From the API: true, false, or null when the provider gave no hours. */
   open: boolean | null;
   role?: TypeRole;
+  /** On a mint or lavender block the words are always dark, in both themes. */
+  onPastel?: boolean;
 }
 
 /**
  * "Open now" or "Closed", with a small dot. Draws nothing when hours are unknown.
- * The words carry the meaning; the dot also differs in shape (filled or a ring),
+ * The words carry the meaning and are always ink. The dot is mint when open
+ * (ringed in dark green so it shows on any surface) and an empty ring when closed,
  * so it never depends on colour alone.
  */
-export function OpenStatus({ open, role = 'label' }: Props) {
+export function OpenStatus({ open, role = 'label', onPastel = false }: Props) {
   const { s, row } = useI18n();
   const styles = useStyles();
   if (open === null) return null;
   return (
     <View style={[styles.wrap, { flexDirection: row }]}>
       <View style={[styles.dot, open ? styles.dotOpen : styles.dotClosed]} />
-      <Txt role={role} color={open ? 'success' : 'textMuted'} numberOfLines={1}>
+      <Txt role={role} color={onPastel ? 'onAccent' : open ? 'text' : 'textMuted'} numberOfLines={1}>
         {open ? s.hours.openNow : s.hours.closedNow}
       </Txt>
     </View>
@@ -33,18 +36,19 @@ export function OpenStatus({ open, role = 'label' }: Props) {
 const useStyles = makeStyles((c) => ({
   wrap: {
     alignItems: 'center',
-    gap: space.xs,
+    gap: space.xs + space.xxs,
   },
   dot: {
-    width: space.sm,
-    height: space.sm,
+    width: space.md - space.xxs,
+    height: space.md - space.xxs,
     borderRadius: radius.pill,
+    borderWidth: size.lineMid,
   },
   dotOpen: {
-    backgroundColor: c.success,
+    backgroundColor: c.mint,
+    borderColor: c.success,
   },
   dotClosed: {
-    borderWidth: size.lineMid,
     borderColor: c.textSubtle,
   },
 }));

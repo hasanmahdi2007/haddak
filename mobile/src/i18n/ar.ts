@@ -54,6 +54,9 @@ export const ar: Strings = {
     searchHint: 'اكتب حرفين أو أكتر وبعدين ابحث.',
     clearSearch: 'امحي الاسم',
     suggest: 'بتعرف حدا شاطر؟ اقترحه',
+    search: 'بحث',
+    everyone: 'كل اللي حدّك',
+    everyoneHint: 'كل الفئات، الأعلى تقييماً بالأول',
   },
 
   results: {
@@ -88,11 +91,23 @@ export const ar: Strings = {
     errorTitle: 'ما قدرنا نحمّل النتائج',
     errorBody: 'تأكّد من الإنترنت وجرّب مرة تانية.',
     openProfile: 'افتح الصفحة',
+    sponsored: 'إعلان',
+    sponsoredLabel: 'إعلان، ظهور مدفوع',
+  },
+
+  filter: {
+    label: 'الموثّقين بس',
+    verifiedOnly: 'الموثّقين بس',
+    unverifiedToo: 'مع غير الموثّقين',
   },
 
   badges: {
     verified: 'موثّق',
     verifiedBody: 'حدّك تأكّد من إثبات هالشغل قبل ما يعرضه.',
+    notVerified: 'غير موثّق',
+    notVerifiedBody: 'حدّك بعده ما تأكّد من هالمعلومات. تأكّد بنفسك قبل ما تتّفق على شي.',
+    community: 'مضاف من الناس',
+    communityBody: 'انضاف باقتراح من حدا. صاحب الشغل بعده ما انضمّ لحدّك.',
     founding: 'عضو مؤسّس',
     featured: 'مميّز',
     featuredLabel: 'مميّز، ظهور مدفوع',
@@ -180,7 +195,7 @@ export const ar: Strings = {
     errorBody: 'تأكّد من الإنترنت وجرّب مرة تانية.',
     loading: 'عم نحمّل الصفحة',
     dismiss: 'سكّر',
-    directions: 'دلّني عالطريق',
+    directions: 'الاتجاهات',
     directionsLabel: 'افتح الطريق لعند {name} بتطبيق الخرائط',
     directionsFailed: 'ما قدرنا نفتح تطبيق الخرائط.',
   },
@@ -209,7 +224,7 @@ export const ar: Strings = {
     rateLimited: 'بعتت كم اقتراح. جرّب مرة تانية بعدين.',
     failed: 'ما قدرنا نبعته. تأكّد من الإنترنت وجرّب مرة تانية.',
     successTitle: 'شكراً، رح نتواصل معه',
-    successBody: 'إذا انضمّ، بتلاقيه على حدّك مع ختم «موثّق».',
+    successBody: 'إذا انضمّ، بتلاقيه على حدّك مع علامة «موثّق».',
     successAction: 'رجوع للرئيسية',
   },
 

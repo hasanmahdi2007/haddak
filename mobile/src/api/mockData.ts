@@ -144,6 +144,12 @@ interface ProviderSeed {
   reviews: number;
   founding?: boolean;
   featured?: boolean;
+  /** Default true. False: Haddak has not checked this one. */
+  verified?: boolean;
+  /** Default true. False: listed from a suggestion, no owner yet. */
+  claimed?: boolean;
+  /** A paid card above the results, with this one-line hook. */
+  sponsorHook?: string;
   phone: string;
   whatsapp?: string;
   description: string;
@@ -178,6 +184,7 @@ const SEEDS: ProviderSeed[] = [
     rating: 4.4,
     reviews: 41,
     featured: true,
+    sponsorHook: 'Screen replaced in 30 minutes, or it is free.',
     phone: '+96100001002',
     description:
       'Phone screens, batteries and charging ports replaced while you wait. iPhone, Samsung, Xiaomi and Huawei. Three-month warranty on every part.',
@@ -569,6 +576,84 @@ const SEEDS: ProviderSeed[] = [
     photos: [],
     joined: '2026-10-28T09:00:00Z',
   },
+  // Not verified yet. The first two were listed from a suggestion and have no owner.
+  {
+    slug: 'u1r4sp',
+    name: 'Rami Phone Corner',
+    categoryId: 2,
+    at: [240, 300],
+    area: 'Haret Hreik',
+    price: null,
+    rating: 0,
+    reviews: 0,
+    verified: false,
+    claimed: false,
+    phone: '+96100001033',
+    description: '',
+    photos: [],
+    joined: '2026-11-10T09:00:00Z',
+  },
+  {
+    slug: 'u2k8bz',
+    name: 'Um Khalil Home Sweets',
+    categoryId: 27,
+    at: [390, 150],
+    area: 'Haret Hreik',
+    price: null,
+    rating: 0,
+    reviews: 0,
+    verified: false,
+    claimed: false,
+    phone: '+96100001034',
+    description: '',
+    photos: [],
+    joined: '2026-11-11T09:00:00Z',
+  },
+  {
+    slug: 'u3j5el',
+    name: 'Jad Electric',
+    categoryId: 7,
+    at: [520, 250],
+    area: 'Haret Hreik',
+    price: 'Visit $8',
+    rating: 4.3,
+    reviews: 3,
+    verified: false,
+    phone: '+96100001035',
+    description: 'House wiring, fuse boxes and generator switch-overs.',
+    photos: [PHOTOS.electrician],
+    joined: '2026-11-12T09:00:00Z',
+  },
+  {
+    slug: 'u4n7lp',
+    name: 'Nour Laptop Fix',
+    categoryId: 3,
+    at: [610, 20],
+    area: 'Bir el Abed',
+    price: 'From $8',
+    rating: 4.0,
+    reviews: 2,
+    verified: false,
+    phone: '+96100001036',
+    description: 'Laptop cleaning, new batteries and Windows installs from home.',
+    photos: [],
+    joined: '2026-11-13T09:00:00Z',
+  },
+  {
+    slug: 'u5s2br',
+    name: 'Salon Abou Fadi',
+    categoryId: 30,
+    at: [820, 95],
+    area: 'Bir el Abed',
+    price: 'Haircut $4',
+    rating: 0,
+    reviews: 0,
+    verified: false,
+    phone: '+96100001037',
+    description: 'Neighbourhood barber: haircut, beard and hot towel.',
+    photos: [PHOTOS.barber],
+    joined: '2026-11-14T09:00:00Z',
+  },
 ];
 
 function categoryRef(id: number) {
@@ -603,7 +688,7 @@ const CONTACT_COUNTS: Record<number, number> = { 0: 12, 1: 31, 3: 2, 6: 1, 10: 1
 /** Stable fake UUID so links keep working between reloads. */
 const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
-/** All mock providers are verified; distance_m is filled in per request. */
+/** Most mock providers are verified; a few are not. distance_m is filled in per request. */
 export const MOCK_PROVIDERS: ProviderDetail[] = SEEDS.map((seed, index) => {
   const { lat, lng } = offset(seed.at[0], seed.at[1]);
   return {
@@ -615,7 +700,10 @@ export const MOCK_PROVIDERS: ProviderDetail[] = SEEDS.map((seed, index) => {
     price_text: seed.price,
     avg_rating: seed.rating,
     review_count: seed.reviews,
-    verified: true,
+    verified: seed.verified ?? true,
+    claimed: seed.claimed ?? true,
+    sponsored: seed.sponsorHook !== undefined,
+    sponsor_hook: seed.sponsorHook ?? null,
     founding_member: seed.founding ?? false,
     featured: seed.featured ?? false,
     lat,

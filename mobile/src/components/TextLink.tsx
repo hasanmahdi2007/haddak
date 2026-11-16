@@ -10,7 +10,7 @@ interface Props {
   style?: StyleProp<ViewStyle>;
 }
 
-/** A quiet secondary action: underlined teal text in a 48 dp touch target. */
+/** A quiet secondary action: underlined ink text in a 48 dp touch target. */
 export function TextLink({ label, onPress, style }: Props) {
   const styles = useStyles();
   return (

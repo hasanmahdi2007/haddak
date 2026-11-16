@@ -17,19 +17,26 @@ import {
 } from './MapParts';
 
 /** How long pins keep redrawing after they change, before they are frozen again. */
-const PIN_SETTLE_MS = 600;
+const PIN_SETTLE_MS = 700;
 
 /**
  * The results on a real map (Android and iOS; the web build uses ResultsMap.web.tsx).
  * In Expo Go this needs no API key. A store build will need a Google Maps key.
+ *
+ * Height: the wrapper takes all the room under the header (`flex: 1`, with a
+ * floor so it can never be a sliver) and the native map is pinned to its four
+ * edges. A native view sized by `flex` alone can be measured as zero on Android
+ * when its parent's height arrives late; pinned edges cannot.
  */
 export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider }: ResultsMapProps) {
   const { colors, dark } = useTheme();
-  const { s } = useI18n();
+  const { s, language } = useI18n();
   const insets = useSafeAreaInsets();
   const styles = useStyles();
   const pinLabel = usePinLabel();
   const mapRef = useRef<MapView>(null);
+  // The native map ignores camera moves made before it is ready (Android shows the whole world).
+  const [mapReady, setMapReady] = useState(false);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // If a new search no longer contains the selected provider, the selection is simply gone.
@@ -42,15 +49,16 @@ export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider
     [center.lat, center.lng, radiusM],
   );
 
-  // Re-fit when the position or the radius changes. (`initialRegion` covers the first draw.)
+  // Re-fit when the map becomes ready, and when the position or the radius changes.
   useEffect(() => {
-    mapRef.current?.animateToRegion(region, motion.base);
-  }, [region]);
+    if (mapReady) mapRef.current?.animateToRegion(region, motion.base);
+  }, [region, mapReady]);
 
   // A pin is a small view that the map turns into a picture. Redrawing that picture
   // on every frame is wasteful, so a pin only "tracks" its view for a moment after
-  // something about the pins changed (new results, a new selection, light / dark).
-  const pinsKey = `${providers.map((provider) => provider.id).join(',')}|${selected?.id ?? ''}|${dark}`;
+  // something about the pins changed (new results, a new selection, the language,
+  // light / dark), then `tracksViewChanges` goes back to false.
+  const pinsKey = `${providers.map((provider) => provider.id).join(',')}|${selected?.id ?? ''}|${dark}|${language}`;
   const [settledKey, setSettledKey] = useState<string | null>(null);
   useEffect(() => {
     const timer = setTimeout(() => setSettledKey(pinsKey), PIN_SETTLE_MS);
@@ -65,6 +73,7 @@ export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider
         testID="results-map"
         style={styles.map}
         initialRegion={region}
+        onMapReady={() => setMapReady(true)}
         userInterfaceStyle={dark ? 'dark' : 'light'}
         accessibilityLabel={loading ? s.results.loading : s.results.mapLabel}
         // The docked card replaces Google's own marker behaviour.
@@ -82,9 +91,9 @@ export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider
           <Circle
             center={{ latitude: center.lat, longitude: center.lng }}
             radius={radiusM}
-            strokeColor={colors.primary}
-            strokeWidth={size.lineMid}
-            fillColor={colors.primaryWash}
+            strokeColor={colors.accentStrong}
+            strokeWidth={size.lineBold}
+            fillColor={colors.accentWash}
           />
         ) : null}
 
@@ -104,9 +113,10 @@ export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider
             <Marker
               key={provider.id}
               coordinate={{ latitude: provider.lat, longitude: provider.lng }}
-              // The pin's tip is at the bottom centre of its 48 dp box.
+              // The pointer's tip is at the bottom centre of the pin's box.
               anchor={{ x: 0.5, y: 1 }}
-              zIndex={isSelected ? 2 : provider.featured ? 1 : 0}
+              // Selected on top, then verified over unverified, so the trusted names win an overlap.
+              zIndex={isSelected ? 3 : provider.featured ? 2 : provider.verified ? 1 : 0}
               tracksViewChanges={pinsChanging}
               accessibilityLabel={pinLabel(provider, isSelected)}
               onPress={(event) => {
@@ -114,7 +124,12 @@ export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider
                 setSelectedId(provider.id);
               }}
             >
-              <ProviderPin featured={provider.featured} selected={isSelected} />
+              <ProviderPin
+                name={provider.name}
+                verified={provider.verified}
+                featured={provider.featured}
+                selected={isSelected}
+              />
             </Marker>
           );
         })}
@@ -134,10 +149,17 @@ export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider
 const useStyles = makeStyles((c) => ({
   wrap: {
     flex: 1,
+    minHeight: size.mapMin,
+    alignSelf: 'stretch',
     backgroundColor: c.surfaceTint,
   },
+  // Pinned to the wrapper's edges (see the note above).
   map: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
   },
   dock: {
     position: 'absolute',

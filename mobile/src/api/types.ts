@@ -34,7 +34,10 @@ export interface ProviderSummary {
   price_text: string | null;
   avg_rating: number;
   review_count: number;
+  /** Haddak checked proof of this provider's work. */
   verified: boolean;
+  /** False: listed from someone's suggestion, and no owner has taken the listing yet. */
+  claimed: boolean;
   founding_member: boolean;
   featured: boolean;
   lat: number;
@@ -44,6 +47,10 @@ export interface ProviderSummary {
   cover_photo_url: string | null;
   /** Open at this moment (Lebanon time). Null when the provider gave no opening hours. */
   open_now: boolean | null;
+  /** Paid card shown above the results. Optional until the backend sends it. */
+  sponsored?: boolean;
+  /** One line written by the sponsor, shown on the sponsored card. */
+  sponsor_hook?: string | null;
 }
 
 export type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
@@ -103,6 +110,8 @@ export interface SearchParams {
   category_id?: number;
   /** 2 to 60 characters; keeps providers whose name contains it (case-insensitive). */
   q?: string;
+  /** Also return providers Haddak has not verified. Default false. */
+  include_unverified?: boolean;
   limit?: number;
   offset?: number;
 }

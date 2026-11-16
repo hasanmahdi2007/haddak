@@ -1,125 +1,83 @@
-import { Check } from 'lucide-react-native';
+import { ArrowUpLeft, ArrowUpRight, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 
 import { useI18n } from '@/i18n';
-import { makeStyles, opacity, radius, size, space, useTheme } from '@/theme';
+import { makeStyles, opacity, radius, size, space, useTheme, type ColorTokens } from '@/theme';
 
 import { CategoryIcon } from './CategoryIcon';
 import { Txt } from './Txt';
 
+/** The colour of a tile. Text on lavender and mint is always dark, in both themes. */
+export type TileTone = 'accent' | 'mint' | 'plain';
+
+const TONES: Record<TileTone, { bg: keyof ColorTokens; fg: 'onAccent' | 'onMint' | 'text' }> = {
+  accent: { bg: 'accent', fg: 'onAccent' },
+  mint: { bg: 'mint', fg: 'onMint' },
+  plain: { bg: 'surfaceTint', fg: 'text' },
+};
+
 interface Props {
   icon: string;
   label: string;
-  selected: boolean;
-  /** Opens a second level instead of selecting. */
+  tone: TileTone;
+  /** Share of the row this tile takes; the grid mixes wide and narrow tiles. */
+  grow?: number;
+  /** Opens a second level instead of searching. */
   hasChildren?: boolean;
-  /** Shown under the label when a child of this category is selected. */
-  selectedChild?: string;
   onPress: () => void;
 }
 
 /**
- * A category in the grid: a white tile with the icon in a solid teal square
- * and the label beside it. Chosen: the tile fills teal, the square turns
- * white and a coral tick appears at the end.
+ * A category in the grid: one solid colour block. The icon sits at the top, the
+ * name at the bottom, and a small arrow in the corner says what a tap does:
+ * a chevron opens more choices, a diagonal arrow goes straight to the results.
  */
-export function CategoryTile({ icon, label, selected, hasChildren, selectedChild, onPress }: Props) {
+export function CategoryTile({ icon, label, tone, grow = 1, hasChildren, onPress }: Props) {
   const { colors } = useTheme();
-  const { s, f, row } = useI18n();
+  const { s, f, row, rtl } = useI18n();
   const styles = useStyles();
-  const labelColor = selected ? 'onPrimary' : 'text';
+  const { bg, fg } = TONES[tone];
+  const Arrow = hasChildren ? (rtl ? ChevronLeft : ChevronRight) : rtl ? ArrowUpLeft : ArrowUpRight;
 
   return (
-    // The outer cell takes an equal share of the row; the tile fills it.
-    <View style={styles.cell}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={hasChildren ? f(s.home.hasMore, { name: label }) : label}
-        accessibilityState={{ selected }}
-        onPress={onPress}
-        android_ripple={{ color: colors.surfaceTintStrong }}
-        style={({ pressed }) => [
-          styles.tile,
-          { flexDirection: row },
-          selected ? styles.tileSelected : null,
-          pressed ? styles.pressed : null,
-        ]}
-      >
-        <View style={[styles.iconBox, selected ? styles.iconBoxSelected : null]}>
-          <CategoryIcon
-            icon={icon}
-            color={selected ? colors.primary : colors.onPrimary}
-            size={size.iconLarge}
-          />
-        </View>
-        <View style={styles.texts}>
-          {/* A long single word (Dermatologist) shrinks a little instead of breaking in the middle. */}
-          <Txt role="label" color={labelColor} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.85}>
-            {label}
-          </Txt>
-          {selectedChild ? (
-            <Txt role="caption" color={labelColor} numberOfLines={1}>
-              {selectedChild}
-            </Txt>
-          ) : null}
-        </View>
-        {selected ? (
-          <View style={styles.check}>
-            <Check color={colors.onAccent} size={size.star} strokeWidth={size.strokeBold} />
-          </View>
-        ) : null}
-      </Pressable>
-    </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={hasChildren ? f(s.home.hasMore, { name: label }) : label}
+      onPress={onPress}
+      android_ripple={{ color: colors.surfaceTintStrong }}
+      style={({ pressed }) => [
+        styles.tile,
+        { flex: grow, backgroundColor: colors[bg] },
+        pressed ? styles.pressed : null,
+      ]}
+    >
+      <View style={[styles.top, { flexDirection: row }]}>
+        <CategoryIcon icon={icon} color={colors[fg]} size={size.tileIcon} />
+        <Arrow color={colors[fg]} size={size.icon} strokeWidth={size.stroke} />
+      </View>
+      {/* A long single word (Dermatologist) shrinks a little instead of breaking in the middle. */}
+      <Txt role="action" color={fg} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.85}>
+        {label}
+      </Txt>
+    </Pressable>
   );
 }
 
-const useStyles = makeStyles((c) => ({
-  cell: {
-    flex: 1,
-    minWidth: 0,
-  },
+const useStyles = makeStyles(() => ({
   tile: {
-    flexGrow: 1,
+    minWidth: 0,
     minHeight: size.tile,
     borderRadius: radius.lg,
-    borderWidth: size.lineMid,
-    borderColor: c.surfaceTintStrong,
-    backgroundColor: c.surface,
-    alignItems: 'center',
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
+    padding: space.lg,
     gap: space.md,
+    justifyContent: 'space-between',
     overflow: 'hidden',
-  },
-  tileSelected: {
-    backgroundColor: c.primary,
-    borderColor: c.primary,
   },
   pressed: {
     opacity: opacity.pressed,
   },
-  iconBox: {
-    width: size.tileIconBox,
-    height: size.tileIconBox,
-    borderRadius: radius.md,
-    backgroundColor: c.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconBoxSelected: {
-    backgroundColor: c.surface,
-  },
-  texts: {
-    flex: 1,
-    minWidth: 0,
-  },
-  // The tick on a chosen tile: a small coral disc.
-  check: {
-    width: size.sealSmall,
-    height: size.sealSmall,
-    borderRadius: radius.pill,
-    backgroundColor: c.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
+  top: {
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
   },
 }));

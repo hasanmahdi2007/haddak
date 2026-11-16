@@ -239,7 +239,7 @@ export default function SuggestScreen() {
     <View style={styles.header}>
       <View style={[styles.column, styles.bar, { flexDirection: row }]}>
         <IconButton icon={BackIcon} label={s.common.back} onPress={goBack} />
-        <Txt role="headline" numberOfLines={1} accessibilityRole="header" style={styles.title}>
+        <Txt role="display" numberOfLines={1} accessibilityRole="header" style={styles.title}>
           {s.suggest.title}
         </Txt>
       </View>
@@ -508,8 +508,6 @@ const useStyles = makeStyles((c) => ({
     alignSelf: 'center',
   },
   header: {
-    borderBottomWidth: size.hairline,
-    borderBottomColor: c.border,
   },
   bar: {
     alignItems: 'center',
@@ -538,7 +536,7 @@ const useStyles = makeStyles((c) => ({
   labelText: {
     flex: 1,
   },
-  // The same aqua field as the search box on Home: 48 dp, teal border on focus.
+  // A soft grey field with round corners: 48 dp, ink edge on focus.
   input: {
     ...typeScale.body,
     minHeight: size.touch,
@@ -598,10 +596,8 @@ const useStyles = makeStyles((c) => ({
     justifyContent: 'center',
   },
   panel: {
-    borderWidth: size.lineMid,
-    borderColor: c.surfaceTintStrong,
     borderRadius: radius.lg,
-    backgroundColor: c.surface,
+    backgroundColor: c.surfaceTint,
     overflow: 'hidden',
   },
   panelSearch: {
@@ -631,16 +627,14 @@ const useStyles = makeStyles((c) => ({
     paddingVertical: space.xs,
   },
   optionPressed: {
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.surfaceTintStrong,
   },
   optionText: {
     flex: 1,
     minWidth: 0,
   },
   dock: {
-    backgroundColor: c.surface,
-    borderTopWidth: size.hairline,
-    borderTopColor: c.border,
+    backgroundColor: c.background,
     paddingHorizontal: space.lg,
     paddingTop: space.md,
   },

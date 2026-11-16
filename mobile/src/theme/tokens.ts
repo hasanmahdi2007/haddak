@@ -6,42 +6,53 @@
 export interface ColorTokens {
   /** Page ground. */
   background: string;
-  /** Raised content: cards, tiles, docked bars. */
+  /** Raised content and insets: docks, the facts strip inside a card, the map card. */
   surface: string;
-  /** Pale aqua: location pill, chip track, fact strips, photo placeholders. */
+  /** Soft grey: cards, tiles, fields, control tracks. */
   surfaceTint: string;
-  /** Stronger aqua: tile and card edges, pressed surfaces, skeleton blocks. */
+  /** Stronger grey: pressed surfaces, skeleton blocks, the "Not verified" pill. */
   surfaceTintStrong: string;
 
-  /** Sea teal: the brand, actions and the verified seal. */
+  /** Ink: text, primary buttons and the selected state. (In the dark theme it flips to near white.) */
   primary: string;
   primaryPressed: string;
   onPrimary: string;
-  /** Soft teal fill behind secondary things (the verified line). */
-  primarySoft: string;
+  /** Text and icons that sit on a grey surface as a quiet action. */
   onPrimarySoft: string;
-  /** See-through teal: the search-radius circle on the map. */
-  primaryWash: string;
+
+  /** Mint: the trust colour. Verified, "Open now", positive marks. Only ever a fill, with `onMint` on it. */
+  mint: string;
+  onMint: string;
+
+  /** Lavender: the accent. Category icon blocks, Featured, decorative blocks. Only ever a fill, with `onAccent` on it. */
+  accent: string;
+  accentSoft: string;
+  onAccent: string;
+  /** Deeper lavender for lines that must be seen on a map: the search circle. */
+  accentStrong: string;
+  /** See-through lavender: the inside of the search circle. */
+  accentWash: string;
+
+  /** The ink block on Home (a lighter ink in the dark theme, so it still reads as a block). */
+  hero: string;
+  onHero: string;
+  onHeroMuted: string;
 
   text: string;
   textMuted: string;
   /** Captions and quiet icons. */
   textSubtle: string;
 
-  /** Dividers. */
+  /** Dividers and muted fills. */
   border: string;
   /** Control boundaries (3:1 against the ground). */
   outline: string;
 
-  /** Rating stars and the Featured label. */
+  /** Rating stars. */
   rating: string;
-  ratingSoft: string;
-  onRatingSoft: string;
 
-  /** Founding member. */
+  /** Dark green for the ring of the "Open now" dot, where mint alone would be too faint. */
   success: string;
-  successSoft: string;
-  onSuccessSoft: string;
 
   /** Errors only. */
   danger: string;
@@ -56,40 +67,45 @@ export interface ColorTokens {
   /** Behind controls that sit on photos. */
   scrim: string;
   onScrim: string;
-
-  /** Coral: the one bright point (the "you are here" dot, the tick on a chosen tile). Never text on white. */
-  accent: string;
-  onAccent: string;
+  /** The soft shadow under the one thing that floats: the card docked over the map. */
+  shadow: string;
 }
 
-/** Light theme: white ground, sea teal, aqua surfaces, one coral point. */
+/** Light theme: near-white ground, soft grey blocks, ink for text and actions, mint for trust, lavender as the accent. */
 export const lightColors: ColorTokens = {
-  background: '#FFFFFF',
+  background: '#FAFEFF',
   surface: '#FFFFFF',
-  surfaceTint: '#E6F7FA',
-  surfaceTintStrong: '#C9EBF1',
+  surfaceTint: '#EFF1EE',
+  surfaceTintStrong: '#D0D2CF',
 
-  primary: '#00708A',
-  primaryPressed: '#005A70',
+  primary: '#1B1C2F',
+  primaryPressed: '#34364F',
   onPrimary: '#FFFFFF',
-  primarySoft: '#D3F1F6',
-  onPrimarySoft: '#004E61',
-  primaryWash: 'rgba(0, 112, 138, 0.12)',
+  onPrimarySoft: '#1B1C2F',
 
-  text: '#0C2A33',
-  textMuted: '#45636C',
-  textSubtle: '#52707A',
+  mint: '#A4F5A6',
+  onMint: '#1B1C2F',
 
-  border: '#D5ECF1',
-  outline: '#6A96A1',
+  accent: '#B2A1FF',
+  accentSoft: '#C0C4FF',
+  onAccent: '#1B1C2F',
+  accentStrong: '#6F5BD6',
+  accentWash: 'rgba(178, 161, 255, 0.24)',
+
+  hero: '#1B1C2F',
+  onHero: '#FFFFFF',
+  onHeroMuted: '#C9CBDA',
+
+  text: '#1B1C2F',
+  textMuted: '#55576A',
+  textSubtle: '#666879',
+
+  border: '#D0D2CF',
+  outline: '#85878F',
 
   rating: '#B97A00',
-  ratingSoft: '#FFEFC2',
-  onRatingSoft: '#553B00',
 
-  success: '#1F6B4C',
-  successSoft: '#DCEDE2',
-  onSuccessSoft: '#154D36',
+  success: '#1F7A3A',
 
   danger: '#B3261E',
   dangerSoft: '#FBE4E1',
@@ -99,41 +115,46 @@ export const lightColors: ColorTokens = {
   whatsappPressed: '#1EB958',
   onWhatsapp: '#062E17',
 
-  scrim: 'rgba(12, 42, 51, 0.72)',
+  scrim: 'rgba(27, 28, 47, 0.72)',
   onScrim: '#FFFFFF',
-
-  accent: '#FF6A4D',
-  onAccent: '#4A1206',
+  shadow: 'rgba(27, 28, 47, 0.20)',
 };
 
-/** Dark theme: the same sea at night. Deep blue-green ground, a lighter teal that keeps its contrast. */
+/** Dark theme: ink ground, lighter ink blocks, the same mint and lavender (still with dark text on them). */
 export const darkColors: ColorTokens = {
-  background: '#061A20',
-  surface: '#0B252D',
-  surfaceTint: '#11343F',
-  surfaceTintStrong: '#1A4856',
+  background: '#12131F',
+  surface: '#2A2C44',
+  surfaceTint: '#1D1E32',
+  surfaceTintStrong: '#3A3C57',
 
-  primary: '#4CC2DB',
-  primaryPressed: '#7AD3E6',
-  onPrimary: '#00232C',
-  primarySoft: '#104452',
-  onPrimarySoft: '#C2EDF6',
-  primaryWash: 'rgba(76, 194, 219, 0.16)',
+  primary: '#FAFEFF',
+  primaryPressed: '#D0D2CF',
+  onPrimary: '#1B1C2F',
+  onPrimarySoft: '#FAFEFF',
 
-  text: '#E9F6F9',
-  textMuted: '#AECAD1',
-  textSubtle: '#93B3BC',
+  mint: '#A4F5A6',
+  onMint: '#1B1C2F',
 
-  border: '#1C3E49',
-  outline: '#6C96A1',
+  accent: '#B2A1FF',
+  accentSoft: '#C0C4FF',
+  onAccent: '#1B1C2F',
+  accentStrong: '#B2A1FF',
+  accentWash: 'rgba(178, 161, 255, 0.20)',
+
+  hero: '#2A2C44',
+  onHero: '#FFFFFF',
+  onHeroMuted: '#C9CBDA',
+
+  text: '#F3F5F4',
+  textMuted: '#BBBDCB',
+  textSubtle: '#9C9EB0',
+
+  border: '#34364D',
+  outline: '#7F8198',
 
   rating: '#F2BE4A',
-  ratingSoft: '#4A3A10',
-  onRatingSoft: '#FBE3A6',
 
-  success: '#7FCFA6',
-  successSoft: '#173D2D',
-  onSuccessSoft: '#BFE8D2',
+  success: '#1F7A3A',
 
   danger: '#FFB4AB',
   dangerSoft: '#5C1612',
@@ -143,11 +164,9 @@ export const darkColors: ColorTokens = {
   whatsappPressed: '#1EB958',
   onWhatsapp: '#062E17',
 
-  scrim: 'rgba(3, 14, 18, 0.72)',
+  scrim: 'rgba(10, 11, 20, 0.72)',
   onScrim: '#FFFFFF',
-
-  accent: '#FF7A5F',
-  onAccent: '#3A0D03',
+  shadow: 'rgba(0, 0, 0, 0.50)',
 };
 
 /** Font family names as loaded in src/theme/fonts.ts. */
@@ -159,8 +178,6 @@ export const fonts = {
   body: 'ReadexPro_400Regular',
   bodyMedium: 'ReadexPro_500Medium',
   bodyStrong: 'ReadexPro_600SemiBold',
-  /** Aref Ruqaa: only inside the verified seal. */
-  seal: 'ArefRuqaa_700Bold',
 } as const;
 
 export interface TypeStyle {
@@ -207,15 +224,15 @@ export const space = {
 } as const;
 
 export const radius = {
-  /** Tags. */
+  /** Small tags. */
   sm: 8,
-  /** Chips, thumbnails, the icon square on a tile. */
-  md: 12,
-  /** Tiles, cards, buttons, the chip track. */
-  lg: 16,
-  /** The top corners of the profile sheet where it overlaps the photo. */
-  sheet: 24,
-  /** Round controls and pills. */
+  /** Thumbnails, the icon block on a tile, the facts strip. */
+  md: 14,
+  /** Tiles, cards, fact blocks. */
+  lg: 24,
+  /** The ink block on Home and the top corners of the profile sheet. */
+  sheet: 28,
+  /** Buttons, fields, chips, segmented controls. */
   pill: 999,
 } as const;
 
@@ -229,54 +246,56 @@ export const size = {
   /** Widest a centred message runs. */
   measure: 340,
   /** Primary buttons. */
-  button: 56,
+  button: 52,
   icon: 20,
   iconSmall: 16,
   iconLarge: 24,
   /** Icon on a category tile. */
   tileIcon: 28,
   /** Category tile minimum height. */
-  tile: 66,
-  /** The teal square behind a tile icon. */
+  tile: 112,
+  /** The lavender block behind a tile icon. */
   tileIconBox: 44,
-  /** The coral "you are here" disc in the location pill. */
+  /** The mint "you are here" disc in the location line. */
   pin: 28,
   /** Thumbnail on a provider card. */
-  thumb: 88,
-  /** Visible height of a view-toggle segment (its touch target is still 48). */
-  segment: 40,
-  /** Seal sizes: in a badge, and on the profile. */
-  sealSmall: 22,
-  sealLarge: 92,
-  /** Check mark inside the small seal. */
-  sealCheck: 11,
+  thumb: 84,
+  /** Visible height of a compact control: a segment, a filter chip (touch target is still 48 through hitSlop). */
+  segment: 36,
+  /** How much hitSlop a compact control needs above and below to reach 48 dp. */
+  segmentSlop: 6,
+  /** Height of a badge pill (Verified, Not verified, Featured). */
+  badge: 24,
+  /** Small round marks: the tick on a chosen tile, the disc in a map pin. */
+  badgeDisc: 22,
+  /** The round mark in the verification block on a profile. */
+  trustDisc: 40,
   strokeHeavy: 3.5,
   hairline: 1,
-  /** Border weights: seal rings, selected tiles. */
+  /** Border weights. */
   lineMid: 1.5,
   lineBold: 2,
   /** Stroke for line icons, and for the small check marks. */
   stroke: 1.75,
   strokeBold: 2.75,
-  /** The word inside the large seal (fixed, decorative). */
-  sealWord: 27,
-  sealWordLine: 40,
-  /** Gap between the seal's two rings. */
-  sealGap: 4,
   /** Gallery height as a share of its width. */
   galleryRatio: 0.72,
   /** The same, when the provider has no photos. */
   galleryRatioEmpty: 0.46,
   /** How far the profile sheet rises over the photo. */
-  sheetOverlap: 24,
+  sheetOverlap: 28,
   /** Stars in a review. */
   star: 14,
-  /** Map pins: the teardrop's square before it is turned, normal and selected, and its centre dot. */
-  mapPin: 26,
-  mapPinSelected: 32,
-  mapPinDot: 10,
-  /** The coral "search position" dot on the map. */
+  /** Map pins: the round mark inside the name label, normal and selected, and the pointer under it. */
+  mapPinDisc: 18,
+  mapPinDiscSelected: 22,
+  mapPinTip: 10,
+  /** Longest name a map pin shows before it is cut with an ellipsis. */
+  mapPinChars: 18,
+  /** The "search position" dot on the map. */
   mapHere: 20,
+  /** The least height the map may ever have. */
+  mapMin: 280,
   /** Photo on the card docked over the map. */
   dockThumb: 64,
   /** Widest the content column grows on tablets and web. */

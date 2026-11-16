@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ArrowLeft, ArrowRight, Heart, LocateFixed, MapPin, Search, WifiOff, X } from 'lucide-react-native';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
@@ -15,8 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { Category } from '@/api';
-import { Button } from '@/components/Button';
-import { CategoryTile } from '@/components/CategoryTile';
+import { CategoryTile, type TileTone } from '@/components/CategoryTile';
 import { IconButton } from '@/components/IconButton';
 import { RadiusChips } from '@/components/RadiusChips';
 import { Skeleton } from '@/components/Skeleton';
@@ -28,27 +27,29 @@ import { useCategories, type CategoryNode } from '@/lib/categories';
 import { useFavourites } from '@/lib/favourites';
 import { useLocation } from '@/lib/location';
 import { DEFAULT_RADIUS, type RadiusM } from '@/lib/radius';
-import { makeStyles, radius, size, space, type as typeScale, useTheme } from '@/theme';
-
-/** Category tiles per row. */
-const COLUMNS = 2;
+import { makeStyles, opacity, radius, size, space, type as typeScale, useTheme } from '@/theme';
 
 /** Limits of the search endpoint's `q` parameter (docs/API.md). */
 const NAME_MIN = 2;
 const NAME_MAX = 60;
 
-// Web only: the field's own border shows focus, so the browser's ring is turned off.
+// Web only: the field shows focus itself, so the browser's ring is turned off.
 // ('none' is valid CSS but missing from React Native's types, hence the cast.)
 const NO_FOCUS_RING = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : null;
 
-/** Split a list into grid rows, padding the last row so tiles keep their width. */
-function toRows<T>(items: T[]): (T | null)[][] {
-  const rows: (T | null)[][] = [];
-  for (let i = 0; i < items.length; i += COLUMNS) {
-    const row: (T | null)[] = items.slice(i, i + COLUMNS);
-    while (row.length < COLUMNS) row.push(null);
-    rows.push(row);
-  }
+// The grid is laid out two tiles to a row. Rows alternate wide + narrow and
+// narrow + wide, and the colours repeat every four tiles, so lavender and mint
+// step diagonally down the page instead of forming columns.
+const ROW_SHARES: [number, number][] = [
+  [3, 2],
+  [2, 3],
+];
+const TONES: TileTone[] = ['accent', 'plain', 'plain', 'mint'];
+
+/** Split a list into rows of two. A last tile on its own takes the full width. */
+function toRows<T>(items: T[]): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += 2) rows.push(items.slice(i, i + 2));
   return rows;
 }
 
@@ -56,15 +57,13 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, dark } = useTheme();
-  const { s, f, row, rtl, end, alignStart, textAlign, writingDirection, language, setLanguage, categoryName } =
-    useI18n();
+  const { s, f, row, rtl, end, textAlign, writingDirection, language, setLanguage, categoryName } = useI18n();
   const styles = useStyles();
   const savedCount = useFavourites().list.length;
   const location = useLocation();
   const categories = useCategories();
 
   const [radiusM, setRadiusM] = useState<RadiusM>(DEFAULT_RADIUS);
-  const [selected, setSelected] = useState<Category | null>(null);
   const [openParent, setOpenParent] = useState<CategoryNode | null>(null);
   const [name, setName] = useState('');
   const [nameFocused, setNameFocused] = useState(false);
@@ -79,30 +78,27 @@ export default function HomeScreen() {
     return () => subscription.remove();
   }, [openParent]);
 
-  const toggle = useCallback((category: Category) => {
-    setSelected((current) => (current?.id === category.id ? null : category));
-  }, []);
-
   const query = name.trim();
 
-  // A name of 2+ letters travels with the search; a shorter one is ignored.
-  const search = () => {
+  // One tap on a category searches. A name of 2+ letters travels with it; a shorter one is ignored.
+  const search = (category?: Category) => {
     router.push({
       pathname: '/results',
       params: {
         radius: String(radiusM),
-        ...(selected ? { category_id: String(selected.id) } : {}),
+        ...(category ? { category_id: String(category.id) } : {}),
         ...(query.length >= NAME_MIN ? { q: query } : {}),
       },
     });
   };
 
-  // The keyboard's search key: nothing happens until the name is long enough.
+  // The keyboard's search key and the round button: nothing happens until the name is long enough.
   const submitName = () => {
     if (query.length >= NAME_MIN) search();
   };
 
   const BackIcon = rtl ? ArrowRight : ArrowLeft;
+  const ForwardIcon = rtl ? ArrowLeft : ArrowRight;
   const LocationIcon = location.status === 'located' ? LocateFixed : MapPin;
   const locationText =
     location.status === 'locating'
@@ -111,149 +107,180 @@ export default function HomeScreen() {
         ? s.home.located
         : s.home.fallback;
 
+  // What the grid shows: the top level, or one parent ("All ..." first) and its children.
+  const tiles: { category: Category; label: string; hasChildren: boolean; onPress: () => void }[] =
+    categories.status !== 'ready'
+      ? []
+      : openParent
+        ? [openParent, ...openParent.children].map((category) => ({
+            category,
+            label:
+              category.id === openParent.id
+                ? f(s.home.allIn, { name: categoryName(category) })
+                : categoryName(category),
+            hasChildren: false,
+            onPress: () => search(category),
+          }))
+        : categories.tree.map((node) => ({
+            category: node,
+            label: categoryName(node),
+            hasChildren: node.children.length > 0,
+            onPress: () => (node.children.length > 0 ? setOpenParent(node) : search(node)),
+          }));
+
   return (
     <View style={styles.screen}>
       <StatusBar style={dark ? 'light' : 'dark'} />
 
-      <View style={[styles.header, { paddingTop: insets.top + space.sm }]}>
-        <View style={styles.column}>
-          <View style={[styles.brandRow, { flexDirection: row }]}>
-            <Txt role="headline" color="primary" accessibilityRole="header">
-              {s.appName}
-            </Txt>
-            <View style={[styles.brandActions, { flexDirection: row }]}>
-              {/* Saved providers; the teal badge counts them. */}
-              <View>
-                <IconButton
-                  icon={Heart}
-                  label={savedCount > 0 ? f(s.saved.openCount, { n: savedCount }) : s.saved.open}
-                  onPress={() => router.push('/saved')}
-                />
-                {savedCount > 0 ? (
-                  <View
-                    style={[styles.savedBadge, end(space.none)]}
-                    pointerEvents="none"
-                    accessibilityElementsHidden
-                    importantForAccessibility="no-hide-descendants"
-                  >
-                    <Txt role="caption" color="onPrimary" ltr>
-                      {savedCount > 99 ? '99+' : savedCount}
-                    </Txt>
-                  </View>
-                ) : null}
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={s.language.switchToLabel}
-                onPress={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
-                android_ripple={{ color: colors.surfaceTintStrong }}
-                style={styles.languageTarget}
-              >
-                <View style={styles.language}>
-                  <Txt role="label" color="text">
-                    {s.language.switchTo}
+      <View style={[styles.header, { paddingTop: insets.top + space.xs }]}>
+        <View style={[styles.column, styles.brandRow, { flexDirection: row }]}>
+          <Txt role="headline" accessibilityRole="header">
+            {s.appName}
+          </Txt>
+          <View style={[styles.brandActions, { flexDirection: row }]}>
+            {/* Saved providers; the lavender badge counts them. */}
+            <View>
+              <IconButton
+                icon={Heart}
+                label={savedCount > 0 ? f(s.saved.openCount, { n: savedCount }) : s.saved.open}
+                onPress={() => router.push('/saved')}
+              />
+              {savedCount > 0 ? (
+                <View
+                  style={[styles.savedBadge, end(space.none)]}
+                  pointerEvents="none"
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  <Txt role="caption" color="onAccent" ltr>
+                    {savedCount > 99 ? '99+' : savedCount}
                   </Txt>
                 </View>
-              </Pressable>
+              ) : null}
             </View>
-          </View>
-
-          <Txt role="display" accessibilityRole="header">
-            {s.home.question}
-          </Txt>
-
-          <View
-            style={[styles.locationPill, { alignSelf: alignStart, flexDirection: row }]}
-            accessibilityLiveRegion="polite"
-          >
-            {location.status === 'locating' ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              // The one coral point of the design: a "you are here" disc.
-              <View style={styles.pin}>
-                <LocationIcon color={colors.onAccent} size={size.iconSmall} strokeWidth={size.lineBold} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={s.language.switchToLabel}
+              onPress={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
+              android_ripple={{ color: colors.surfaceTintStrong }}
+              style={styles.languageTarget}
+            >
+              <View style={styles.language}>
+                <Txt role="label">{s.language.switchTo}</Txt>
               </View>
-            )}
-            <Txt role="label" color="textMuted" style={styles.locationText}>
-              {locationText}
-            </Txt>
-            {location.status === 'fallback' ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityHint={s.home.fallbackHint}
-                onPress={location.retry}
-                android_ripple={{ color: colors.surfaceTintStrong }}
-                style={styles.locationAction}
-              >
-                <Txt role="label" color="onPrimarySoft" style={styles.underline}>
-                  {s.home.useMyLocation}
-                </Txt>
-              </Pressable>
-            ) : null}
+            </Pressable>
           </View>
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.column}>
-          {/* Search by name: an aqua field; the border turns teal while typing. */}
-          <View
-            style={[styles.field, { flexDirection: row }, nameFocused ? styles.fieldFocused : null]}
-          >
-            <View style={styles.fieldIcon}>
-              <Search color={colors.textMuted} size={size.icon} strokeWidth={size.stroke} />
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + space.xxl }]}
+      >
+        <View style={[styles.column, styles.stack]}>
+          {/* The ink block: the question, where the search is centred, and search by name. */}
+          <View style={styles.hero}>
+            <Txt role="display" color="onHero" accessibilityRole="header">
+              {s.home.question}
+            </Txt>
+
+            <View style={[styles.locationRow, { flexDirection: row }]} accessibilityLiveRegion="polite">
+              {location.status === 'locating' ? (
+                <ActivityIndicator size="small" color={colors.mint} />
+              ) : (
+                <View style={styles.pin}>
+                  <LocationIcon color={colors.onMint} size={size.iconSmall} strokeWidth={size.lineBold} />
+                </View>
+              )}
+              <Txt role="label" color="onHeroMuted" style={styles.locationText}>
+                {locationText}
+              </Txt>
+              {location.status === 'fallback' ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityHint={s.home.fallbackHint}
+                  onPress={location.retry}
+                  hitSlop={space.md}
+                >
+                  <Txt role="label" color="onHero" style={styles.underline}>
+                    {s.home.useMyLocation}
+                  </Txt>
+                </Pressable>
+              ) : null}
             </View>
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              onSubmitEditing={submitName}
-              onFocus={() => setNameFocused(true)}
-              onBlur={() => setNameFocused(false)}
-              placeholder={s.home.searchPlaceholder}
-              placeholderTextColor={colors.textSubtle}
-              accessibilityLabel={s.home.searchPlaceholder}
-              accessibilityHint={s.home.searchHint}
-              returnKeyType="search"
-              enterKeyHint="search"
-              autoCorrect={false}
-              autoCapitalize="words"
-              maxLength={NAME_MAX}
-              selectionColor={colors.primary}
-              hitSlop={{ top: space.xs, bottom: space.xs }}
-              style={[styles.fieldInput, NO_FOCUS_RING, { textAlign, writingDirection }]}
-            />
-            {name.length > 0 ? (
+
+            {/* A pill field on the ink; its edge turns mint while typing. The round mint button searches. */}
+            <View style={[styles.field, { flexDirection: row }, nameFocused ? styles.fieldFocused : null]}>
+              <TextInput
+                value={name}
+                onChangeText={setName}
+                onSubmitEditing={submitName}
+                onFocus={() => setNameFocused(true)}
+                onBlur={() => setNameFocused(false)}
+                placeholder={s.home.searchPlaceholder}
+                placeholderTextColor={colors.textSubtle}
+                accessibilityLabel={s.home.searchPlaceholder}
+                accessibilityHint={s.home.searchHint}
+                returnKeyType="search"
+                enterKeyHint="search"
+                autoCorrect={false}
+                autoCapitalize="words"
+                maxLength={NAME_MAX}
+                selectionColor={colors.accentStrong}
+                style={[styles.fieldInput, NO_FOCUS_RING, { textAlign, writingDirection }]}
+              />
+              {name.length > 0 ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={s.home.clearSearch}
+                  onPress={() => setName('')}
+                  hitSlop={{ top: space.xs, bottom: space.xs }}
+                  style={styles.fieldClear}
+                >
+                  <X color={colors.textMuted} size={size.icon} strokeWidth={size.stroke} />
+                </Pressable>
+              ) : null}
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={s.home.clearSearch}
-                onPress={() => setName('')}
-                android_ripple={{ color: colors.surfaceTintStrong, borderless: true }}
-                style={styles.fieldClear}
+                accessibilityLabel={s.home.search}
+                accessibilityHint={s.home.searchHint}
+                accessibilityState={{ disabled: query.length < NAME_MIN }}
+                onPress={submitName}
+                hitSlop={space.xs}
+                style={({ pressed }) => [styles.fieldGo, pressed ? styles.dim : null]}
               >
-                <X color={colors.textMuted} size={size.icon} strokeWidth={size.stroke} />
+                <Search color={colors.onMint} size={size.icon} strokeWidth={size.lineBold} />
               </Pressable>
-            ) : null}
+            </View>
+          </View>
+
+          {/* Distance: one compact row. It applies to whatever is tapped below. */}
+          <View style={[styles.radiusRow, { flexDirection: row }]}>
+            <Txt role="label" color="textMuted">
+              {s.radius.label}
+            </Txt>
+            <RadiusChips value={radiusM} onChange={setRadiusM} style={styles.radiusChips} />
           </View>
 
           {openParent ? (
             <View style={[styles.levelHeader, { flexDirection: row }]}>
               <IconButton icon={BackIcon} label={s.home.allCategories} onPress={() => setOpenParent(null)} />
-              <Txt role="title" accessibilityRole="header" style={styles.levelTitle}>
+              <Txt role="headline" accessibilityRole="header" style={styles.levelTitle}>
                 {categoryName(openParent)}
               </Txt>
             </View>
           ) : (
-            <Txt role="title" accessibilityRole="header" style={styles.sectionTitle}>
+            <Txt role="headline" accessibilityRole="header" style={styles.sectionTitle}>
               {s.home.categories}
             </Txt>
           )}
 
           {categories.status === 'loading' ? (
             <View style={styles.grid} accessible accessibilityLabel={s.results.loading}>
-              {[0, 1, 2, 3].map((r) => (
+              {[0, 1, 2].map((r) => (
                 <View key={r} style={[styles.gridRow, { flexDirection: row }]}>
-                  <Skeleton height={size.tile} round={radius.lg} style={styles.cell} />
-                  <Skeleton height={size.tile} round={radius.lg} style={styles.cell} />
+                  <Skeleton height={size.tile} round={radius.lg} style={{ flex: ROW_SHARES[r % 2][0] }} />
+                  <Skeleton height={size.tile} round={radius.lg} style={{ flex: ROW_SHARES[r % 2][1] }} />
                 </View>
               ))}
             </View>
@@ -271,78 +298,53 @@ export default function HomeScreen() {
             />
           ) : null}
 
-          {categories.status === 'ready' && !openParent ? (
+          {categories.status === 'ready' ? (
             <View style={styles.grid}>
-              {toRows(categories.tree).map((cells, r) => (
+              {toRows(tiles).map((cells, r) => (
                 <View key={r} style={[styles.gridRow, { flexDirection: row }]}>
-                  {cells.map((node, c) =>
-                    node ? (
-                      <CategoryTile
-                        key={node.id}
-                        icon={node.icon}
-                        label={categoryName(node)}
-                        hasChildren={node.children.length > 0}
-                        selected={selected?.id === node.id || selected?.parent_id === node.id}
-                        selectedChild={
-                          selected?.parent_id === node.id ? categoryName(selected) : undefined
-                        }
-                        onPress={() => (node.children.length > 0 ? setOpenParent(node) : toggle(node))}
-                      />
-                    ) : (
-                      <View key={`pad-${c}`} style={styles.cell} />
-                    ),
-                  )}
+                  {cells.map((tile, c) => (
+                    <CategoryTile
+                      key={tile.category.id}
+                      icon={tile.category.icon}
+                      label={tile.label}
+                      tone={TONES[(r * 2 + c) % TONES.length]}
+                      grow={cells.length === 1 ? 1 : ROW_SHARES[r % 2][c]}
+                      hasChildren={tile.hasChildren}
+                      onPress={tile.onPress}
+                    />
+                  ))}
                 </View>
               ))}
-            </View>
-          ) : null}
 
-          {categories.status === 'ready' && openParent ? (
-            <View style={styles.grid}>
-              {toRows<Category>([openParent, ...openParent.children]).map((cells, r) => (
-                <View key={r} style={[styles.gridRow, { flexDirection: row }]}>
-                  {cells.map((category, c) =>
-                    category ? (
-                      <CategoryTile
-                        key={category.id}
-                        icon={category.icon}
-                        label={
-                          category.id === openParent.id
-                            ? f(s.home.allIn, { name: categoryName(category) })
-                            : categoryName(category)
-                        }
-                        selected={selected?.id === category.id}
-                        onPress={() => toggle(category)}
-                      />
-                    ) : (
-                      <View key={`pad-${c}`} style={styles.cell} />
-                    ),
-                  )}
-                </View>
-              ))}
+              {/* No category in mind: everyone around, best rated first. */}
+              {!openParent ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={s.home.searchAll}
+                  onPress={() => search()}
+                  android_ripple={{ color: colors.surfaceTintStrong }}
+                  style={({ pressed }) => [styles.everyone, { flexDirection: row }, pressed ? styles.dim : null]}
+                >
+                  <View style={styles.everyoneText}>
+                    <Txt role="action">{s.home.everyone}</Txt>
+                    <Txt role="label" color="textMuted">
+                      {s.home.everyoneHint}
+                    </Txt>
+                  </View>
+                  <View style={styles.everyoneGo}>
+                    <ForwardIcon color={colors.onPrimary} size={size.icon} strokeWidth={size.lineBold} />
+                  </View>
+                </Pressable>
+              ) : null}
             </View>
           ) : null}
 
           {/* A quiet way to tell Haddak about someone who is not listed yet. */}
           {categories.status === 'ready' ? (
-            <TextLink label={s.home.suggest} onPress={() => router.push('/suggest')} style={styles.suggest} />
+            <TextLink label={s.home.suggest} onPress={() => router.push('/suggest')} />
           ) : null}
         </View>
       </ScrollView>
-
-      <View style={[styles.dock, { paddingBottom: insets.bottom + space.md }]}>
-        <View style={[styles.column, styles.dockInner]}>
-          <Txt role="label" color="textMuted">
-            {s.radius.label}
-          </Txt>
-          <RadiusChips value={radiusM} onChange={setRadiusM} />
-          <Button
-            label={selected ? f(s.home.searchIn, { name: categoryName(selected) }) : s.home.searchAll}
-            icon={Search}
-            onPress={search}
-          />
-        </View>
-      </View>
     </View>
   );
 }
@@ -360,18 +362,16 @@ const useStyles = makeStyles((c) => ({
   },
   header: {
     paddingHorizontal: space.lg,
-    paddingBottom: space.sm,
   },
   brandRow: {
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: space.md,
   },
   brandActions: {
     alignItems: 'center',
     gap: space.xs,
   },
-  // Count on the heart: a small teal pill at its top end corner, ringed in the ground colour.
+  // Count on the heart: a small lavender pill at its top end corner, ringed in the ground colour.
   savedBadge: {
     position: 'absolute',
     top: space.none,
@@ -379,7 +379,7 @@ const useStyles = makeStyles((c) => ({
     height: space.xl + space.xxs,
     paddingHorizontal: space.xs,
     borderRadius: radius.pill,
-    backgroundColor: c.primary,
+    backgroundColor: c.accent,
     borderWidth: size.lineBold,
     borderColor: c.background,
     alignItems: 'center',
@@ -390,114 +390,130 @@ const useStyles = makeStyles((c) => ({
     justifyContent: 'center',
   },
   language: {
-    backgroundColor: c.surface,
-    borderWidth: size.lineMid,
-    borderColor: c.outline,
-    borderRadius: radius.pill,
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
-  },
-  // The location line is an aqua pill.
-  locationPill: {
-    alignItems: 'center',
-    gap: space.sm,
-    minHeight: size.touch,
     backgroundColor: c.surfaceTint,
     borderRadius: radius.pill,
-    paddingHorizontal: space.sm,
-    marginTop: space.sm,
-    maxWidth: '100%',
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
+  },
+  scroll: {
+    paddingHorizontal: space.lg,
+    paddingTop: space.sm,
+  },
+  stack: {
+    gap: space.lg,
+  },
+  hero: {
+    backgroundColor: c.hero,
+    borderRadius: radius.sheet,
+    padding: space.xl,
+    gap: space.md,
+  },
+  locationRow: {
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    columnGap: space.sm,
+    rowGap: space.xs,
   },
   pin: {
     width: size.pin,
     height: size.pin,
     borderRadius: radius.pill,
-    backgroundColor: c.accent,
+    backgroundColor: c.mint,
     alignItems: 'center',
     justifyContent: 'center',
   },
   locationText: {
     flexShrink: 1,
   },
-  locationAction: {
-    justifyContent: 'center',
-    minHeight: size.touch,
-    minWidth: size.touch,
-  },
   underline: {
     textDecorationLine: 'underline',
   },
-  scroll: {
-    paddingHorizontal: space.lg,
-    paddingTop: space.sm,
-    paddingBottom: space.lg,
-  },
-  // Same aqua and radius as the facts strips; 48 dp high.
   field: {
     alignItems: 'center',
-    minHeight: size.touch,
-    backgroundColor: c.surfaceTint,
-    borderRadius: radius.lg,
-    borderWidth: size.lineMid,
-    borderColor: c.surfaceTint,
-    marginBottom: space.lg,
+    minHeight: size.button,
+    backgroundColor: c.background,
+    borderRadius: radius.pill,
+    borderWidth: size.lineBold,
+    borderColor: c.background,
+    paddingHorizontal: space.xs,
+    marginTop: space.sm,
   },
   fieldFocused: {
-    borderColor: c.primary,
+    borderColor: c.mint,
   },
   fieldInput: {
     ...typeScale.body,
     flex: 1,
     minWidth: 0,
-    // 40 dp inside the 48 dp field (hitSlop covers the rest), so it never draws over the border.
-    minHeight: size.segment,
+    minHeight: size.segment + space.xs,
     color: c.text,
-    paddingHorizontal: space.sm,
+    paddingHorizontal: space.md,
     paddingVertical: space.none,
   },
-  // Lines the search icon up with the clear button's 48 dp box on the other side.
-  fieldIcon: {
-    width: size.touch - space.sm,
-    alignItems: 'flex-end',
-  },
   fieldClear: {
-    width: size.touch,
-    height: size.touch,
+    width: size.segment + space.xs,
+    height: size.segment + space.xs,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // The round mint button inside the field: 40 dp to the eye, 48 with its hitSlop.
+  fieldGo: {
+    width: size.segment + space.xs,
+    height: size.segment + space.xs,
+    borderRadius: radius.pill,
+    backgroundColor: c.mint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dim: {
+    opacity: opacity.pressed,
+  },
+  radiusRow: {
+    alignItems: 'center',
+    gap: space.md,
+  },
+  radiusChips: {
+    flex: 1,
+  },
   sectionTitle: {
-    marginBottom: space.md,
+    marginTop: space.sm,
   },
   levelHeader: {
     alignItems: 'center',
     gap: space.xs,
-    marginBottom: space.md,
+    marginTop: space.sm,
+    // The back button has its own air around the arrow; this lines the arrow up with the page edge.
+    marginHorizontal: -space.md,
   },
   levelTitle: {
     flex: 1,
   },
   grid: {
-    gap: space.sm,
+    gap: space.sm + space.xxs,
   },
   gridRow: {
-    gap: space.sm,
+    gap: space.sm + space.xxs,
   },
-  cell: {
+  // "Everyone nearby": a wide grey block with an ink arrow button.
+  everyone: {
+    alignItems: 'center',
+    gap: space.md,
+    backgroundColor: c.surfaceTint,
+    borderRadius: radius.lg,
+    paddingVertical: space.md,
+    paddingHorizontal: space.lg,
+    overflow: 'hidden',
+  },
+  everyoneText: {
     flex: 1,
     minWidth: 0,
   },
-  suggest: {
-    marginTop: space.md,
-  },
-  dock: {
-    backgroundColor: c.surface,
-    borderTopWidth: size.hairline,
-    borderTopColor: c.border,
-    paddingHorizontal: space.lg,
-    paddingTop: space.md,
-  },
-  dockInner: {
-    gap: space.sm,
+  everyoneGo: {
+    width: size.touch,
+    height: size.touch,
+    borderRadius: radius.pill,
+    backgroundColor: c.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 }));

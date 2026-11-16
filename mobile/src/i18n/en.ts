@@ -48,6 +48,9 @@ export const en = {
     searchHint: 'Type at least 2 letters, then search.',
     clearSearch: 'Clear the name',
     suggest: 'Know someone good? Suggest them',
+    search: 'Search',
+    everyone: 'Everyone nearby',
+    everyoneHint: 'All categories, best rated first',
   },
 
   results: {
@@ -82,11 +85,23 @@ export const en = {
     errorTitle: "Couldn't load the results",
     errorBody: 'Check your connection and try again.',
     openProfile: 'Open profile',
+    sponsored: 'Sponsored',
+    sponsoredLabel: 'Sponsored, paid placement',
+  },
+
+  filter: {
+    label: 'Verified only',
+    verifiedOnly: 'Verified only',
+    unverifiedToo: 'Unverified too',
   },
 
   badges: {
     verified: 'Verified',
     verifiedBody: 'Haddak checked proof of this work before listing it.',
+    notVerified: 'Not verified',
+    notVerifiedBody: 'Haddak has not checked this listing. Check for yourself before you agree on anything.',
+    community: 'Listed by the community',
+    communityBody: "Added from someone's suggestion. The owner has not joined Haddak yet.",
     founding: 'Founding member',
     featured: 'Featured',
     featuredLabel: 'Featured, paid placement',
@@ -174,7 +189,7 @@ export const en = {
     errorBody: 'Check your connection and try again.',
     loading: 'Loading profile',
     dismiss: 'Dismiss',
-    directions: 'Get directions',
+    directions: 'Directions',
     directionsLabel: 'Get directions to {name} in your maps app',
     directionsFailed: "Couldn't open the maps app.",
   },
@@ -203,7 +218,7 @@ export const en = {
     rateLimited: "You've sent a few already. Try again later.",
     failed: "Couldn't send it. Check your connection and try again.",
     successTitle: "Thanks, we'll contact them",
-    successBody: "If they join, you'll find them on Haddak with the verified seal.",
+    successBody: "If they join, you'll find them on Haddak with the Verified mark.",
     successAction: 'Back to Home',
   },
 

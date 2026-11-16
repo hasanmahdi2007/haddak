@@ -2,255 +2,92 @@
 
 The visual rules for the Haddak app, as built. The code mirror of this file is `src/theme/tokens.ts`: change both together. Screens and components use tokens only, never a raw colour or size.
 
-Status: the founder chose this direction (option B, "Corniche") on 2026-11-15. Home, Results and Provider profile are built in it, in light and dark. Screenshots are in `design-preview/` (web build, see "What is verified" at the end).
+Status: rebuilt on 2026-11-16 after the founder rejected the earlier teal design. The palette comes from his reference image (a finance dashboard of rounded cards with mint and lavender blocks and one near-black card). Home, Results (list and map), Provider profile and Saved are laid out in it, in light and dark. Suggest carries the new palette and shapes but keeps its earlier form layout.
 
-## Direction: Corniche
+## Direction: Blocks
 
-Sea and white. A pure white page, one sea teal for the brand and every action, pale aqua surfaces where things group together, and a single coral point that says "you are here".
+A near-white page built from big rounded blocks of solid colour. Ink for words and actions, mint for trust, lavender for accent, soft grey for everything that is just a container.
 
-- **Feel:** bright, crisp and awake. Trust comes from clarity: a clean page, a teal seal, plain facts.
-- **Scene:** a person on an Android phone in daylight, in the street or at home, who needs someone now. So the default is a light theme with strong contrast. A dark theme follows the system setting.
-- **Refused:** beige or grey grounds, navy headers, gradients, drop shadows, glass effects, emoji as icons, cards inside cards, promo carousels. Nothing that looks sleepy, and nothing that looks like a template.
-- **Signature:** the verified seal (see Badges). It is the one decorative gesture; nothing else is ornamental.
+- **Feel:** bright, confident, a little playful. Nothing is outlined; things are blocks.
+- **Scene:** a person on an Android phone in daylight, in the street or at home, who needs someone now. Light theme by default with strong contrast; a dark theme follows the system setting.
+- **Signature:** the mint Verified mark. A mint pill on cards, a mint disc with a check on map pins, and a whole mint hero block on a verified profile.
+- **Refused:** thin grey outlines around boxes, gradients, glass, coloured side stripes, white text on pastel, pastel as a text colour, a list-of-rows look.
 
 ## Colour
 
-Each colour has one job and is never borrowed for decoration.
+Each colour has one job.
 
-| Colour | Job | Where |
-|---|---|---|
-| Sea teal | The brand, actions, verification | Wordmark, primary buttons, selected chip, tile icon squares, the seal, fact icons |
-| Aqua | Grouping | Location pill, chip track, facts strips, photo placeholders, skeletons |
-| Coral | "Here" | The location pin, the tick on a chosen tile, the dot on an empty state. Never text on white |
-| Amber | Ratings and Featured | Stars, the Featured tag |
-| Green | Founding member | The founding-member tag only |
-| Red | Something went wrong | Error states and notices only |
-| WhatsApp green | WhatsApp | The WhatsApp button only |
-
-### Tokens
-
-| Token | Light | Dark | Use |
+| Token | Light | Dark | Job |
 |---|---|---|---|
-| `background` | `#FFFFFF` | `#061A20` | Page ground |
-| `surface` | `#FFFFFF` | `#0B252D` | Cards, tiles, docked bars |
-| `surfaceTint` | `#E6F7FA` | `#11343F` | Aqua surfaces: location pill, chip track, facts strips, photo placeholders, pressed cards |
-| `surfaceTintStrong` | `#C9EBF1` | `#1A4856` | Tile and card edges, pressed chips, skeleton blocks, dividers on aqua |
-| `primary` | `#00708A` | `#4CC2DB` | Sea teal |
-| `primaryPressed` | `#005A70` | `#7AD3E6` | Pressed primary |
-| `onPrimary` | `#FFFFFF` | `#00232C` | Text and icons on teal |
-| `primarySoft` / `onPrimarySoft` | `#D3F1F6` / `#004E61` | `#104452` / `#C2EDF6` | Soft teal fill; the dark teal is also the "Use my location" link |
-| `primaryWash` | teal at 12% | teal at 16% | The search-radius circle on the map |
-| `text` | `#0C2A33` | `#E9F6F9` | Main text |
-| `textMuted` | `#45636C` | `#AECAD1` | Supporting text |
-| `textSubtle` | `#52707A` | `#93B3BC` | Captions, review counts, dates |
-| `border` | `#D5ECF1` | `#1C3E49` | Dividers, header and dock lines |
-| `outline` | `#6A96A1` | `#6C96A1` | Control borders (language switch, outline button), empty stars |
-| `rating` | `#B97A00` | `#F2BE4A` | Stars |
-| `ratingSoft` / `onRatingSoft` | `#FFEFC2` / `#553B00` | `#4A3A10` / `#FBE3A6` | Featured tag |
-| `success` | `#1F6B4C` | `#7FCFA6` | Founding member (reserved) |
-| `successSoft` / `onSuccessSoft` | `#DCEDE2` / `#154D36` | `#173D2D` / `#BFE8D2` | Founding-member tag |
-| `danger` | `#B3261E` | `#FFB4AB` | Errors (reserved) |
-| `dangerSoft` / `onDangerSoft` | `#FBE4E1` / `#7A1410` | `#5C1612` / `#FFDAD5` | Error disc, error notice |
-| `whatsapp` / `whatsappPressed` / `onWhatsapp` | `#25D366` / `#1EB958` / `#062E17` | same | WhatsApp button |
-| `scrim` / `onScrim` | `rgba(12,42,51,.72)` / `#FFFFFF` | `rgba(3,14,18,.72)` / `#FFFFFF` | Controls over photos |
-| `accent` / `onAccent` | `#FF6A4D` / `#4A1206` | `#FF7A5F` / `#3A0D03` | The coral point |
+| `background` | `#FAFEFF` | `#12131F` | Page ground |
+| `surface` | `#FFFFFF` | `#2A2C44` | Insets inside a grey block (the facts strip), the card over the map |
+| `surfaceTint` | `#EFF1EE` | `#1D1E32` | Cards, tiles, fields, control tracks |
+| `surfaceTintStrong` | `#D0D2CF` | `#3A3C57` | Pressed surfaces, skeletons, the "Not verified" pill |
+| `primary` / `onPrimary` | `#1B1C2F` / `#FFFFFF` | `#FAFEFF` / `#1B1C2F` | Primary buttons and the selected state |
+| `hero` / `onHero` | `#1B1C2F` / `#FFFFFF` | `#2A2C44` / `#FFFFFF` | The ink block on Home |
+| `mint` / `onMint` | `#A4F5A6` / `#1B1C2F` | same | Trust: Verified, "Open now", the search button in the field |
+| `accent` / `onAccent` | `#B2A1FF` / `#1B1C2F` | same | Lavender: category blocks, Featured, Sponsored, the search circle |
+| `accentSoft` | `#C0C4FF` | same | The block behind a missing photo |
+| `accentStrong` | `#6F5BD6` | `#B2A1FF` | The edge of the search circle on the map |
+| `text` / `textMuted` / `textSubtle` | `#1B1C2F` / `#55576A` / `#666879` | `#F3F5F4` / `#BBBDCB` / `#9C9EB0` | Text |
+| `border` / `outline` | `#D0D2CF` / `#85878F` | `#34364D` / `#7F8198` | Dividers inside a card / control boundaries (3:1) |
+| `rating` | `#B97A00` | `#F2BE4A` | Rating stars only |
+| `danger` (+ soft pair) | `#B3261E` | `#FFB4AB` | Errors only |
+| `whatsapp` | `#25D366` | same | The WhatsApp button only |
 
-The dark theme is the same sea at night: a deep blue-green ground, slightly lighter surfaces, and a lighter teal so buttons and the seal keep their contrast. On teal, text turns dark in the dark theme.
+Rules:
 
-### Contrast (measured)
+- Mint and lavender are **fills only**. Text on them is always dark (`onMint`, `onAccent`), in the dark theme too. They are never a text colour and never carry white text.
+- Body text meets WCAG AA (4.5:1) on every surface it sits on; control boundaries meet 3:1.
+- One shadow in the app: the card that floats over the map (`shadow`).
 
-| Pair | Light | Dark | Needs |
+## Type
+
+Beiruti for titles, Readex Pro for text and controls. Both cover Arabic and Latin. Sizes scale with the system font size.
+
+| Role | Face | Size / line | Use |
 |---|---|---|---|
-| `text` on `background` / `surfaceTint` | 15.1 / 13.7 | 16.2 / 12.0 | 4.5 |
-| `textMuted` on `background` / `surfaceTint` | 6.5 / 5.9 | 10.3 / 7.7 | 4.5 |
-| `textSubtle` on `background` / `surfaceTint` | 5.3 / 4.8 | 8.0 / 5.9 | 4.5 |
-| `primary` (as text or icon) on `background` / `surfaceTint` | 5.7 / 5.2 | 8.5 / 6.3 | 4.5 |
-| `onPrimary` on `primary` | 5.7 | 7.9 | 4.5 |
-| `onPrimarySoft` on `surfaceTint` | 8.4 | 10.6 | 4.5 |
-| `onRatingSoft` on `ratingSoft` | 9.1 | 8.7 | 4.5 |
-| `onSuccessSoft` on `successSoft` | 8.0 | 9.0 | 4.5 |
-| `onDangerSoft` on `dangerSoft` | 8.9 | 10.3 | 4.5 |
-| `onWhatsapp` on `whatsapp` | 7.5 | 7.5 | 4.5 |
-| `onAccent` on `accent` | 5.4 | 6.6 | 4.5 |
-| `outline` on `background` | 3.2 | 5.5 | 3 |
-| `rating` (star) on `background` / `surfaceTint` | 3.6 / 3.3 | 10.4 / 7.7 | 3 |
-| `onScrim` on `scrim` over a white photo | 6.1 | higher | 4.5 |
+| `display` | Beiruti Bold | 30 / 40 | The question on Home, a provider's name, the Saved and Suggest titles |
+| `headline` | Beiruti Bold | 24 / 34 | The wordmark, screen and section titles |
+| `title` | Beiruti SemiBold | 19 / 28 | Card names, fact values |
+| `body` / `bodyStrong` | Readex Pro 400 / 500 | 15 / 24 | Reading text |
+| `action` | Readex Pro 600 | 15 / 22 | Buttons, category tiles |
+| `data` | Readex Pro 500 | 14 / 22 | Rating, distance, price |
+| `label` | Readex Pro 500 | 13 / 20 | Supporting lines, segments, chips |
+| `caption` | Readex Pro 400 | 12 / 18 | Badge pills, map pin names, dates |
 
-Known and accepted: tile and card edges (`surfaceTintStrong`) are about 1.3:1 against the page. They are not what identifies the control: a tile is read by its solid teal icon square and label, a card by its photo and aqua strip. White text on WhatsApp green fails (2:1), so that button uses dark green text.
+## Shape and space
 
-## Typography
-
-Arabic and Latin are equals, so every face was chosen because one designer drew both scripts together.
-
-| Face | Role | Why |
-|---|---|---|
-| **Beiruti** (Boutros Fonts, a Lebanese foundry) | Titles | Named for Beirut; firm, slightly condensed, with character in both scripts |
-| **Readex Pro** (Arabic by Nadine Chahine) | Text, buttons, numbers | Wide, open letterforms that stay clear at small sizes |
-| **Aref Ruqaa** | Only the word inside the large seal | Ruqaa is the script of Lebanese stamps and handwriting |
-
-Loaded with `@expo-google-fonts/*` in `src/app/_layout.tsx`.
-
-| Role | Face and weight | Size / line | Use |
-|---|---|---|---|
-| `display` | Beiruti 700 | 30 / 40 | The question on Home |
-| `headline` | Beiruti 700 | 24 / 34 | Wordmark, screen titles, provider name, state titles |
-| `title` | Beiruti 600 | 19 / 28 | Card names, section titles, profile facts |
-| `body` | Readex Pro 400 | 15 / 24 | Reading text |
-| `bodyStrong` | Readex Pro 500 | 15 / 24 | Emphasis, review authors, "Verified" on the profile |
-| `action` | Readex Pro 600 | 15 / 22 | Buttons, chips |
-| `data` | Readex Pro 500 | 14 / 22 | Rating, distance, price on cards |
-| `label` | Readex Pro 500 | 13 / 20 | Supporting lines, tile labels |
-| `caption` | Readex Pro 400 | 12 / 18 | Tag labels, dates, fact labels |
-
-Rules: sizes scale with the system font size (never turn scaling off, except the decorative word in the seal). No letter-spacing, which breaks Arabic joining. No all-caps. Line heights are generous enough for Arabic marks. Digits stay Western (1, 2, 3) in both languages, as on Lebanese price lists and phone numbers.
-
-All text goes through `components/Txt.tsx`, which applies the role, the colour token and the reading direction.
-
-## Spacing, shape, depth
-
-- **Spacing** (4-point scale): `xxs` 2, `xs` 4, `sm` 8, `md` 12, `lg` 16, `xl` 20, `xxl` 24, `xxxl` 32, `huge` 48. Screen side padding is `lg`. Related things sit `xs` to `sm` apart; cards sit `md` apart; sections sit `xxl` apart.
-- **Radius**: `sm` 8 (tags), `md` 12 (chips, thumbnails, tile icon squares), `lg` 16 (tiles, cards, buttons, tracks, facts strips), `sheet` 24 (top corners of the profile sheet), `pill` (round buttons, the location pill, the language switch).
-- **Depth**: none. No drop shadows. Things are told apart by white against aqua, a 1.5 dp aqua edge, or a 1 dp `border` line under a header and over a dock.
-- **Sizes**: touch target 48 dp minimum, button 56 high, chips 48 high, view-toggle segment 48 x 40 (48 with its touch slop), icons 16 / 20 / 24 with a 1.75 stroke, category tile at least 66 high with a 44 icon square, card thumbnail 88, seal 22 small and 92 large, state disc 88, content column at most 560 wide.
-- **Motion**: only to mark a state change. A press changes colour or opacity at once, images fade in over 200 ms, skeletons pulse slowly and stop when Reduce Motion is on. No entrance animations.
-
-## Icons
-
-Lucide line icons (`lucide-react-native`), one stroke weight, coloured with tokens. No emoji, no mixed icon sets. Category icons are keyed by the API's `icon` field in `components/CategoryIcon.tsx`; an unknown key falls back to a shop icon. Arrows flip in Arabic.
-
-## Screens
-
-- **Home** (`src/app/index.tsx`): teal wordmark and the language switch; the question; the aqua location pill with the coral pin; the search-by-name field; a two-column grid of category tiles; a docked bar with the distance track and one full-width search button whose label names the chosen category.
-- **Results** (`src/app/results.tsx`): back arrow, title (the quoted name when searching by name, else the category, or "Everyone nearby") with the result count under it, the list / map toggle, then the same distance track as Home. Below, a list of provider cards, or the map (see Map view).
-- **Provider profile** (`src/app/provider/[id].tsx`): photo gallery at the top; a white sheet with 24 dp top corners rises 24 dp over it, with the large seal across that edge on the end side. Then "category · area", the name, the verified line, tags, the facts strip, About, Reviews. WhatsApp and Call are docked at the bottom.
-- **Saved** (`src/app/saved.tsx`): back arrow and title, then the providers saved on this phone as short cards (see Saved).
+- Radius: `lg` 24 for cards, tiles and blocks; `sheet` 28 for the Home ink block and the profile sheet; `md` 14 for thumbnails and insets; `pill` for buttons, fields, chips and segmented controls.
+- Spacing: a 4-point scale. 16 at the page edge, 10 to 12 between blocks, 16 to 20 inside them.
+- Touch targets are 48 dp. Compact controls are 36 to 40 dp to the eye and reach 48 with `hitSlop`.
+- Motion only marks a state change (120 to 200 ms). No entrance animations.
 
 ## Components
 
-### Category tile (`CategoryTile`)
-White tile, radius `lg`, 1.5 dp `surfaceTintStrong` edge. A solid teal 44 dp square (radius `md`) holds a white line icon; the `label` sits beside it (two lines at most). Two per row with `sm` gaps.
-- **Pressed:** 72% opacity.
-- **Selected:** teal fill, white label, the icon square turns white with a teal icon, and a coral tick appears at the end. A parent whose child is selected shows as selected with the child's name beneath.
-- Tapping a parent opens its children in place, with a back arrow and an "All …" tile first.
+- **Button** (`Button.tsx`): one pill, 52 dp. `primary` ink, `whatsapp` green, `tonal` grey, `outline`. `compact` tightens the padding for the three-button action bar.
+- **Distance control** (`RadiusChips.tsx`): a grey pill track with four segments, 36 dp high, the chosen one ink. Used in one row on Home and in the Results header.
+- **Verified filter** (`VerifiedFilter.tsx`): one chip, a switch. On: mint with a check badge, "Verified only". Off: outlined, "Unverified too".
+- **List / Map switch** (in `results.tsx`): a grey pill track with two labelled segments (icon and word), the chosen one ink.
+- **Category tile** (`CategoryTile.tsx`): a solid block, 112 dp high: icon top, name bottom, an arrow in the corner (chevron opens more choices, diagonal arrow goes to results). Tones: lavender, mint, grey. The grid alternates wide + narrow rows and steps the colours diagonally.
+- **Badges** (`Badges.tsx`): pills, 24 dp. Verified (mint, check badge), Not verified (grey, empty badge), Featured (lavender, means paid), Founding member (outlined), and the "Listed by the community" line for a listing nobody has claimed.
+- **Open status** (`OpenStatus.tsx`): a mint dot ringed in dark green plus "Open now", or an empty ring plus "Closed". Words are always ink.
+- **Provider card** (`ProviderCard.tsx`): a grey block: photo, name, "category · area", the trust line, then a white strip with rating, distance and price in fixed columns. **Sponsored** variant (`sponsored: true`): the block is lavender, with an ink "Sponsored" pill and the sponsor's one-line hook; the API returns it first, so it sits at the top of the list.
+- **Map pin** (`MapParts.tsx`): a pill carrying the provider's name (cut at 18 characters) with a pointer under it. Verified: white pill, ink edge, mint check disc. Not verified: grey pill, grey edge, empty ring, muted name. Featured: lavender pill. Selected: ink pill, larger. The search position is a lavender dot with an ink ring; the search area is a lavender circle.
+- **State view** (`StateView.tsx`): a lavender disc with the icon and a mint dot; errors use the error colours.
 
-### Distance track (`RadiusChips`)
-One aqua track (radius `lg`, 4 dp padding) with four equal segments: 500 m, 1 km, 5 km, City. One is always selected (default 1 km): teal fill, `onPrimary` text. Others: no fill, `text` colour; pressed: `surfaceTintStrong`. Announced as a radio group.
+## Screens
 
-### View toggle (in `results.tsx`)
-A small version of the same track with two icon segments, list and map. Active: teal fill, `onPrimary` icon. Announced as tabs with the labels "List" and "Map".
-
-### Buttons (`Button`, `IconButton`)
-One shape: 56 dp high, radius `lg`, `action` type, optional leading icon.
-
-| Variant | Fill / text | Use |
-|---|---|---|
-| `primary` | `primary` / `onPrimary` | Search, Call, the action of an empty or error state |
-| `whatsapp` | `whatsapp` / `onWhatsapp` | WhatsApp only |
-| `outline` | clear, 1.5 dp `outline` border, `primary` text | Secondary actions (Show more reviews, Back to the list) |
-| `tonal` | `surfaceTint` / `onPrimarySoft` | Available, not used on a screen yet |
-
-States: pressed swaps to the pressed colour; disabled is 45% opacity; loading shows a spinner in place of the label. Icon buttons are 48 dp circles; over a photo they take a `scrim` fill and a white icon.
-
-### Provider card (`ProviderCard`)
-White card, radius `lg`, 1.5 dp `surfaceTintStrong` edge, in two parts.
-- **Top:** 88 dp photo (radius `md`), then the name (`title`, two lines at most), "category · area" (`label`, muted), then the badges in one wrapping row: Verified, Featured, Founding member.
-- **Bottom:** an aqua strip with **rating, distance, price in the same three columns on every card** (5 : 4 : 8), so a list is compared by running the eye down a column. A long price wraps to a second line; a missing price leaves its column empty.
-- **No photo:** the category icon in teal on aqua.
-- **Featured:** the card's edge is teal instead of aqua, and it carries the Featured tag. That is all: no fill, no ribbon, no larger size.
-- **Pressed:** the top turns aqua.
-- The whole card is one button with one spoken description (name, place, badges, rating, distance, price).
-
-### Badges (`Badges.tsx`)
-- **Verified seal**: Haddak's trust mark, always teal, always the same double ring. *Small* (22 dp): a teal ring around a solid teal disc with a white check; it never appears without the word "Verified" beside it. *Large* (92 dp, profile only): a white disc with two teal rings, the word موثّق in ruqaa and a check, turned 8 degrees like a stamp pressed by hand. The word is always in Arabic, as a real stamp would be; the verified line translates it.
-- **Verified badge**: small seal + "Verified" in teal. On cards. On the profile it becomes the verified line: the seal, "Verified", and under it the sentence that says what Haddak checked.
-- **Founding member**: `successSoft` tag, medal icon, `caption` text.
-- **Featured**: `ratingSoft` tag with `caption` text and no icon. Featured is paid placement: the screen-reader label says so, and it must never be styled to look like a quality award.
-
-### Rating (`Rating`, `Stars`)
-On cards and in the profile facts: amber star, the average to one decimal, the count in brackets (cards). No reviews: the word "New" instead of a zero. In reviews: five small stars, filled amber or outlined.
-
-### Profile facts strip
-One aqua strip (radius `lg`) with three columns split by thin lines: rating, distance, price. Each shows its icon and value in `title` type with a `caption` label under it. Same icons and order as the card strip.
-
-### Search field (on Home)
-An aqua field (`surfaceTint`, radius `lg`, 48 dp high) above the categories: search icon at the start, `body` text, a 48 dp clear button at the end once there is text. Focus turns its 1.5 dp border `primary`. The keyboard's search key (or the docked button) searches by name with 2 or more characters, together with the chosen distance and category; fewer does nothing. Results then shows the quoted name as its title, and the empty state names it.
-
-### Get directions (on the profile)
-An `outline` button with the navigation arrow, 8 dp under the facts strip, so distance and the way there read together. It opens the maps app at the provider's coordinates (Google Maps universal link). If it cannot open, the same `dangerSoft` notice as WhatsApp and Call appears.
-
-### Photo (`Photo`)
-A provider photo, cropped to fill. No photo, or it fails to load: the category icon in teal on aqua. On the profile the header is shorter when there are no photos. A gallery with several photos shows a "1 / 3" counter on a scrim pill.
-
-### WhatsApp and Call
-Docked at the bottom of the profile on `surface` with a top `border` line, always visible. WhatsApp is green and wider (1.6 to 1) because most contact in Lebanon starts there; Call is teal. They open `wa.me` and `tel:` links. If a link cannot open, a `dangerSoft` notice appears above the buttons with the reason and what to do, and can be dismissed.
-
-### Map view (`ResultsMap`, `MapParts`)
-The map side of the Results toggle. It fills the screen below the header and the distance track and shows the same results as the list (one search, no second request). On phones it is a real map (`react-native-maps`, `ResultsMap.tsx`); the web build draws the same pieces on a plain aqua panel (`ResultsMap.web.tsx`) for screenshots.
-- **Fit:** centred on the search position, zoomed so the chosen distance fits with some air around it. "City" fits 20 km, so every result is on screen. Changing the distance re-fits the map.
-- **Circle:** the search distance, a `primaryWash` fill with a 1.5 dp teal line. "City" has no circle.
-- **Search position:** a 20 dp coral dot with a `surface` ring: the same "here" as the location pill. It is not a button.
-- **Pin:** a teal teardrop (26 dp before it is turned) with a `surface` edge and an `onPrimary` dot, tip on the provider's position, inside a 48 dp touch box. Built from plain views, no icon. *Featured* (paid): an amber (`rating`) edge and a ring in place of the dot, and it sits above ordinary pins. *Selected:* larger (32 dp), `primaryPressed` fill, heavier edge, above every other pin. Size and shape carry the difference, not colour alone.
-- **Docked card (`MapProviderCard`):** tapping a pin docks a short provider card `lg` from the bottom and sides: 64 dp photo or category icon, name (`title`, one line), "category · area", then Verified, the Featured tag, rating and distance on one line. `surface` fill, radius `lg`, 1.5 dp aqua edge (teal when featured), no shadow. The whole card is one button that opens the profile; pressed, it turns aqua. Tapping the map elsewhere removes it.
-- **Dark:** the map follows the app's theme (`userInterfaceStyle`); pins, circle and card use the dark tokens.
-- **Arabic:** the map itself never mirrors (east stays on the right); the docked card lays out right to left.
-- **Screen readers:** each pin is labelled with the name and category (plus "Featured, paid placement" and "selected"); the docked card has one spoken description like a list card. Map pins are hard to reach with TalkBack, so the list stays the accessible way through the results.
-
-### Saved (`src/lib/favourites.tsx`, `src/app/saved.tsx`)
-Favourites are kept on the phone only (AsyncStorage): no account, no backend. Each one stores a small snapshot (name, category, area, first photo) so the list draws at once and offline; opening one loads the profile fresh.
-- **Heart on the profile:** a `scrim` icon button beside Share on the photo. Not saved: white outline. Saved: filled coral (`accent`). Shape (outline or filled) carries the state, not colour alone; it is announced as selected, and its label changes from "Save" to "Remove from saved". On a tap it swells to 1.2 and back (`motion.fast` each way).
-- **Heart on Home:** a plain icon button before the language switch. With saved providers it carries a count: a teal (`primary`) pill with `onPrimary` `caption` digits and a 2 dp ground-colour ring, at the top end corner. No badge at zero.
-- **Saved screen:** back arrow and the `headline` title. Short cards with the result card's edge and radius: 64 dp photo or category icon, name (`title`, one line), "category · area" (`label`, muted). The card opens the profile; the filled coral heart at its end removes it at once. A `caption` line under the list says they are saved on this phone only.
-- **Empty:** the usual `StateView` with a heart, "Nothing saved yet", and a button back to search.
-
-### Open indicator (`OpenStatus`)
-"Open now" or "Closed" with an 8 dp dot before the words, from the API's `open_now`. Open: a filled `success` dot and `success` text. Closed: a hollow `textSubtle` ring and `textMuted` text. The words and the dot's shape carry the state, not colour alone. Nothing is drawn when `open_now` is `null` (the provider gave no hours). It is the last item in the badges row of a result card and in the facts line of the map's docked card, and both cards say it in their spoken description.
-
-### Opening hours (on the profile)
-A section between Get directions and About, hidden when `opening_hours` is `null`. The `title` heading has the open indicator at its end. Under it, the seven days from Monday to Sunday: the day name at the start, its hours at the end (`data`). A day with a break shows its periods one under the other; a day without hours says "Closed" in `textMuted`. **Today** is an aqua band (`surfaceTint`, radius `md`) with `bodyStrong` text and the word "Today" beside the day name. Times are 12-hour in both languages ("9:00 AM", "9:00 ص"). Each time is its own piece of text in a row that follows the reading direction, so in Arabic the opening time sits on the right. Each day is read as one line by a screen reader ("Monday, Today, 9:00 AM to 1:00 PM, 3:00 PM to 7:00 PM").
-
-### Contact count (on the profile)
-One quiet line under the verified line and badges: a small `textSubtle` people icon and "12 people contacted this month" in `label`, `textMuted`. Shown only when `contacts_this_month` is a number above 0 (the provider chooses to show it). It is a fact, not a badge: no fill, no colour. Arabic uses the plural forms (one, two, 3 to 10, 11 and up).
-
-### Suggest a provider (`src/app/suggest.tsx`, `TextLink`)
-- **Entry:** a `TextLink` ("Know someone good? Suggest them"): underlined `primary` `label` text in a 48 dp target, announced as a link. Under the Home categories, and under the button of the Results empty state (`StateView`'s secondary action).
-- **Form:** back arrow and `headline` title, one muted sentence, then the fields 20 dp apart. Every field has its `label` above it, with "(optional)" in `textSubtle`; a placeholder is only ever an example. Fields are the Home search field: `surfaceTint`, radius `lg`, 48 dp, a 1.5 dp border that turns `primary` on focus and `danger` on an error.
-- **Phone:** phone keyboard, always left to right, with a `caption` hint showing the format. Spaces and dashes are removed and a leading `00` becomes `+` before sending.
-- **Category:** the field opens a panel under it (`surface`, 1.5 dp `surfaceTintStrong` edge): a search box, then top-level categories (`bodyStrong`) each followed by its sub-categories with the parent in `caption`. Rows are 48 dp; the chosen one has a teal check. A chosen category shows an X to clear it.
-- **Errors:** checked on Send, then while typing. The message replaces the hint under its field: a small alert icon and `danger` `label` text, announced as an alert; focus moves to the first field with a problem.
-- **Send:** a primary button docked at the bottom, above the keyboard, with a spinner while sending. A failure shows a `dangerSoft` notice above it: "You've sent a few already. Try again later." for the limit (429), otherwise a message to check the connection and try again.
-- **Success:** the usual `StateView` with a handshake icon, "Thanks, we'll contact them" and a button back to Home.
-
-### States (`StateView`, `Skeleton`)
-- **Loading**: aqua skeleton blocks (`surfaceTintStrong`) in the shape of the content: tiles, cards with their aqua strip, the profile. Never a centred spinner.
-- **Empty**: an 88 dp aqua disc with a teal icon and the coral dot at its top end corner; a `headline` title that says what happened ("No one within 500 m yet"), one sentence, and one button that fixes it (search the next distance).
-- **Error**: the same layout in error colours (`dangerSoft` disc, dark red icon, no coral dot), announced as an alert, with "Try again".
-- **Map**: error and empty are the same as the list. While a search runs the map stays up without pins, and the header line says "Searching …".
+- **Home:** wordmark, saved and language. An ink block with the question, the search position and a pill field for search by name (round mint search button). One compact distance row. The category grid. A wide "Everyone nearby" block. Nothing is pinned to the bottom: a tap on a category searches.
+- **Results:** one header: back, title and count, List / Map; under it distance and the verified filter. Then the list of blocks, or the map filling everything under the header.
+- **Provider profile:** photos, then a hero block (mint when verified, grey when not) with the name and the verification line; three fact blocks; opening hours, about and reviews as grey cards; an action bar with WhatsApp, Call and Directions.
+- **Saved:** a big title and one grey block per saved provider.
+- **Suggest:** a form of grey rounded fields with one ink button.
 
 ## Right-to-left
 
-Arabic is a first-class layout, not a mirrored afterthought.
-
-- The app controls direction itself (`src/i18n/index.tsx`), so the language switch flips the layout at once, with no restart, on Android, iOS and web.
-- Rows use `row` from `useI18n()`; never write `flexDirection: 'row'` in a screen. Use `gap` for spacing. Do not use `marginLeft/Right`, `paddingStart/End` or `borderStart/End`; for absolute positions use `start(n)` / `end(n)`.
-- Text aligns to the reading edge through `Txt`. Text typed by providers and reviewers (names, prices, descriptions, comments) may be in either language, so `Txt content` takes its direction from the text itself.
-- Back arrows flip. The seal, stars, check marks, logos and phone numbers do not. The large seal moves to the other side of the profile; the photo counter moves opposite it.
-- Known gap: the photo gallery always swipes left to right.
-
-## Accessibility
-
-- **Contrast:** text is at least 4.5:1 and icons and control borders at least 3:1 on their own background, in both themes (table above). New colour pairs must be measured before use.
-- **Touch targets:** 48 dp minimum. Where the visible shape is smaller (view toggle, notice close), `hitSlop` makes up the difference.
-- **Screen readers:** every control has a role and a label. Icon-only buttons always pass `label`. A provider card is one button with one description. Featured is announced as "Featured, paid placement". The large seal is decorative and hidden; the verified line carries the words. Loading blocks are announced as "Loading results" / "Loading profile"; errors are alerts; the result count and the location line are live regions.
-- **Colour is never the only signal:** a selected tile also gets a tick, selected chips and tabs also set their selected state, a featured card also has its tag, errors also have an icon and words.
-- **Text size:** all text follows the system font size.
-- **Motion:** the skeleton pulse stops when Reduce Motion is on.
-
-## Voice
-
-Plain, warm, local. English is short and direct. Arabic is light Lebanese ("مين بدّك حدّك؟"), not formal translation. Buttons say what they do ("Search in Laptop repair"). Errors say what happened and what to do next. All strings live in `src/i18n/en.ts` and `src/i18n/ar.ts`.
+Arabic mirrors every row through the `row`, `start` and `end` helpers in `src/i18n`. Arrows flip; phone numbers and counts stay left-to-right. Names and prices take their direction from their own text.
 
 ## What is verified
 
-- Checked in the web build at 390 x 844 in English and Arabic, light and dark (`design-preview/`).
-- The map view is checked on web only as the aqua preview (`design-preview/results-map-en.png`). The real map has not been run on a phone yet.
-- Not yet checked on an Android device: ripple colours, status bar, behaviour at large system font sizes, and TalkBack reading order.
+Checked in the web build at 390 x 844 (screenshots in `design-preview/`): Home in English, Arabic and dark; Results with unverified included; the map preview; a verified profile. Not yet checked on an Android device: the native map (pin labels, height), font scaling at large sizes, and the dark theme beyond Home.

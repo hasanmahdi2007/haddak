@@ -1,12 +1,12 @@
-import { MapPin } from 'lucide-react-native';
+import { Check, MapPin } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 
 import type { Coordinates, ProviderSummary } from '@/api';
 import { useI18n } from '@/i18n';
 import type { RadiusM } from '@/lib/radius';
-import { makeStyles, radius, size, space, useTheme } from '@/theme';
+import { fonts, makeStyles, radius, size, space, useTheme } from '@/theme';
 
-import { FeaturedTag, VerifiedBadge } from './Badges';
+import { FeaturedTag, NotVerifiedBadge, VerifiedBadge } from './Badges';
 import { OpenStatus } from './OpenStatus';
 import { Photo } from './Photo';
 import { Rating } from './Rating';
@@ -70,6 +70,7 @@ export function usePinLabel() {
     [
       provider.name,
       categoryName(provider.category),
+      provider.verified ? s.badges.verified : s.badges.notVerified,
       provider.featured ? s.badges.featuredLabel : null,
       selected ? s.results.mapSelected : null,
     ]
@@ -77,46 +78,86 @@ export function usePinLabel() {
       .join(', ');
 }
 
-// A square with three round corners, turned 45 degrees, is a teardrop whose tip
-// points down. The tip then reaches below the square's own box by this share of its side.
-const TIP_OVERHANG = (Math.SQRT2 - 1) / 2;
+/** A name as a pin shows it: cut to about 18 characters, with an ellipsis. */
+export function pinName(name: string): string {
+  const clean = name.trim();
+  return clean.length > size.mapPinChars ? `${clean.slice(0, size.mapPinChars - 1).trimEnd()}…` : clean;
+}
+
+interface PinProps {
+  name: string;
+  verified: boolean;
+  featured: boolean;
+  selected: boolean;
+}
 
 /**
- * A provider pin: a teal teardrop with a dot in it, drawn in a 48 dp box so the
- * touch target is large enough. The tip is at the bottom centre of the box.
- * Featured (paid): amber edge and a ring instead of a dot. Selected: larger.
- * Drawn with plain views only, because a map marker is turned into a picture
- * and plain views are the most reliable thing to turn into one.
+ * A provider pin: a small pill that carries the provider's name, with a pointer
+ * under it whose tip marks the position. The name can be read without tapping.
+ *
+ * - Verified: white pill, ink edge, a mint disc with a check before the name.
+ * - Not verified: grey pill, grey edge, an empty grey ring and a muted name.
+ * - Featured (paid): the pill is lavender.
+ * - Selected: the pill fills ink and grows a little.
+ *
+ * It sits in a box at least 48 dp high so it is easy to tap; the tip is at the
+ * bottom centre of that box. Drawn with plain views and one line of text only,
+ * because a map marker is turned into a picture and those are the most reliable
+ * things to turn into one.
  */
-export function ProviderPin({ featured, selected }: { featured: boolean; selected: boolean }) {
+export function ProviderPin({ name, verified, featured, selected }: PinProps) {
+  const { colors } = useTheme();
+  const { row } = useI18n();
   const styles = useStyles();
-  const side = selected ? size.mapPinSelected : size.mapPin;
-  // Three round corners, set one by one: a single `borderRadius` would also round the tip.
-  const round = side / 2;
+  const disc = selected ? size.mapPinDiscSelected : size.mapPinDisc;
+
+  const look = selected
+    ? { bg: colors.primary, edge: colors.primary, text: 'onPrimary' as const }
+    : featured
+      ? { bg: colors.accent, edge: colors.onAccent, text: 'onAccent' as const }
+      : verified
+        ? { bg: colors.surface, edge: colors.primary, text: 'text' as const }
+        : { bg: colors.surfaceTint, edge: colors.outline, text: 'textMuted' as const };
+
   return (
-    <View style={styles.pinBox}>
+    // `collapsable={false}` keeps this view real on Android, so the map can measure and draw it.
+    <View style={styles.pinBox} collapsable={false}>
+      <View style={[styles.pinTip, { backgroundColor: look.edge }]} />
       <View
         style={[
-          styles.pin,
-          {
-            width: side,
-            height: side,
-            borderTopLeftRadius: round,
-            borderTopRightRadius: round,
-            borderBottomLeftRadius: round,
-            marginBottom: side * TIP_OVERHANG,
-          },
-          featured ? styles.pinFeatured : null,
-          selected ? styles.pinSelected : null,
+          styles.pinLabel,
+          { flexDirection: row, backgroundColor: look.bg, borderColor: look.edge },
+          selected ? styles.pinLabelSelected : null,
         ]}
       >
-        <View style={featured ? styles.pinRing : styles.pinDot} />
+        <View
+          style={[
+            styles.pinDisc,
+            { width: disc, height: disc },
+            verified ? styles.pinDiscVerified : styles.pinDiscPlain,
+          ]}
+        >
+          {verified ? (
+            <Check color={colors.onMint} size={disc - space.sm} strokeWidth={size.strokeHeavy} />
+          ) : null}
+        </View>
+        <Txt
+          role={selected ? 'label' : 'caption'}
+          color={look.text}
+          numberOfLines={1}
+          // A pin is a picture of fixed size: very large system text must not push the name out of it.
+          maxFontSizeMultiplier={1.2}
+          style={styles.pinName}
+          content
+        >
+          {pinName(name)}
+        </Txt>
       </View>
     </View>
   );
 }
 
-/** The search position: the coral "you are here" point. */
+/** The search position: a lavender point with an ink ring. */
 export function HereDot() {
   const styles = useStyles();
   return <View style={styles.here} />;
@@ -128,8 +169,9 @@ interface DockProps {
 }
 
 /**
- * The selected provider, docked at the bottom of the map: a short ProviderCard.
- * Photo, name, "category · area", then verified, rating and distance on one line.
+ * The selected provider, docked at the bottom of the map: a short ProviderCard
+ * that floats (the only shadow in the app). Photo, name, "category · area", then
+ * the verified mark, rating, distance and open status on one line.
  * The whole card is one button that opens the profile.
  */
 export function MapProviderCard({ provider, onPress }: DockProps) {
@@ -141,7 +183,7 @@ export function MapProviderCard({ provider, onPress }: DockProps) {
   const spoken = [
     provider.name,
     place,
-    provider.verified ? s.badges.verified : null,
+    provider.verified ? s.badges.verified : s.badges.notVerified,
     provider.featured ? s.badges.featuredLabel : null,
     provider.open_now === null ? null : provider.open_now ? s.hours.openNow : s.hours.closedNow,
     plural(s.rating.label, provider.review_count, { rating: provider.avg_rating.toFixed(1) }),
@@ -159,12 +201,7 @@ export function MapProviderCard({ provider, onPress }: DockProps) {
       accessibilityLiveRegion="polite"
       onPress={onPress}
       android_ripple={{ color: colors.surfaceTintStrong }}
-      style={({ pressed }) => [
-        styles.dock,
-        { flexDirection: row },
-        provider.featured ? styles.dockFeatured : null,
-        pressed ? styles.dockPressed : null,
-      ]}
+      style={({ pressed }) => [styles.dock, { flexDirection: row }, pressed ? styles.dockPressed : null]}
     >
       <Photo uri={provider.cover_photo_url} fallbackIcon={provider.category.icon} style={styles.dockThumb} />
       <View style={styles.dockMain}>
@@ -175,12 +212,12 @@ export function MapProviderCard({ provider, onPress }: DockProps) {
           {place}
         </Txt>
         <View style={[styles.dockFacts, { flexDirection: row }]}>
-          {provider.verified ? <VerifiedBadge decorative /> : null}
+          {provider.verified ? <VerifiedBadge decorative /> : <NotVerifiedBadge decorative />}
           {provider.featured ? <FeaturedTag /> : null}
           <Rating rating={provider.avg_rating} count={provider.review_count} />
           {provider.distance_m !== null ? (
             <View style={[styles.dockFact, { flexDirection: row }]}>
-              <MapPin color={colors.primary} size={size.iconSmall} strokeWidth={size.stroke} />
+              <MapPin color={colors.textSubtle} size={size.iconSmall} strokeWidth={size.stroke} />
               <Txt role="data" numberOfLines={1}>
                 {distance(provider.distance_m)}
               </Txt>
@@ -193,42 +230,56 @@ export function MapProviderCard({ provider, onPress }: DockProps) {
   );
 }
 
+// The pointer is a small square turned 45 degrees, half hidden behind the pill.
+// Turned, it is wider than its own box by this much on each side.
+const TIP_OVERHANG = (size.mapPinTip * (Math.SQRT2 - 1)) / 2;
+
 const useStyles = makeStyles((c) => ({
   pinBox: {
-    width: size.touch,
-    height: size.touch,
+    minHeight: size.touch,
     alignItems: 'center',
     justifyContent: 'flex-end',
+    paddingHorizontal: space.xxs,
+    // Room for the pointer: its lowest corner touches the bottom edge of the box.
+    paddingBottom: size.mapPinTip / 2 + TIP_OVERHANG,
   },
-  pin: {
-    // The bottom-right corner stays sharp; turned 45 degrees it becomes the tip.
-    borderBottomRightRadius: space.xxs,
+  pinTip: {
+    position: 'absolute',
+    bottom: TIP_OVERHANG,
+    width: size.mapPinTip,
+    height: size.mapPinTip,
+    borderRadius: space.xxs,
     transform: [{ rotate: '45deg' }],
-    backgroundColor: c.primary,
+  },
+  pinLabel: {
+    alignItems: 'center',
+    gap: space.xs,
+    borderWidth: size.lineMid,
+    borderRadius: radius.pill,
+    paddingVertical: space.xxs + 1,
+    paddingStart: space.xxs + 1,
+    paddingEnd: space.sm,
+  },
+  pinLabelSelected: {
     borderWidth: size.lineBold,
-    borderColor: c.surface,
+    paddingVertical: space.xs,
+    paddingStart: space.xs,
+    paddingEnd: space.md,
+  },
+  pinDisc: {
+    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pinFeatured: {
-    borderColor: c.rating,
+  pinDiscVerified: {
+    backgroundColor: c.mint,
   },
-  pinSelected: {
-    backgroundColor: c.primaryPressed,
-    borderWidth: size.strokeHeavy,
+  pinDiscPlain: {
+    borderWidth: size.lineBold,
+    borderColor: c.outline,
   },
-  pinDot: {
-    width: size.mapPinDot,
-    height: size.mapPinDot,
-    borderRadius: radius.pill,
-    backgroundColor: c.onPrimary,
-  },
-  pinRing: {
-    width: size.mapPinDot,
-    height: size.mapPinDot,
-    borderRadius: radius.pill,
-    borderWidth: size.strokeBold,
-    borderColor: c.onPrimary,
+  pinName: {
+    fontFamily: fonts.bodyStrong,
   },
   here: {
     width: size.mapHere,
@@ -236,20 +287,15 @@ const useStyles = makeStyles((c) => ({
     borderRadius: radius.pill,
     backgroundColor: c.accent,
     borderWidth: size.strokeHeavy,
-    borderColor: c.surface,
+    borderColor: c.onAccent,
   },
   dock: {
     backgroundColor: c.surface,
     borderRadius: radius.lg,
-    borderWidth: size.lineMid,
-    borderColor: c.surfaceTintStrong,
     padding: space.md,
     gap: space.md,
     alignItems: 'center',
-    overflow: 'hidden',
-  },
-  dockFeatured: {
-    borderColor: c.primary,
+    boxShadow: `0px 8px 24px ${c.shadow}`,
   },
   dockPressed: {
     backgroundColor: c.surfaceTint,
@@ -267,7 +313,7 @@ const useStyles = makeStyles((c) => ({
   dockFacts: {
     flexWrap: 'wrap',
     alignItems: 'center',
-    columnGap: space.md,
+    columnGap: space.sm,
     rowGap: space.xs,
     marginTop: space.xxs,
   },

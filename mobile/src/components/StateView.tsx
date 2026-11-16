@@ -24,7 +24,7 @@ interface Props {
 
 /**
  * Empty, error and "coming soon" states: what happened, why, and one way forward.
- * The icon sits on an aqua disc with the coral dot from the Home location pill;
+ * The icon sits on a lavender disc with a small mint dot;
  * an error swaps both for the error colours.
  */
 export function StateView({
@@ -45,7 +45,7 @@ export function StateView({
     <View style={styles.wrap} accessibilityRole={alert ? 'alert' : undefined}>
       <View style={[styles.disc, alert ? styles.discAlert : null]}>
         <Icon
-          color={alert ? colors.onDangerSoft : colors.primary}
+          color={alert ? colors.onDangerSoft : colors.onAccent}
           size={size.stateIcon}
           strokeWidth={size.stroke}
         />
@@ -80,7 +80,7 @@ const useStyles = makeStyles((c) => ({
     width: size.stateDisc,
     height: size.stateDisc,
     borderRadius: radius.pill,
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -93,7 +93,7 @@ const useStyles = makeStyles((c) => ({
     width: space.lg,
     height: space.lg,
     borderRadius: radius.pill,
-    backgroundColor: c.accent,
+    backgroundColor: c.mint,
     borderWidth: size.lineBold,
     borderColor: c.background,
   },

@@ -31,10 +31,12 @@ interface ButtonProps {
   accessibilityLabel?: string;
   loading?: boolean;
   disabled?: boolean;
+  /** Tighter padding, for a row of three buttons. */
+  compact?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
-/** The one button shape in the app. Variants change colour only. */
+/** The one button shape in the app: a pill. Variants change colour only. */
 export function Button({
   label,
   onPress,
@@ -44,6 +46,7 @@ export function Button({
   accessibilityLabel,
   loading = false,
   disabled = false,
+  compact = false,
   style,
 }: ButtonProps) {
   const { colors } = useTheme();
@@ -63,6 +66,7 @@ export function Button({
       android_ripple={{ color: colors[v.pressed] }}
       style={({ pressed }) => [
         styles.base,
+        compact ? styles.compact : null,
         { flexDirection: row },
         v.bg ? { backgroundColor: colors[pressed ? v.pressed : v.bg] } : null,
         !v.bg && pressed ? { backgroundColor: colors[v.pressed] } : null,
@@ -89,13 +93,17 @@ export function Button({
 const useStyles = makeStyles(() => ({
   base: {
     minHeight: size.button,
-    borderRadius: radius.lg,
+    borderRadius: radius.pill,
     paddingHorizontal: space.xl,
     paddingVertical: space.md,
     alignItems: 'center',
     justifyContent: 'center',
     gap: space.sm,
     overflow: 'hidden',
+  },
+  compact: {
+    paddingHorizontal: space.sm + space.xxs,
+    gap: space.xs + space.xxs,
   },
   label: {
     flexShrink: 1,

@@ -20,7 +20,7 @@ import { Txt } from './Txt';
 /**
  * Web stand-in for the map. `react-native-maps` does not run in a browser, and the
  * web build is only used for screenshots, so this plots the same pins, circle and
- * docked card on a plain aqua panel, at the same scale the real map would use.
+ * docked card on a plain grey panel, at the same scale the real map would use.
  */
 export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider }: ResultsMapProps) {
   const { s } = useI18n();
@@ -40,7 +40,6 @@ export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider
     y: panel.height / 2 - (lat - center.lat) * metres.lat * pxPerMetre,
   });
   const circle = radiusM * 2 * pxPerMetre;
-  const half = size.touch / 2;
 
   return (
     <View
@@ -93,13 +92,23 @@ export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider
                 accessibilityLabel={pinLabel(provider, isSelected)}
                 accessibilityState={{ selected: isSelected }}
                 onPress={() => setSelectedId(provider.id)}
-                // The pin's tip (bottom centre of its 48 dp box) sits on the position.
+                // The pointer's tip (bottom centre of the pin, whatever its width) sits on the position.
                 style={[
                   styles.spot,
-                  { left: x - half, top: y - size.touch, zIndex: isSelected ? 2 : provider.featured ? 1 : 0 },
+                  {
+                    left: x,
+                    top: y,
+                    transform: [{ translateX: '-50%' }, { translateY: '-100%' }],
+                    zIndex: isSelected ? 3 : provider.featured ? 2 : provider.verified ? 1 : 0,
+                  },
                 ]}
               >
-                <ProviderPin featured={provider.featured} selected={isSelected} />
+                <ProviderPin
+                  name={provider.name}
+                  verified={provider.verified}
+                  featured={provider.featured}
+                  selected={isSelected}
+                />
               </Pressable>
             );
           })}
@@ -126,6 +135,7 @@ export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider
 const useStyles = makeStyles((c) => ({
   wrap: {
     flex: 1,
+    minHeight: size.mapMin,
     backgroundColor: c.surfaceTint,
     overflow: 'hidden',
   },
@@ -139,9 +149,9 @@ const useStyles = makeStyles((c) => ({
   circle: {
     position: 'absolute',
     borderRadius: radius.pill,
-    backgroundColor: c.primaryWash,
-    borderWidth: size.lineMid,
-    borderColor: c.primary,
+    backgroundColor: c.accentWash,
+    borderWidth: size.lineBold,
+    borderColor: c.accentStrong,
   },
   spot: {
     position: 'absolute',

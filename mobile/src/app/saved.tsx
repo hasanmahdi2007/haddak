@@ -43,8 +43,8 @@ function SavedCard({ item, onOpen, onRemove }: { item: Favourite; onOpen: () => 
         icon={Heart}
         label={f(s.saved.removeNamed, { name: item.name })}
         onPress={onRemove}
-        color={colors.accent}
-        fill={colors.accent}
+        color={colors.primary}
+        fill={colors.primary}
         style={styles.remove}
       />
     </View>
@@ -67,7 +67,7 @@ export default function SavedScreen() {
       <StatusBar style={dark ? 'light' : 'dark'} />
       <View style={[styles.column, styles.bar, { flexDirection: row }]}>
         <IconButton icon={BackIcon} label={s.common.back} onPress={goBack} />
-        <Txt role="headline" accessibilityRole="header" numberOfLines={1} style={styles.title}>
+        <Txt role="display" accessibilityRole="header" numberOfLines={1} style={styles.title}>
           {s.saved.title}
         </Txt>
       </View>
@@ -131,15 +131,13 @@ const useStyles = makeStyles((c) => ({
     paddingTop: space.sm,
   },
   list: {
-    gap: space.sm,
+    gap: space.md,
   },
-  // Same edge and radius as a result card, in one short row.
+  // The same grey block as a result card, in one short row.
   card: {
     alignItems: 'center',
-    backgroundColor: c.surface,
+    backgroundColor: c.surfaceTint,
     borderRadius: radius.lg,
-    borderWidth: size.lineMid,
-    borderColor: c.surfaceTintStrong,
     overflow: 'hidden',
   },
   open: {
@@ -150,11 +148,11 @@ const useStyles = makeStyles((c) => ({
     padding: space.md,
   },
   pressed: {
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.surfaceTintStrong,
   },
   thumb: {
-    width: size.dockThumb,
-    height: size.dockThumb,
+    width: size.thumb,
+    height: size.thumb,
     borderRadius: radius.md,
   },
   main: {

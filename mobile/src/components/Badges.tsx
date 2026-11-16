@@ -1,77 +1,80 @@
-import { Award, Check } from 'lucide-react-native';
-import { Text, View } from 'react-native';
+import { Award, Badge, BadgeCheck, Users } from 'lucide-react-native';
+import { View } from 'react-native';
 
 import { useI18n } from '@/i18n';
 import { fonts, makeStyles, radius, size, space, useTheme } from '@/theme';
 
 import { Txt } from './Txt';
 
-/** How far the large seal is turned, like a stamp pressed by hand. */
-const SEAL_TILT = '-8deg';
-
 /**
- * The verified seal: Haddak's trust mark, always teal.
- * Small, it is a teal disc inside a teal ring, with a white check.
- * Large, it is a white disc with two teal rings and the word "موثّق" (verified)
- * in ruqaa, the script of Lebanese stamps, whatever the app language.
- */
-export function Seal({ large = false }: { large?: boolean }) {
-  const { colors } = useTheme();
-  const styles = useStyles();
-
-  if (!large) {
-    return (
-      <View style={styles.sealSmall}>
-        <View style={styles.sealSmallCore}>
-          <Check color={colors.onPrimary} size={size.sealCheck} strokeWidth={size.strokeHeavy} />
-        </View>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.sealLarge}>
-      <View style={styles.sealRing}>
-        {/* Decorative lettering: fixed size so it always fits the ring. */}
-        <Text allowFontScaling={false} style={styles.sealWord}>
-          موثّق
-        </Text>
-        <Check color={colors.primary} size={size.iconSmall} strokeWidth={size.strokeBold} />
-      </View>
-    </View>
-  );
-}
-
-/**
- * Small seal plus the word "Verified": the form used on cards and on the profile.
- * `decorative` hides it from screen readers when a parent already says "Verified".
+ * Verified: Haddak's trust mark. A solid mint pill with a check badge and the word,
+ * always with dark text. `decorative` hides it from screen readers when a parent
+ * already says "Verified".
  */
 export function VerifiedBadge({ decorative = false }: { decorative?: boolean }) {
+  const { colors } = useTheme();
   const { s, row } = useI18n();
   const styles = useStyles();
   return (
     <View
-      style={[styles.inline, { flexDirection: row }]}
+      style={[styles.pill, styles.verified, { flexDirection: row }]}
       accessible={!decorative}
       accessibilityLabel={decorative ? undefined : s.badges.verified}
     >
-      <Seal />
-      <Txt role="label" color="primary">
+      <BadgeCheck color={colors.onMint} size={size.iconSmall} strokeWidth={size.lineBold} />
+      <Txt role="caption" color="onMint" style={styles.pillText}>
         {s.badges.verified}
       </Txt>
     </View>
   );
 }
 
-/** Founding member: a green tag with a medal. */
+/**
+ * Not verified: the same pill shape in neutral grey, with the badge outline and no check.
+ * It is deliberately not a warning colour: it states a fact, it does not accuse anyone.
+ */
+export function NotVerifiedBadge({ decorative = false }: { decorative?: boolean }) {
+  const { colors } = useTheme();
+  const { s, row } = useI18n();
+  const styles = useStyles();
+  return (
+    <View
+      style={[styles.pill, styles.notVerified, { flexDirection: row }]}
+      accessible={!decorative}
+      accessibilityLabel={decorative ? undefined : s.badges.notVerified}
+    >
+      <Badge color={colors.text} size={size.iconSmall} strokeWidth={size.lineBold} />
+      <Txt role="caption" color="text" style={styles.pillText}>
+        {s.badges.notVerified}
+      </Txt>
+    </View>
+  );
+}
+
+/** "Listed by the community": nobody owns this listing yet; it came from a suggestion. */
+export function CommunityLabel() {
+  const { colors } = useTheme();
+  const { s, row } = useI18n();
+  const styles = useStyles();
+  return (
+    <View style={[styles.community, { flexDirection: row }]}>
+      <Users color={colors.textMuted} size={size.star} strokeWidth={size.stroke} />
+      <Txt role="caption" color="textMuted" numberOfLines={1}>
+        {s.badges.community}
+      </Txt>
+    </View>
+  );
+}
+
+/** Founding member: an outlined pill with a medal. Quiet, so it never competes with Verified. */
 export function FoundingBadge() {
   const { colors } = useTheme();
   const { s, row } = useI18n();
   const styles = useStyles();
   return (
-    <View style={[styles.tag, styles.founding, { flexDirection: row }]} accessible accessibilityLabel={s.badges.founding}>
-      <Award color={colors.onSuccessSoft} size={size.star} strokeWidth={size.stroke} />
-      <Txt role="caption" color="onSuccessSoft" style={styles.tagText}>
+    <View style={[styles.pill, styles.founding, { flexDirection: row }]} accessible accessibilityLabel={s.badges.founding}>
+      <Award color={colors.text} size={size.star} strokeWidth={size.stroke} />
+      <Txt role="caption" color="text" style={styles.pillText}>
         {s.badges.founding}
       </Txt>
     </View>
@@ -80,14 +83,14 @@ export function FoundingBadge() {
 
 /**
  * Featured means paid placement, and the screen-reader label says so.
- * It is a plain amber tag with no star or medal, so it is not read as a quality award.
+ * A plain lavender pill with no star or medal, so it is not read as a quality award.
  */
 export function FeaturedTag() {
   const { s } = useI18n();
   const styles = useStyles();
   return (
-    <View style={[styles.tag, styles.featured]} accessible accessibilityLabel={s.badges.featuredLabel}>
-      <Txt role="caption" color="onRatingSoft" style={styles.tagText}>
+    <View style={[styles.pill, styles.featured]} accessible accessibilityLabel={s.badges.featuredLabel}>
+      <Txt role="caption" color="onAccent" style={styles.pillText}>
         {s.badges.featured}
       </Txt>
     </View>
@@ -95,65 +98,33 @@ export function FeaturedTag() {
 }
 
 const useStyles = makeStyles((c) => ({
-  sealSmall: {
-    width: size.sealSmall,
-    height: size.sealSmall,
-    borderRadius: radius.pill,
-    borderWidth: size.lineMid,
-    borderColor: c.primary,
-    padding: size.lineMid,
-  },
-  sealSmallCore: {
-    flex: 1,
-    borderRadius: radius.pill,
-    backgroundColor: c.primary,
+  pill: {
+    minHeight: size.badge,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  sealLarge: {
-    width: size.sealLarge,
-    height: size.sealLarge,
-    borderRadius: radius.pill,
-    borderWidth: size.lineBold,
-    borderColor: c.primary,
-    backgroundColor: c.surface,
-    padding: size.sealGap,
-    transform: [{ rotate: SEAL_TILT }],
-  },
-  sealRing: {
-    flex: 1,
-    borderRadius: radius.pill,
-    borderWidth: size.hairline,
-    borderColor: c.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sealWord: {
-    fontFamily: fonts.seal,
-    fontSize: size.sealWord,
-    lineHeight: size.sealWordLine,
-    color: c.primary,
-    textAlign: 'center',
-    marginTop: -space.xs,
-  },
-  inline: {
-    alignItems: 'center',
-    gap: space.xs + space.xxs,
-  },
-  tag: {
-    alignItems: 'center',
     gap: space.xs,
     paddingHorizontal: space.sm,
-    paddingVertical: space.xxs,
-    borderRadius: radius.sm,
+    borderRadius: radius.pill,
+  },
+  pillText: {
+    fontFamily: fonts.bodyMedium,
+  },
+  verified: {
+    backgroundColor: c.mint,
+  },
+  notVerified: {
+    backgroundColor: c.surfaceTintStrong,
   },
   founding: {
-    backgroundColor: c.successSoft,
+    borderWidth: size.lineMid,
+    borderColor: c.outline,
   },
   featured: {
-    backgroundColor: c.ratingSoft,
+    backgroundColor: c.accent,
+    paddingHorizontal: space.md,
   },
-  tagText: {
-    fontFamily: fonts.bodyMedium,
+  community: {
+    alignItems: 'center',
+    gap: space.xs,
   },
 }));

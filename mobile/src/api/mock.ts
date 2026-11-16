@@ -28,9 +28,14 @@ export function weightedRating(avgRating: number, reviewCount: number): number {
   return (reviewCount * avgRating + 5 * 3.5) / (reviewCount + 5);
 }
 
-/** Featured first, then weighted rating (high to low), then distance (near to far). */
+/**
+ * Sponsored first, then verified before unverified, then featured, then weighted
+ * rating (high to low), then distance (near to far).
+ */
 export function rankProviders<T extends ProviderSummary>(items: T[]): T[] {
   return [...items].sort((a, b) => {
+    if (Boolean(a.sponsored) !== Boolean(b.sponsored)) return a.sponsored ? -1 : 1;
+    if (a.verified !== b.verified) return a.verified ? -1 : 1;
     if (a.featured !== b.featured) return a.featured ? -1 : 1;
     const byRating =
       weightedRating(b.avg_rating, b.review_count) - weightedRating(a.avg_rating, a.review_count);
@@ -50,11 +55,14 @@ function toSummary(provider: ProviderDetail, distance_m: number | null): Provide
     avg_rating,
     review_count,
     verified,
+    claimed,
     founding_member,
     featured,
     lat,
     lng,
     cover_photo_url,
+    sponsored,
+    sponsor_hook,
   } = provider;
   return {
     id,
@@ -66,11 +74,14 @@ function toSummary(provider: ProviderDetail, distance_m: number | null): Provide
     avg_rating,
     review_count,
     verified,
+    claimed,
     founding_member,
     featured,
     lat,
     lng,
     distance_m,
+    sponsored,
+    sponsor_hook,
     cover_photo_url,
     // The backend works this out in Lebanon time; the mock uses the device clock.
     open_now: isOpenAt(provider.opening_hours, new Date()),
@@ -156,7 +167,7 @@ export function createMockApi(): HaddakApi & { controls: MockControls } {
 
     getCategories: () => respond(() => MOCK_CATEGORIES),
 
-    searchProviders: ({ lat, lng, radius_m, category_id, q, limit = 30, offset = 0 }) =>
+    searchProviders: ({ lat, lng, radius_m, category_id, q, include_unverified = false, limit = 30, offset = 0 }) =>
       respond(() => {
         if (radius_m < 100 || radius_m > 50_000) {
           throw new ApiError(422, 'radius_m must be between 100 and 50000');
@@ -174,7 +185,7 @@ export function createMockApi(): HaddakApi & { controls: MockControls } {
                 ...MOCK_CATEGORIES.filter((c) => c.parent_id === category_id).map((c) => c.id),
               ]);
 
-        const matches = MOCK_PROVIDERS.filter((p) => p.verified)
+        const matches = MOCK_PROVIDERS.filter((p) => include_unverified || p.verified)
           .filter((p) => !categoryIds || categoryIds.has(p.category.id))
           .filter((p) => !name || p.name.toLowerCase().includes(name))
           .map((p) => toSummary(p, Math.round(haversineM({ lat, lng }, p))))

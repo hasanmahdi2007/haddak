@@ -19,7 +19,7 @@ import {
   type SuggestionInput,
 } from './types';
 
-type Query = Record<string, string | number | undefined>;
+type Query = Record<string, string | number | boolean | undefined>;
 
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -106,7 +106,12 @@ export function createHttpApi(
     searchProviders: (params: SearchParams) =>
       // An empty name is left out, so the backend does not reject it as too short.
       request<Page<ProviderSummary>>('/providers/search', {
-        query: { ...params, q: params.q?.trim() || undefined },
+        // `include_unverified` is only sent when true; leaving it out means verified only.
+        query: {
+          ...params,
+          q: params.q?.trim() || undefined,
+          include_unverified: params.include_unverified ? true : undefined,
+        },
       }),
     getProvider: (providerId: string, from?: Coordinates) =>
       request<ProviderDetail>(`/providers/${id(providerId)}`, { query: { ...from } }),

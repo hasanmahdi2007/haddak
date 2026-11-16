@@ -1,4 +1,3 @@
-import { ArefRuqaa_700Bold } from '@expo-google-fonts/aref-ruqaa';
 import { Beiruti_600SemiBold, Beiruti_700Bold } from '@expo-google-fonts/beiruti';
 import {
   ReadexPro_400Regular,
@@ -29,7 +28,6 @@ export default function RootLayout() {
     ReadexPro_400Regular,
     ReadexPro_500Medium,
     ReadexPro_600SemiBold,
-    ArefRuqaa_700Bold,
   });
   const ready = loaded || error !== null;
 
