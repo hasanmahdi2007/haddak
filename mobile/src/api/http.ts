@@ -1,5 +1,7 @@
 import {
   ApiError,
+  type AssistRequest,
+  type AssistResponse,
   type Banner,
   type BannerInput,
   type Category,
@@ -124,6 +126,9 @@ export function createHttpApi(
           ...params,
           q: params.q?.trim() || undefined,
           include_unverified: params.include_unverified ? true : undefined,
+          // Defaults are left out, like include_unverified, to keep the URL short.
+          open_now: params.open_now ? true : undefined,
+          sort: params.sort === 'best' ? undefined : params.sort,
         },
       }),
     getProvider: (providerId: string, from?: Coordinates) =>
@@ -145,6 +150,8 @@ export function createHttpApi(
       request<{ id: string }>('/suggestions', { method: 'POST', body: input }),
     reportProvider: (providerId: string, input: ReportInput) =>
       request<{ id: string }>(`/providers/${id(providerId)}/reports`, { method: 'POST', body: input }),
+    // No login. The backend sends the AI only the sentence, never the position.
+    assist: (body: AssistRequest) => request<AssistResponse>('/assist', { method: 'POST', body }),
 
     getMyReview: (providerId: string) =>
       request<Review | null>(`/providers/${id(providerId)}/reviews/mine`, { auth: true }),

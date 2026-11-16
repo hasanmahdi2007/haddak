@@ -1,10 +1,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, ArrowRight, List, Map as MapIcon, SearchX, WifiOff } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, List, Map as MapIcon, SearchX, WifiOff, X } from 'lucide-react-native';
 import { useState } from 'react';
 import { FlatList, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { api, type ProviderSummary } from '@/api';
+import { api, type PriceCurrency, type PriceUnit, type ProviderSummary, type SearchSort } from '@/api';
 import { IconButton } from '@/components/IconButton';
 import { ProviderCard } from '@/components/ProviderCard';
 import { RadiusChips } from '@/components/RadiusChips';
@@ -16,11 +16,21 @@ import { VerifiedFilter } from '@/components/VerifiedFilter';
 import { useI18n } from '@/i18n';
 import { useCategories } from '@/lib/categories';
 import { useLocation } from '@/lib/location';
+import { formatPrice } from '@/lib/price';
 import { parseRadius, radiusPhrase, widerRadius, type RadiusM } from '@/lib/radius';
 import { useAsync } from '@/lib/useAsync';
 import { makeStyles, radius, size, space, useTheme } from '@/theme';
 
 type ViewMode = 'list' | 'map';
+
+const PRICE_UNITS: PriceUnit[] = ['hour', 'visit', 'job', 'item', 'month'];
+
+/** A number from a link, or undefined when it is missing or not a number. */
+function numberParam(value: string | undefined): number | undefined {
+  if (value === undefined || value === '') return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
 
 /** The most paid cards shown above a list of results. */
 const MAX_SPONSORED = 2;
@@ -55,8 +65,23 @@ export default function ResultsScreen() {
     radius?: string;
     q?: string;
     unverified?: string;
+    // From the assistant (src/app/assist.tsx): its filters, and the centre of a named place.
+    max_price?: string;
+    price_unit?: string;
+    price_currency?: string;
+    open_now?: string;
+    sort?: string;
+    lat?: string;
+    lng?: string;
+    place?: string;
   }>();
-  const { coords, status: locationStatus } = useLocation();
+  const location = useLocation();
+  // A place named to the assistant ("in Hamra") replaces the phone position as the centre.
+  const placeLat = numberParam(params.lat);
+  const placeLng = numberParam(params.lng);
+  const atPlace = placeLat !== undefined && placeLng !== undefined;
+  const coords = atPlace ? { lat: placeLat, lng: placeLng } : location.coords;
+  const locationStatus = atPlace ? 'located' : location.status;
   const { byId } = useCategories();
 
   const categoryId = params.category_id ? Number(params.category_id) : undefined;
@@ -68,6 +93,17 @@ export default function ResultsScreen() {
   const [mode, setMode] = useState<ViewMode>('list');
   // Verified only unless the user says otherwise (or a link arrives with `unverified=1`).
   const [verifiedOnly, setVerifiedOnly] = useState(params.unverified !== '1');
+  // The assistant's extra filters. Each shows as a pill under the header; tapping it removes it.
+  const [price, setPrice] = useState(() => {
+    const amount = numberParam(params.max_price);
+    const unit = PRICE_UNITS.find((u) => u === params.price_unit);
+    const currency: PriceCurrency = params.price_currency === 'LBP' ? 'LBP' : 'USD';
+    return amount !== undefined && amount > 0 && unit ? { amount, unit, currency } : null;
+  });
+  const [openNow, setOpenNow] = useState(params.open_now === '1' || params.open_now === 'true');
+  const [sort, setSort] = useState<SearchSort>(
+    params.sort === 'distance' || params.sort === 'price' ? params.sort : 'best',
+  );
 
   // Wait for the position before searching, so the first list is the right one.
   // Changing the distance or the verification filter runs the search again.
@@ -82,11 +118,39 @@ export default function ResultsScreen() {
             category_id: categoryId,
             q,
             include_unverified: !verifiedOnly,
+            max_price: price?.amount,
+            price_unit: price?.unit,
+            price_currency: price?.currency,
+            open_now: openNow || undefined,
+            sort,
           }),
-    [locating, coords.lat, coords.lng, radiusM, categoryId, q, verifiedOnly],
+    [
+      locating,
+      coords.lat,
+      coords.lng,
+      radiusM,
+      categoryId,
+      q,
+      verifiedOnly,
+      price?.amount,
+      price?.unit,
+      price?.currency,
+      openNow,
+      sort,
+    ],
   );
 
-  const where = radiusPhrase(s, radiusM);
+  const placeName = atPlace ? (params.place ?? '').trim() : '';
+  const where = placeName ? `${radiusPhrase(s, radiusM)} · ${placeName}` : radiusPhrase(s, radiusM);
+  const extraFilters = [
+    price
+      ? { key: 'price', label: f(s.price.upTo, { price: formatPrice(s, price.amount, price.unit, price.currency) }), remove: () => setPrice(null) }
+      : null,
+    openNow ? { key: 'open', label: s.hours.openNow, remove: () => setOpenNow(false) } : null,
+    sort !== 'best'
+      ? { key: 'sort', label: sort === 'distance' ? s.price.nearest : s.price.cheapest, remove: () => setSort('best') }
+      : null,
+  ].filter((filter) => filter !== null);
   const wider = widerRadius(radiusM);
   const title = q ? f(s.results.named, { q }) : category ? categoryName(category) : s.results.everyone;
   const subtitle =
@@ -172,6 +236,27 @@ export default function ResultsScreen() {
             <RadiusChips value={radiusM} onChange={setRadiusM} style={styles.radius} />
             <VerifiedFilter verifiedOnly={verifiedOnly} onChange={setVerifiedOnly} />
           </View>
+
+          {extraFilters.length > 0 ? (
+            <View style={[styles.extraFilters, { flexDirection: row }]}>
+              {extraFilters.map((filter) => (
+                <Pressable
+                  key={filter.key}
+                  accessibilityRole="button"
+                  accessibilityLabel={f(s.price.removeFilter, { name: filter.label })}
+                  onPress={filter.remove}
+                  hitSlop={{ top: size.segmentSlop, bottom: size.segmentSlop }}
+                  android_ripple={{ color: colors.primaryPressed }}
+                  style={[styles.extraFilter, { flexDirection: row }]}
+                >
+                  <Txt role="label" color="onPrimary" numberOfLines={1}>
+                    {filter.label}
+                  </Txt>
+                  <X color={colors.onPrimary} size={size.iconSmall} strokeWidth={size.lineBold} />
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
         </View>
       </View>
 
@@ -345,6 +430,22 @@ const useStyles = makeStyles((c) => ({
   },
   radius: {
     flex: 1,
+  },
+  // The assistant's filters: ink pills (the selected colour) with an X that removes them.
+  extraFilters: {
+    flexWrap: 'wrap',
+    gap: space.sm,
+    paddingHorizontal: space.lg,
+    paddingTop: space.md,
+  },
+  extraFilter: {
+    minHeight: size.segment,
+    alignItems: 'center',
+    gap: space.xs,
+    paddingHorizontal: space.md,
+    borderRadius: radius.pill,
+    backgroundColor: c.primary,
+    overflow: 'hidden',
   },
   list: {
     paddingHorizontal: space.lg,

@@ -59,7 +59,8 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, dark } = useTheme();
-  const { s, f, row, rtl, end, textAlign, writingDirection, language, setLanguage, categoryName } = useI18n();
+  const { s, f, row, rtl, end, alignStart, textAlign, writingDirection, language, setLanguage, categoryName } =
+    useI18n();
   const styles = useStyles();
   const savedCount = useFavourites().list.length;
   const location = useLocation();
@@ -69,6 +70,7 @@ export default function HomeScreen() {
   const [openParent, setOpenParent] = useState<CategoryNode | null>(null);
   const [name, setName] = useState('');
   const [nameFocused, setNameFocused] = useState(false);
+  const [nameOpen, setNameOpen] = useState(false);
 
   // Android Back closes the second level before it leaves the app.
   useEffect(() => {
@@ -182,7 +184,7 @@ export default function HomeScreen() {
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + space.xxl }]}
       >
         <View style={[styles.column, styles.stack]}>
-          {/* The ink block: the question, where the search is centred, and search by name. */}
+          {/* The lavender block: the question, where the search is centred, the assistant and search by name. */}
           <View style={styles.hero}>
             <Txt role="display" color="onHero" accessibilityRole="header">
               {s.home.question}
@@ -213,49 +215,100 @@ export default function HomeScreen() {
               ) : null}
             </View>
 
-            {/* A pill field on the ink; its edge turns mint while typing. The round mint button searches. */}
-            <View style={[styles.field, { flexDirection: row }, nameFocused ? styles.fieldFocused : null]}>
-              <TextInput
-                value={name}
-                onChangeText={setName}
-                onSubmitEditing={submitName}
-                onFocus={() => setNameFocused(true)}
-                onBlur={() => setNameFocused(false)}
-                placeholder={s.home.searchPlaceholder}
-                placeholderTextColor={colors.textSubtle}
-                accessibilityLabel={s.home.searchPlaceholder}
-                accessibilityHint={s.home.searchHint}
-                returnKeyType="search"
-                enterKeyHint="search"
-                autoCorrect={false}
-                autoCapitalize="words"
-                maxLength={NAME_MAX}
-                selectionColor={colors.accentStrong}
-                style={[styles.fieldInput, NO_FOCUS_RING, { textAlign, writingDirection }]}
-              />
-              {name.length > 0 ? (
+            {/* The assistant: one big white entry, then a few sentences people can tap instead of typing. */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={s.assist.name}
+              accessibilityHint={s.assist.openHint}
+              onPress={() => router.push('/assist')}
+              android_ripple={{ color: colors.surfaceTintStrong }}
+              style={({ pressed }) => [styles.ask, { flexDirection: row }, pressed ? styles.askPressed : null]}
+            >
+              <View style={styles.askText}>
+                <Txt role="headline">{s.assist.name}</Txt>
+                <Txt role="bodyLarge" color="textMuted">
+                  {s.assist.hint}
+                </Txt>
+              </View>
+              <View style={styles.askGo}>
+                <ForwardIcon color={colors.onPrimary} size={size.iconLarge} strokeWidth={size.lineBold} />
+              </View>
+            </Pressable>
+            <View style={[styles.examples, { flexDirection: row }]}>
+              {[s.assist.examples.fridge, s.assist.examples.tutor].map((example) => (
+                <Pressable
+                  key={example}
+                  accessibilityRole="button"
+                  accessibilityLabel={example}
+                  accessibilityHint={s.assist.exampleHint}
+                  onPress={() => router.push({ pathname: '/assist', params: { text: example } })}
+                  android_ripple={{ color: colors.surfaceTintStrong }}
+                  style={({ pressed }) => [styles.example, pressed ? styles.dim : null]}
+                >
+                  <Txt role="bodyStrong">{example}</Txt>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Search by name stays, one tap away: the assistant took the field's place. */}
+            {nameOpen ? (
+              <View style={[styles.field, { flexDirection: row }, nameFocused ? styles.fieldFocused : null]}>
+                <TextInput
+                  value={name}
+                  onChangeText={setName}
+                  onSubmitEditing={submitName}
+                  onFocus={() => setNameFocused(true)}
+                  onBlur={() => setNameFocused(false)}
+                  // It only appears after "Search by name" was tapped, so the keyboard comes up at once.
+                  autoFocus
+                  placeholder={s.home.searchPlaceholder}
+                  placeholderTextColor={colors.textSubtle}
+                  accessibilityLabel={s.home.searchPlaceholder}
+                  accessibilityHint={s.home.searchHint}
+                  returnKeyType="search"
+                  enterKeyHint="search"
+                  autoCorrect={false}
+                  autoCapitalize="words"
+                  maxLength={NAME_MAX}
+                  selectionColor={colors.accentStrong}
+                  style={[styles.fieldInput, NO_FOCUS_RING, { textAlign, writingDirection }]}
+                />
+                {name.length > 0 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={s.home.clearSearch}
+                    onPress={() => setName('')}
+                    hitSlop={{ top: space.xs, bottom: space.xs }}
+                    style={styles.fieldClear}
+                  >
+                    <X color={colors.textMuted} size={size.icon} strokeWidth={size.stroke} />
+                  </Pressable>
+                ) : null}
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={s.home.clearSearch}
-                  onPress={() => setName('')}
-                  hitSlop={{ top: space.xs, bottom: space.xs }}
-                  style={styles.fieldClear}
+                  accessibilityLabel={s.home.search}
+                  accessibilityHint={s.home.searchHint}
+                  accessibilityState={{ disabled: query.length < NAME_MIN }}
+                  onPress={submitName}
+                  hitSlop={space.xs}
+                  style={({ pressed }) => [styles.fieldGo, pressed ? styles.dim : null]}
                 >
-                  <X color={colors.textMuted} size={size.icon} strokeWidth={size.stroke} />
+                  <Search color={colors.onMint} size={size.icon} strokeWidth={size.lineBold} />
                 </Pressable>
-              ) : null}
+              </View>
+            ) : (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={s.home.search}
-                accessibilityHint={s.home.searchHint}
-                accessibilityState={{ disabled: query.length < NAME_MIN }}
-                onPress={submitName}
-                hitSlop={space.xs}
-                style={({ pressed }) => [styles.fieldGo, pressed ? styles.dim : null]}
+                onPress={() => setNameOpen(true)}
+                hitSlop={space.md}
+                style={[styles.nameToggle, { flexDirection: row, alignSelf: alignStart }]}
               >
-                <Search color={colors.onMint} size={size.icon} strokeWidth={size.lineBold} />
+                <Search color={colors.onHero} size={size.iconSmall} strokeWidth={size.lineBold} />
+                <Txt role="label" color="onHero" style={styles.underline}>
+                  {s.home.searchPlaceholder}
+                </Txt>
               </Pressable>
-            </View>
+            )}
           </View>
 
           {/* Distance: one compact row. It applies to whatever is tapped below. */}
@@ -450,6 +503,52 @@ const useStyles = makeStyles((c) => ({
   },
   underline: {
     textDecorationLine: 'underline',
+  },
+  // "Ask Haddak": a white block as tall as two lines of big text, with the ink arrow at its end.
+  ask: {
+    alignItems: 'center',
+    gap: space.md,
+    minHeight: size.askEntry,
+    backgroundColor: c.surface,
+    borderRadius: radius.lg,
+    paddingVertical: space.md,
+    paddingStart: space.xl,
+    paddingEnd: space.md,
+    marginTop: space.xs,
+    overflow: 'hidden',
+  },
+  askPressed: {
+    backgroundColor: c.surfaceTint,
+  },
+  askText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  askGo: {
+    width: size.buttonLarge,
+    height: size.buttonLarge,
+    borderRadius: radius.pill,
+    backgroundColor: c.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  examples: {
+    flexWrap: 'wrap',
+    gap: space.sm,
+  },
+  // A sentence to tap: pale lavender on the lavender block, so it reads as lighter than the white entry.
+  example: {
+    minHeight: size.touch,
+    justifyContent: 'center',
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
+    borderRadius: radius.pill,
+    backgroundColor: c.background,
+  },
+  nameToggle: {
+    alignItems: 'center',
+    gap: space.sm,
+    minHeight: size.touch,
   },
   field: {
     alignItems: 'center',

@@ -3,7 +3,17 @@
  * the reviews and the prices. Photos are placeholder stock images.
  * The real seed data lives in the backend.
  */
-import type { Banner, Category, DayKey, OpeningHours, ProviderDetail, Story, TimeRange } from './types';
+import type {
+  Banner,
+  Category,
+  DayKey,
+  OpeningHours,
+  PlaceOption,
+  PriceUnit,
+  ProviderDetail,
+  Story,
+  TimeRange,
+} from './types';
 
 /** Haret Hreik: the seed area and the fallback when location is unavailable. */
 export const HARET_HREIK = { lat: 33.8547, lng: 35.5097 } as const;
@@ -87,6 +97,26 @@ function buildCategories(): Category[] {
 }
 
 export const MOCK_CATEGORIES: Category[] = buildCategories();
+
+/**
+ * A few places for the mock assistant, like the backend's small hand-made `places`
+ * table: names people type (English, Arabic, Arabizi), a centre and a search radius.
+ * Centres are approximate. Two "Jdeideh"s exist, so the assistant asks which one.
+ */
+export interface MockPlace extends PlaceOption {
+  lat: number;
+  lng: number;
+  names: string[];
+}
+
+export const MOCK_PLACES: MockPlace[] = [
+  { slug: 'haret-hreik', name_en: 'Haret Hreik', name_ar: 'حارة حريك', district: 'Baabda', lat: 33.8547, lng: 35.5097, names: ['haret hreik', 'hreik', 'حارة حريك', 'حريك'] },
+  { slug: 'ghobeiry', name_en: 'Ghobeiry', name_ar: 'الغبيري', district: 'Baabda', lat: 33.8655, lng: 35.4985, names: ['ghobeiry', 'ghbeire', 'الغبيري', 'غبيري'] },
+  { slug: 'hamra', name_en: 'Hamra', name_ar: 'الحمرا', district: 'Beirut', lat: 33.8963, lng: 35.4823, names: ['hamra', 'الحمرا', 'الحمراء', 'حمرا'] },
+  { slug: 'jounieh', name_en: 'Jounieh', name_ar: 'جونيه', district: 'Keserwan', lat: 33.9808, lng: 35.6178, names: ['jounieh', 'jouniyeh', 'جونيه', 'جونية'] },
+  { slug: 'jdeideh-metn', name_en: 'Jdeideh', name_ar: 'الجديدة', district: 'Metn', lat: 33.8925, lng: 35.5592, names: ['jdeideh', 'jdeide', 'الجديدة', 'جديدة'] },
+  { slug: 'jdeidet-marjayoun', name_en: 'Jdeideh', name_ar: 'الجديدة', district: 'Marjayoun', lat: 33.3622, lng: 35.5844, names: ['jdeideh', 'jdeide', 'الجديدة', 'جديدة'] },
+];
 
 // ---------------------------------------------------------------------------
 // Providers
@@ -687,6 +717,42 @@ const CONTACT_COUNTS: Record<number, number> = { 0: 12, 1: 31, 3: 2, 6: 1, 10: 1
 
 const FOLLOWER_COUNTS: Record<number, number> = { 0: 48, 1: 132, 4: 17, 9: 64, 20: 211, 22: 9 };
 
+/**
+ * Structured prices (amount in USD, unit), by slug, for the price filter. They match
+ * each `price_text`; "$3 per m²" has no unit in the list, so it stays text only,
+ * like a provider who never filled the structured fields in.
+ */
+const STRUCTURED_PRICES: Record<string, [amount: number, unit: PriceUnit]> = {
+  k7m2xq: [10, 'job'],
+  h4d9mc: [15, 'job'],
+  l8p3dd: [5, 'visit'],
+  a9h5pl: [10, 'visit'],
+  k3s8el: [15, 'visit'],
+  c5b2ac: [20, 'visit'],
+  r1s4sx: [20, 'hour'],
+  m7k2pn: [25, 'hour'],
+  b3o9ud: [18, 'hour'],
+  z2h6mt: [12, 'hour'],
+  n8l4lg: [10, 'hour'],
+  h5f1ph: [15, 'hour'],
+  d4l7dm: [40, 'visit'],
+  d9k3hd: [60, 'visit'],
+  s6n2dn: [20, 'visit'],
+  r3a8pd: [30, 'visit'],
+  a1d5ar: [15, 'hour'],
+  k8z2kh: [20, 'hour'],
+  h2r6sw: [14, 'item'],
+  s9k4ck: [18, 'item'],
+  s1a7br: [5, 'job'],
+  g4a9mc: [10, 'visit'],
+  k6a3tl: [3, 'job'],
+  b7h1cl: [8, 'hour'],
+  t5c8ft: [15, 'hour'],
+  u3j5el: [8, 'visit'],
+  u4n7lp: [8, 'job'],
+  u5s2br: [4, 'job'],
+};
+
 /** Stable fake UUID so links keep working between reloads. */
 const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
@@ -700,6 +766,9 @@ export const MOCK_PROVIDERS: ProviderDetail[] = SEEDS.map((seed, index) => {
     category: categoryRef(seed.categoryId),
     area_name: seed.area,
     price_text: seed.price,
+    price_amount: STRUCTURED_PRICES[seed.slug]?.[0] ?? null,
+    price_unit: STRUCTURED_PRICES[seed.slug]?.[1] ?? null,
+    price_currency: STRUCTURED_PRICES[seed.slug] ? 'USD' : null,
     avg_rating: seed.rating,
     review_count: seed.reviews,
     verified: seed.verified ?? true,

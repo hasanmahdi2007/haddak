@@ -32,7 +32,8 @@ Each colour has one job.
 | `text` / `textMuted` / `textSubtle` | `#1B1C2F` / `#55576A` / `#666879` | `#F3F5F4` / `#BBBDCB` / `#9C9EB0` | Text |
 | `border` / `outline` | `#D0D2CF` / `#85878F` | `#34364D` / `#7F8198` | Dividers inside a card / control boundaries (3:1) |
 | `rating` | `#B97A00` | `#F2BE4A` | Rating stars only |
-| `danger` (+ soft pair) | `#B3261E` | `#FFB4AB` | Errors only |
+| `danger` (+ soft pair) | `#B3261E` | `#FFB4AB` | Errors only, and the assistant's emergency block |
+| `dangerPressed` / `onDanger` | `#931F18` / `#FFFFFF` | `#FF8A7E` / `#3B0906` | The solid emergency Call buttons only |
 | `whatsapp` | `#25D366` | same | The WhatsApp button only |
 | `qrPaper` / `qrInk` | `#FFFFFF` / `#1B1C2F` | same | The share sticker only: a QR code must stay dark on white |
 
@@ -56,17 +57,22 @@ Beiruti for titles, Readex Pro for text and controls. Both cover Arabic and Lati
 | `data` | Readex Pro 500 | 14 / 22 | Rating, distance, price |
 | `label` | Readex Pro 500 | 13 / 20 | Supporting lines, segments, chips |
 | `caption` | Readex Pro 400 | 12 / 18 | Badge pills, map pin names, dates |
+| `bodyLarge` / `bodyLargeStrong` | Readex Pro 400 / 500 | 17 / 26 | The assistant's reading text, card lines and facts |
+| `actionLarge` | Readex Pro 600 | 17 / 24 | Large buttons (the assistant's main actions) |
+| `input` | Readex Pro 400 | 20 / 30 | What the user types to the assistant |
+
+The assistant is a step bigger on purpose: it is made for people who rarely use a phone.
 
 ## Shape and space
 
 - Radius: `lg` 24 for cards, tiles and blocks; `sheet` 28 for the Home ink block and the profile sheet; `md` 14 for thumbnails and insets; `pill` for buttons, fields, chips and segmented controls.
 - Spacing: a 4-point scale. 16 at the page edge, 10 to 12 between blocks, 16 to 20 inside them.
-- Touch targets are 48 dp. Compact controls are 36 to 40 dp to the eye and reach 48 with `hitSlop`.
+- Touch targets are 48 dp. Compact controls are 36 to 40 dp to the eye and reach 48 with `hitSlop`. The assistant's main actions are 56 dp (`size.buttonLarge`); the Home entry is 72 dp (`size.askEntry`); its typing field starts at 132 dp (`size.askInput`).
 - Motion only marks a state change (120 to 200 ms). No entrance animations.
 
 ## Components
 
-- **Button** (`Button.tsx`): one pill, 52 dp. `primary` ink, `whatsapp` green, `tonal` grey, `outline`. `compact` tightens the padding for the three-button action bar.
+- **Button** (`Button.tsx`): one pill, 52 dp. `primary` ink, `whatsapp` green, `tonal` grey, `outline`, `white` (a quiet action on the ground or a lavender block), `danger` (emergency numbers only). `compact` tightens the padding for the three-button action bar. `large`: 56 dp, `actionLarge` words, a label that wraps to two lines instead of being cut.
 - **Distance control** (`RadiusChips.tsx`): a grey pill track with four segments, 36 dp high, the chosen one ink. Used in one row on Home and in the Results header.
 - **Verified filter** (`VerifiedFilter.tsx`): a pill whose name never changes, "Verified only", with a small switch at its end. On (the default): mint pill, ink track, white thumb at the end with a check. Off: grey pill, mid-grey track, empty thumb at the start. `accessibilityRole="switch"`.
 - **List / Map switch** (in `results.tsx`): a grey pill track with two labelled segments (icon and word), the chosen one ink.
@@ -93,11 +99,15 @@ Beiruti for titles, Readex Pro for text and controls. Both cover Arabic and Lati
   - `PinPicker.tsx` (`.web.tsx` stand-in): a 240 dp map (`size.mapPicker`) in a `lg` block with one draggable pin in `primary`; tapping the map moves it. A tonal "Use my location" button under it.
   - `HoursEditor.tsx`: one row per day (name, Open / Closed, the small switch), then two centred 24-hour time pills (`size.timeField`) when open; "Use Monday's times for every open day" as a text link.
   - `PhotoPicker.tsx`: 96 dp rounded photo tiles (`size.photoTile`, `radius.md`) with a 36 dp scrim remove button at the top end (48 with `hitSlop`), a scrim "Cover" tag on the first, a spinner or "Try again" veil while uploading or after a failure, then a grey "Add photo" tile. The proof is one grey block with a lavender icon square that opens the picker; once chosen, the thumbnail with Change and Remove, and a lock line saying only Haddak sees it.
+- **Ask entry** (Home, inside the lavender block): a white `lg` block, 72 dp, with the assistant's name in `headline` and "Say or type what you need" in `bodyLarge`, and a 56 dp `primary` disc with an arrow at the end. Under it two example sentences as pale-lavender (`background`) pills, 48 dp, that open the assistant and ask at once. The name comes only from the `assist.name` string (the founder is still choosing it).
+- **Assistant card** (`AssistCard.tsx`): one of the assistant's top three. A white `lg` block: 84 dp photo, name in `headline`, "category · area" in `bodyLarge`, the Verified pill and open status; a grey strip with distance, price and rating in `bodyLargeStrong`; then a full-width 56 dp WhatsApp button and a `tonal` Call button. Photo and name open the profile.
+- **Assistant blocks** (`app/assist.tsx`): white `lg` blocks for a question with big `primary` choices (clarify, two places with one name), "Looking…" (spinner, `headline`, one line) and the off-topic line; the summary is a lavender block that is one button to the full list, with a `primary` arrow disc; notes ("we looked further", "place not found") are a plain line with an info icon; emergency and errors are `dangerSoft` blocks, emergency with solid `danger` Call buttons; example sentences are white 56 dp rows with an arrow.
+- **Filter pills** (Results header, from the assistant): `primary` pills with white words and an X ("Up to $20 an hour", "Open now", "Nearest first"); a tap removes the filter.
 - **State view** (`StateView.tsx`): a lavender disc with the icon and a mint dot; errors use the error colours.
 
 ## Screens
 
-- **Home:** wordmark, saved and language. An ink block with the question, the search position and a pill field for search by name (round mint search button). One compact distance row. The category grid. A wide "Everyone nearby" block. Nothing is pinned to the bottom: a tap on a category searches.
+- **Home:** wordmark, saved and language. A lavender block with the question, the search position, the Ask entry and two example sentences, then a quiet "Search by name" link that opens the old pill field for search by name (round mint search button) in place. One compact distance row. The category grid. A wide "Everyone nearby" block. Nothing is pinned to the bottom: a tap on a category searches.
 - **Results:** one header: back, title and count, List / Map; under it distance and the verified filter. Then the list of blocks, or the map filling everything under the header.
 - **Provider profile:** photos, then a hero block (mint when verified, grey when not) with the name and the verification line; three fact blocks; opening hours, about and reviews as grey cards; an action bar with WhatsApp, Call and Directions.
 - **Saved:** a big title and one grey block per saved provider.
@@ -106,6 +116,7 @@ Beiruti for titles, Readex Pro for text and controls. Both cover Arabic and Lati
 - **My business:** the listing as a mint block when verified (white otherwise), a tonal "Edit listing" button, then a white "This month" block: four grey tiles (profile views, WhatsApp taps, calls, followers) with the figure in `display` and its name under it, the month at the end of the title; no chart. Then one white block each for Updates (compose, count of 5, posted updates with an in-place delete confirmation), Offer (the profile's offer block as a preview, or the form with 1 to 7 day pills) and Sponsor line. Not verified: a lavender block saying posting opens after verification, with a "Send proof" button when no proof is waiting. No listing: a state view with "List your business" and a link to Suggest.
 - **List your business** (`join.tsx`): a back arrow; the lavender intro block (shop icon, title, one sentence); the business form. After sending: a state view saying the listing is live without the badge and what happens to the proof, then "Go to My business". Reached from My business and from a quiet text link at the bottom of Home (sign-in first).
 - **Edit listing** (`business-edit.tsx`): back and a `headline` title, then the business form filled in; saving sends only what changed and returns to My business.
+- **Assistant** (`assist.tsx`): back and the assistant's name; a white typing field (big type, tall until something is asked, the keyboard-microphone hint inside it until then); a 56 dp `primary` Send button; then the answer: example sentences (nothing asked yet), "Looking…", an error with Try again, or the answer blocks above. Results show notes, the summary block, a white "Read aloud" button (`expo-speech`), the top three assistant cards and "See all N". No results: "Nobody found yet" with "Search wider" and "Tell us who you need" (Suggest).
 - **Suggest:** a back arrow; a lavender block with the icon, the title and one sentence; then the questions as grey pill fields (52 dp, the note is a block), labels set in to line up with the typed text, the edge turning ink on focus and red on an error; the ink button stays docked above the keyboard.
 
 ## Right-to-left

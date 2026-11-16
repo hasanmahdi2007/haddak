@@ -7,7 +7,7 @@ import { makeStyles, opacity, radius, size, space, useTheme, type ColorTokens } 
 
 import { Txt } from './Txt';
 
-export type ButtonVariant = 'primary' | 'whatsapp' | 'tonal' | 'outline';
+export type ButtonVariant = 'primary' | 'whatsapp' | 'tonal' | 'outline' | 'danger' | 'white';
 
 type ColorName = keyof ColorTokens;
 
@@ -19,6 +19,10 @@ const VARIANTS: Record<
   whatsapp: { bg: 'whatsapp', pressed: 'whatsappPressed', fg: 'onWhatsapp', border: null },
   tonal: { bg: 'surfaceTint', pressed: 'surfaceTintStrong', fg: 'onPrimarySoft', border: null },
   outline: { bg: null, pressed: 'surfaceTint', fg: 'primary', border: 'outline' },
+  // Emergency numbers only.
+  danger: { bg: 'danger', pressed: 'dangerPressed', fg: 'onDanger', border: null },
+  // A quiet action on a grey or lavender block.
+  white: { bg: 'surface', pressed: 'surfaceTintStrong', fg: 'onPrimarySoft', border: null },
 };
 
 interface ButtonProps {
@@ -29,10 +33,13 @@ interface ButtonProps {
   /** A custom glyph (the WhatsApp mark) in place of a line icon. */
   glyph?: (color: string) => ReactNode;
   accessibilityLabel?: string;
+  accessibilityHint?: string;
   loading?: boolean;
   disabled?: boolean;
   /** Tighter padding, for a row of three buttons. */
   compact?: boolean;
+  /** 56 dp and bigger words: the assistant's main actions. Long labels wrap instead of being cut. */
+  large?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -44,9 +51,11 @@ export function Button({
   icon: Icon,
   glyph,
   accessibilityLabel,
+  accessibilityHint,
   loading = false,
   disabled = false,
   compact = false,
+  large = false,
   style,
 }: ButtonProps) {
   const { colors } = useTheme();
@@ -60,6 +69,7 @@ export function Button({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: inactive, busy: loading }}
       disabled={inactive}
       onPress={onPress}
@@ -67,6 +77,7 @@ export function Button({
       style={({ pressed }) => [
         styles.base,
         compact ? styles.compact : null,
+        large ? styles.large : null,
         { flexDirection: row },
         v.bg ? { backgroundColor: colors[pressed ? v.pressed : v.bg] } : null,
         !v.bg && pressed ? { backgroundColor: colors[v.pressed] } : null,
@@ -80,8 +91,16 @@ export function Button({
       ) : (
         <>
           {glyph ? <View>{glyph(fg)}</View> : null}
-          {Icon ? <Icon color={fg} size={size.icon} strokeWidth={size.stroke} /> : null}
-          <Txt role="action" color={v.fg} numberOfLines={1} style={styles.label}>
+          {Icon ? (
+            <Icon color={fg} size={large ? size.iconLarge : size.icon} strokeWidth={large ? size.lineBold : size.stroke} />
+          ) : null}
+          <Txt
+            role={large ? 'actionLarge' : 'action'}
+            color={v.fg}
+            numberOfLines={large ? 2 : 1}
+            center={large}
+            style={styles.label}
+          >
             {label}
           </Txt>
         </>
@@ -100,6 +119,10 @@ const useStyles = makeStyles(() => ({
     justifyContent: 'center',
     gap: space.sm,
     overflow: 'hidden',
+  },
+  large: {
+    minHeight: size.buttonLarge,
+    paddingVertical: space.md,
   },
   compact: {
     paddingHorizontal: space.sm + space.xxs,

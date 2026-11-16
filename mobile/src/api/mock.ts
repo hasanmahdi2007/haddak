@@ -2,15 +2,18 @@ import { isOpenAt } from '@/lib/hours';
 
 import {
   MOCK_CATEGORIES,
+  MOCK_PLACES,
   MOCK_PROVIDERS,
   REVIEW_AUTHORS,
   REVIEW_COMMENTS,
   mockBanner,
   mockStories,
 } from './mockData';
+import { baseUnderstood, buildDraft, buildSummary, understandText } from './mockAssist';
 import { applyOwnEdits, buildOwnProvider, mockStats } from './mockOwner';
 import {
   ApiError,
+  type AssistResponse,
   type Banner,
   type ContactEventType,
   type Coordinates,
@@ -20,6 +23,9 @@ import {
   type ProviderSummary,
   type ProviderUpdateInput,
   type ReportReason,
+  type SearchParams,
+  type Understood,
+  type UnderstoodInput,
   type Review,
   type Story,
   type StoryGroup,
@@ -66,6 +72,9 @@ function toSummary(provider: ProviderDetail, distance_m: number | null): Provide
     category,
     area_name,
     price_text,
+    price_amount = null,
+    price_unit = null,
+    price_currency = null,
     avg_rating,
     review_count,
     verified,
@@ -85,6 +94,9 @@ function toSummary(provider: ProviderDetail, distance_m: number | null): Provide
     category,
     area_name,
     price_text,
+    price_amount,
+    price_unit,
+    price_currency,
     avg_rating,
     review_count,
     verified,
@@ -236,6 +248,116 @@ export function createMockApi(
     };
   }
 
+  /**
+   * The search behind GET /providers/search and the assistant. `categoryIds` are
+   * searched with their children; null means every category.
+   */
+  function search(params: SearchParams, categoryIds: number[] | null) {
+    const { lat, lng, radius_m, include_unverified = false, limit = 30, offset = 0 } = params;
+    const name = params.q?.trim().toLowerCase();
+    const wanted =
+      categoryIds === null
+        ? null
+        : new Set(
+            categoryIds.flatMap((id) => [id, ...MOCK_CATEGORIES.filter((c) => c.parent_id === id).map((c) => c.id)]),
+          );
+    const currency = params.price_currency ?? 'USD';
+
+    const matches = MOCK_PROVIDERS.filter((p) => include_unverified || p.verified)
+      .filter((p) => !wanted || wanted.has(p.category.id))
+      .filter((p) => !name || p.name.toLowerCase().includes(name))
+      .map((p) => summary(p, Math.round(haversineM({ lat, lng }, p))))
+      .filter((p) => (p.distance_m ?? 0) <= radius_m)
+      // A price limit leaves out everyone without a structured price in that unit and currency.
+      .filter(
+        (p) =>
+          params.max_price === undefined ||
+          (p.price_amount != null &&
+            p.price_unit === params.price_unit &&
+            p.price_currency === currency &&
+            p.price_amount <= params.max_price),
+      )
+      .filter((p) => !params.open_now || p.open_now === true);
+
+    let ranked = rankProviders(matches);
+    if (params.sort === 'distance') {
+      // Nearest first, but verified still before not verified.
+      ranked = [...matches].sort(
+        (a, b) => Number(b.verified) - Number(a.verified) || (a.distance_m ?? 0) - (b.distance_m ?? 0),
+      );
+    } else if (params.sort === 'price') {
+      // Cheapest structured price first; the rest keep the normal order after them.
+      const order = new Map(ranked.map((p, i) => [p.id, i]));
+      ranked = [...ranked].sort((a, b) => {
+        const pa = a.price_amount ?? Number.POSITIVE_INFINITY;
+        const pb = b.price_amount ?? Number.POSITIVE_INFINITY;
+        return pa - pb || (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0);
+      });
+    }
+    const size = Math.min(Math.max(limit, 1), 100);
+    return { items: ranked.slice(offset, offset + size), total: ranked.length };
+  }
+
+  /** Run the assistant's settings: centred on the place or the phone, widened when empty. */
+  function assistSearch(
+    input: UnderstoodInput,
+    phone: Coordinates,
+    lang: 'en' | 'ar',
+    draft: string | null,
+  ): AssistResponse {
+    // A place chosen from `place_options` arrives as a slug: look it up, like the backend.
+    const known = input.place ? MOCK_PLACES.find((p) => p.slug === input.place?.slug) : undefined;
+    if (input.place && !known) throw new ApiError(422, 'Unknown place');
+    const understood: Understood = {
+      ...baseUnderstood(input.category_slugs),
+      ...input,
+      place: known
+        ? { slug: known.slug, name_en: known.name_en, name_ar: known.name_ar, lat: known.lat, lng: known.lng }
+        : null,
+    };
+    const ids = understood.category_slugs
+      .map((slug) => MOCK_CATEGORIES.find((c) => c.slug === slug)?.id)
+      .filter((id): id is number => id !== undefined);
+    const centre = understood.place ?? phone;
+    const run = (radius_m: number) =>
+      search(
+        {
+          lat: centre.lat,
+          lng: centre.lng,
+          radius_m,
+          q: understood.q ?? undefined,
+          max_price: understood.max_price ?? undefined,
+          price_unit: understood.price_unit ?? undefined,
+          price_currency: understood.price_currency,
+          open_now: understood.open_now,
+          sort: understood.sort,
+          limit: 10,
+        },
+        ids.length > 0 ? ids : null,
+      );
+
+    let results = run(understood.radius_m);
+    let widened = false;
+    // Nothing found: widen step by step (1 km, 5 km, city) and say so.
+    for (const wider of [1000, 5000, 20000]) {
+      if (results.total > 0 || wider <= understood.radius_m) continue;
+      understood.radius_m = wider;
+      results = run(wider);
+      widened = true;
+    }
+    return {
+      kind: 'results',
+      understood,
+      summary: buildSummary(understood, lang),
+      results,
+      widened,
+      question: null,
+      place_options: null,
+      place_unknown: null,
+      whatsapp_draft: draft,
+    };
+  }
+
   /** Like `respond`, for routes that need a login. */
   async function respondAuth<T>(build: () => T): Promise<T> {
     const token = await getToken();
@@ -320,8 +442,9 @@ export function createMockApi(
 
     getCategories: () => respond(() => MOCK_CATEGORIES),
 
-    searchProviders: ({ lat, lng, radius_m, category_id, q, include_unverified = false, limit = 30, offset = 0 }) =>
+    searchProviders: (params) =>
       respond(() => {
+        const { radius_m, category_id, q } = params;
         if (radius_m < 100 || radius_m > 50_000) {
           throw new ApiError(422, 'radius_m must be between 100 and 50000');
         }
@@ -329,24 +452,62 @@ export function createMockApi(
         if (name !== undefined && (name.length < 2 || name.length > 60)) {
           throw new ApiError(422, 'q must be between 2 and 60 characters');
         }
-        // The category itself plus its direct children (one level).
-        const categoryIds =
-          category_id === undefined
-            ? null
-            : new Set([
-                category_id,
-                ...MOCK_CATEGORIES.filter((c) => c.parent_id === category_id).map((c) => c.id),
-              ]);
+        if (params.max_price !== undefined && !params.price_unit) {
+          throw new ApiError(422, 'price_unit is required with max_price');
+        }
+        return search(params, category_id === undefined ? null : [category_id]);
+      }),
 
-        const matches = MOCK_PROVIDERS.filter((p) => include_unverified || p.verified)
-          .filter((p) => !categoryIds || categoryIds.has(p.category.id))
-          .filter((p) => !name || p.name.toLowerCase().includes(name))
-          .map((p) => summary(p, Math.round(haversineM({ lat, lng }, p))))
-          .filter((p) => (p.distance_m ?? 0) <= radius_m);
+    // The fake assistant: keyword rules (mockAssist.ts) instead of an AI, then the same search.
+    assist: (request) =>
+      respond((): AssistResponse => {
+        const { lat, lng, lang } = request;
+        if ('understood' in request) return assistSearch(request.understood, { lat, lng }, lang, null);
 
-        const ranked = rankProviders(matches);
-        const size = Math.min(Math.max(limit, 1), 100);
-        return { items: ranked.slice(offset, offset + size), total: ranked.length };
+        const text = request.text.trim();
+        if (text.length < 2 || text.length > 300) throw new ApiError(422, 'text must be 2 to 300 characters');
+        const reading = understandText(text, lang);
+        const empty: AssistResponse = {
+          kind: 'unavailable',
+          understood: null,
+          summary: null,
+          results: null,
+          widened: false,
+          question: null,
+          place_options: null,
+          place_unknown: null,
+          whatsapp_draft: null,
+        };
+        switch (reading.kind) {
+          case 'emergency':
+          case 'off_topic':
+          case 'unavailable':
+            return { ...empty, kind: reading.kind };
+          case 'clarify':
+            return { ...empty, kind: 'clarify', question: reading.question, whatsapp_draft: buildDraft(text, lang) };
+          case 'search': {
+            const draft = buildDraft(text, lang);
+            if (reading.placeOptions) {
+              // Two places share the name: nothing is searched until one is chosen.
+              return {
+                ...empty,
+                kind: 'results',
+                understood: reading.understood,
+                place_options: reading.placeOptions.map(({ slug, name_en, name_ar, district }) => ({
+                  slug,
+                  name_en,
+                  name_ar,
+                  district,
+                })),
+                whatsapp_draft: draft,
+              };
+            }
+            return {
+              ...assistSearch(reading.understood, { lat, lng }, lang, draft),
+              place_unknown: reading.placeUnknown,
+            };
+          }
+        }
       }),
 
     getProvider: (id, from) => publicDetail(() => find((p) => p.id === id), from),

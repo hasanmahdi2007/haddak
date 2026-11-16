@@ -55,7 +55,20 @@ export interface ProviderSummary {
   has_active_story: boolean;
   /** Title of the offer running now, or null. */
   banner_title: string | null;
+  /**
+   * Structured price, used by the price filter (docs/AI_ASSISTANT.md, "Prices").
+   * Optional: older backends do not send them, and most providers have only `price_text`.
+   */
+  price_amount?: number | null;
+  price_unit?: PriceUnit | null;
+  price_currency?: PriceCurrency | null;
 }
+
+/** What a structured price is counted in. */
+export type PriceUnit = 'hour' | 'visit' | 'job' | 'item' | 'month';
+export type PriceCurrency = 'USD' | 'LBP';
+/** Search order: `best` (the normal ranking), `distance` (nearest first), `price` (cheapest first). */
+export type SearchSort = 'best' | 'distance' | 'price';
 
 /** A short update posted by a provider. It disappears at `expires_at`. */
 export interface Story {
@@ -154,8 +167,97 @@ export interface SearchParams {
   q?: string;
   /** Also return providers Haddak has not verified. Default false. */
   include_unverified?: boolean;
+  /** Keeps providers whose structured price is at most this. Needs `price_unit`. */
+  max_price?: number;
+  price_unit?: PriceUnit;
+  /** Default USD. */
+  price_currency?: PriceCurrency;
+  /** Keeps providers whose opening hours say open now. */
+  open_now?: boolean;
+  sort?: SearchSort;
   limit?: number;
   offset?: number;
+}
+
+// ---------------------------------------------------------------------------
+// The assistant (POST /assist, docs/API.md and docs/AI_ASSISTANT.md)
+// ---------------------------------------------------------------------------
+
+/** A place from the backend's own `places` table, after the lookup. */
+export interface Place {
+  slug: string;
+  name_en: string;
+  name_ar: string;
+  lat: number;
+  lng: number;
+}
+
+/** One of two places that share a name: the app shows each as a button. */
+export interface PlaceOption {
+  slug: string;
+  name_en: string;
+  name_ar: string;
+  district: string;
+}
+
+/** Search settings, as understood from a sentence and checked by the backend. */
+export interface Understood {
+  /** Only slugs that exist; may be empty when `q` is set. */
+  category_slugs: string[];
+  q: string | null;
+  /** Null: search around the phone. */
+  place: Place | null;
+  /** 500, 1000, 5000 or 20000. */
+  radius_m: number;
+  max_price: number | null;
+  price_unit: PriceUnit | null;
+  price_currency: PriceCurrency;
+  open_now: boolean;
+  sort: SearchSort;
+}
+
+/**
+ * What the app may send back as `understood`. Choosing between two places
+ * (`place_options`) only knows the slug, so `place` may be just `{ slug }`:
+ * the backend looks the slug up in its `places` table.
+ */
+export type UnderstoodInput = Omit<Understood, 'place'> & {
+  place: Place | { slug: string } | null;
+};
+
+/** A clarify option is already a full set of search settings. */
+export interface ClarifyOption {
+  label: string;
+  understood: Understood;
+}
+
+export interface ClarifyQuestion {
+  text: string;
+  options: ClarifyOption[];
+}
+
+export type AssistKind = 'results' | 'clarify' | 'emergency' | 'off_topic' | 'unavailable';
+
+/** Body of POST /assist: a sentence, or a chosen option (no AI request is made). */
+export type AssistRequest = Coordinates & { lang: 'en' | 'ar' } & (
+    | { text: string }
+    | { understood: UnderstoodInput }
+  );
+
+export interface AssistResponse {
+  kind: AssistKind;
+  understood: Understood | null;
+  /** "Plumber · near you · 1 km", built from a template in `lang`. */
+  summary: string | null;
+  results: Page<ProviderSummary> | null;
+  /** Nothing was found, so the radius was widened once (1 km → 5 km → 20 km). */
+  widened: boolean;
+  question: ClarifyQuestion | null;
+  place_options: PlaceOption[] | null;
+  /** A place name that was not found; the search used the phone location. */
+  place_unknown: string | null;
+  /** A short first message for WhatsApp in the user's language, or null. */
+  whatsapp_draft: string | null;
 }
 
 export interface ReviewListParams {
@@ -289,6 +391,8 @@ export interface HaddakApi {
   submitSuggestion(input: SuggestionInput): Promise<{ id: string }>;
   /** Flag a bad listing. No login. 429 after 10 in an hour. */
   reportProvider(providerId: string, input: ReportInput): Promise<{ id: string }>;
+  /** The assistant: a sentence (or a chosen option) in, search settings and results out. 429 after 30 a day. */
+  assist(request: AssistRequest): Promise<AssistResponse>;
 
   // Auth endpoints: they need a signed-in user (401 otherwise).
   /** My review of this provider, or null if I have not written one. */

@@ -54,8 +54,11 @@ export interface ColorTokens {
   /** Dark green for the ring of the "Open now" dot, where mint alone would be too faint. */
   success: string;
 
-  /** Errors only. */
+  /** Errors only, and the emergency numbers in the assistant. */
   danger: string;
+  dangerPressed: string;
+  /** Text on a solid `danger` fill (the emergency Call buttons). */
+  onDanger: string;
   dangerSoft: string;
   onDangerSoft: string;
 
@@ -113,6 +116,8 @@ export const lightColors: ColorTokens = {
   success: '#1F7A3A',
 
   danger: '#B3261E',
+  dangerPressed: '#931F18',
+  onDanger: '#FFFFFF',
   dangerSoft: '#FBE4E1',
   onDangerSoft: '#7A1410',
 
@@ -165,6 +170,8 @@ export const darkColors: ColorTokens = {
   success: '#1F7A3A',
 
   danger: '#FFB4AB',
+  dangerPressed: '#FF8A7E',
+  onDanger: '#3B0906',
   dangerSoft: '#5C1612',
   onDangerSoft: '#FFDAD5',
 
@@ -218,6 +225,15 @@ export const type = {
   label: { fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 20 },
   /** Smallest text: badge labels, dates. */
   caption: { fontFamily: fonts.body, fontSize: 12, lineHeight: 18 },
+  /**
+   * The assistant is read by people who rarely use a phone, so its reading text,
+   * buttons and typing field are a step bigger than the rest of the app.
+   */
+  bodyLarge: { fontFamily: fonts.body, fontSize: 17, lineHeight: 26 },
+  bodyLargeStrong: { fontFamily: fonts.bodyMedium, fontSize: 17, lineHeight: 26 },
+  actionLarge: { fontFamily: fonts.bodyStrong, fontSize: 17, lineHeight: 24 },
+  /** What the user types to the assistant. */
+  input: { fontFamily: fonts.body, fontSize: 20, lineHeight: 30 },
 } as const satisfies Record<string, TypeStyle>;
 
 export type TypeRole = keyof typeof type;
@@ -260,6 +276,12 @@ export const size = {
   measure: 340,
   /** Primary buttons. */
   button: 52,
+  /** The assistant's main actions (Send, WhatsApp, Call, the example chips): bigger for unsure hands. */
+  buttonLarge: 56,
+  /** The "Ask Haddak" entry on Home. */
+  askEntry: 72,
+  /** Least height of the assistant's typing field (about three lines). */
+  askInput: 132,
   icon: 20,
   iconSmall: 16,
   iconLarge: 24,
