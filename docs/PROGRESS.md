@@ -165,3 +165,22 @@ Current: 0 real providers (app not released). Seed data only.
 ### 2026-11-15 — project set up
 
 Docs written, local database running, private GitHub repo created. One mistake fixed: the first commit recorded `mobile/` as a nested repository because the Expo setup tool creates its own; the entry was removed.
+
+## 2026-11-16 (night)
+
+**Full app redesign (third direction: mint, lavender, ink).** The founder rejected the teal design and asked for the whole layout to change, not only colours.
+- Home, Results and Profile rebuilt: borderless rounded colour blocks, pill controls, ink primary buttons. `mobile/DESIGN.md` rewritten.
+- Home no longer has a bottom dock; tapping a category searches straight away with the chosen radius.
+- Radius control is a compact 36 dp pill row. Results has a "Verified only" filter (uses `include_unverified`) and a labelled List / Map switch.
+- Map pins carry the provider's name; verified and unverified pins differ.
+- Sponsored card variant on Results.
+- Verified: `tsc` and `expo lint` clean, web screenshots in `mobile/design-preview/`. **Not verified on a phone** (native map especially).
+
+**Backend: stories, banners, follows, sponsored hook (migration 0004).**
+- Stories: text + optional image URL, 24 hours, max 5 active, verified owners only.
+- Banners: one per provider, 1 to 7 days, optional discount percent.
+- Follows: signed-in user follows a provider; `/me/following`, `/me/feed`; `follower_count` and `is_following` on the profile.
+- Sponsored: shown name for the existing `featured_until`, plus owner-written `sponsor_hook` (80 chars). The admin switches it on; no in-app payment.
+- Seed now has 6 unverified providers, 4 sponsored, 8 stories, 3 banners.
+- Verified: 322 tests pass, ruff clean, dev DB migrated and seeded.
+- Not done: admin page buttons to delete a story or banner (endpoints exist).

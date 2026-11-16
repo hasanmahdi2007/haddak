@@ -9,9 +9,14 @@ import {
   CITY_RADIUS,
   HereDot,
   MapProviderCard,
+  ProviderDot,
   ProviderPin,
+  fitRegion,
+  layoutPins,
   metresPerDegree,
+  pinZIndex,
   regionFor,
+  screenPoint,
   usePinLabel,
   type ResultsMapProps,
 } from './MapParts';
@@ -31,15 +36,13 @@ export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = providers.find((provider) => provider.id === selectedId) ?? null;
 
-  // The panel's width shows the region's width; the same scale is used top to bottom.
-  const region = regionFor(center, radiusM);
-  const metres = metresPerDegree(center.lat);
-  const pxPerMetre = panel.width / (region.longitudeDelta * metres.lng);
-  const point = (lat: number, lng: number) => ({
-    x: panel.width / 2 + (lng - center.lng) * metres.lng * pxPerMetre,
-    y: panel.height / 2 - (lat - center.lat) * metres.lat * pxPerMetre,
-  });
+  // The area the panel shows: the asked region, fitted to the panel's shape as a real map would.
+  // There is no zoom here, so this only changes with the search and the panel's size.
+  const shown = fitRegion(regionFor(center, radiusM), panel.width, panel.height);
+  const pxPerMetre = panel.width / (shown.longitudeDelta * metresPerDegree(center.lat).lng);
   const circle = radiusM * 2 * pxPerMetre;
+  // The same rule as the real map: a name only where it does not cover another.
+  const forms = layoutPins(providers, selected?.id ?? null, shown, panel.width, panel.height);
 
   return (
     <View
@@ -84,31 +87,38 @@ export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider
 
           {providers.map((provider) => {
             const isSelected = provider.id === selected?.id;
-            const { x, y } = point(provider.lat, provider.lng);
+            const form = forms.get(provider.id) ?? 'pill';
+            const { x, y } = screenPoint(provider.lat, provider.lng, shown, panel.width, panel.height);
             return (
               <Pressable
                 key={provider.id}
+                testID={`map-pin-${form}`}
                 accessibilityRole="button"
                 accessibilityLabel={pinLabel(provider, isSelected)}
                 accessibilityState={{ selected: isSelected }}
                 onPress={() => setSelectedId(provider.id)}
-                // The pointer's tip (bottom centre of the pin, whatever its width) sits on the position.
+                // A name pill points at the position with its tip (bottom centre, whatever
+                // its width); a dot is centred on it.
                 style={[
                   styles.spot,
                   {
                     left: x,
                     top: y,
-                    transform: [{ translateX: '-50%' }, { translateY: '-100%' }],
-                    zIndex: isSelected ? 3 : provider.featured ? 2 : provider.verified ? 1 : 0,
+                    transform: [{ translateX: '-50%' }, { translateY: form === 'pill' ? '-100%' : '-50%' }],
+                    zIndex: pinZIndex(provider, form, isSelected),
                   },
                 ]}
               >
-                <ProviderPin
-                  name={provider.name}
-                  verified={provider.verified}
-                  featured={provider.featured}
-                  selected={isSelected}
-                />
+                {form === 'pill' ? (
+                  <ProviderPin
+                    name={provider.name}
+                    verified={provider.verified}
+                    featured={provider.featured}
+                    selected={isSelected}
+                  />
+                ) : (
+                  <ProviderDot verified={provider.verified} featured={provider.featured} />
+                )}
               </Pressable>
             );
           })}

@@ -2,7 +2,7 @@
 
 The visual rules for the Haddak app, as built. The code mirror of this file is `src/theme/tokens.ts`: change both together. Screens and components use tokens only, never a raw colour or size.
 
-Status: rebuilt on 2026-11-16 after the founder rejected the earlier teal design. The palette comes from his reference image (a finance dashboard of rounded cards with mint and lavender blocks and one near-black card). Home, Results (list and map), Provider profile and Saved are laid out in it, in light and dark. Suggest carries the new palette and shapes but keeps its earlier form layout.
+Status: rebuilt on 2026-11-16 after the founder rejected the earlier teal design. The palette comes from his reference image (a finance dashboard of rounded cards with mint and lavender blocks and one near-black card). Home, Results (list and map), Provider profile and Saved are laid out in it, in light and dark. Suggest was re-laid-out in it afterwards.
 
 ## Direction: Blocks
 
@@ -67,13 +67,13 @@ Beiruti for titles, Readex Pro for text and controls. Both cover Arabic and Lati
 
 - **Button** (`Button.tsx`): one pill, 52 dp. `primary` ink, `whatsapp` green, `tonal` grey, `outline`. `compact` tightens the padding for the three-button action bar.
 - **Distance control** (`RadiusChips.tsx`): a grey pill track with four segments, 36 dp high, the chosen one ink. Used in one row on Home and in the Results header.
-- **Verified filter** (`VerifiedFilter.tsx`): one chip, a switch. On: mint with a check badge, "Verified only". Off: outlined, "Unverified too".
+- **Verified filter** (`VerifiedFilter.tsx`): a pill whose name never changes, "Verified only", with a small switch at its end. On (the default): mint pill, ink track, white thumb at the end with a check. Off: grey pill, mid-grey track, empty thumb at the start. `accessibilityRole="switch"`.
 - **List / Map switch** (in `results.tsx`): a grey pill track with two labelled segments (icon and word), the chosen one ink.
 - **Category tile** (`CategoryTile.tsx`): a solid block, 112 dp high: icon top, name bottom, an arrow in the corner (chevron opens more choices, diagonal arrow goes to results). Tones: lavender, mint, grey. The grid alternates wide + narrow rows and steps the colours diagonally.
 - **Badges** (`Badges.tsx`): pills, 24 dp. Verified (mint, check badge), Not verified (grey, empty badge), Featured (lavender, means paid), Founding member (outlined), and the "Listed by the community" line for a listing nobody has claimed.
 - **Open status** (`OpenStatus.tsx`): a mint dot ringed in dark green plus "Open now", or an empty ring plus "Closed". Words are always ink.
 - **Provider card** (`ProviderCard.tsx`): a grey block: photo, name, "category · area", the trust line, then a white strip with rating, distance and price in fixed columns. **Sponsored** variant (`sponsored: true`): the block is lavender, with an ink "Sponsored" pill and the sponsor's one-line hook; the API returns it first, so it sits at the top of the list.
-- **Map pin** (`MapParts.tsx`): a pill carrying the provider's name (cut at 18 characters) with a pointer under it. Verified: white pill, ink edge, mint check disc. Not verified: grey pill, grey edge, empty ring, muted name. Featured: lavender pill. Selected: ink pill, larger. The search position is a lavender dot with an ink ring; the search area is a lavender circle.
+- **Map pin** (`MapParts.tsx`): a pill carrying the provider's name (cut at 18 characters) with a pointer under it. Verified: white pill, ink edge, mint check disc. Not verified: grey pill, grey edge, empty ring, muted name. Featured: lavender pill. Selected: ink pill, larger. When names would overlap, only the most important keep their pill (selected, then sponsored and featured, then verified, then by rank; `layoutPins`); the others become a 22 dp dot (mint disc with a check, grey ring when not verified, lavender when featured) drawn under the names. Zooming in or tapping a dot brings its name back. The search position is a lavender dot with an ink ring; the search area is a lavender circle.
 - **State view** (`StateView.tsx`): a lavender disc with the icon and a mint dot; errors use the error colours.
 
 ## Screens
@@ -82,7 +82,7 @@ Beiruti for titles, Readex Pro for text and controls. Both cover Arabic and Lati
 - **Results:** one header: back, title and count, List / Map; under it distance and the verified filter. Then the list of blocks, or the map filling everything under the header.
 - **Provider profile:** photos, then a hero block (mint when verified, grey when not) with the name and the verification line; three fact blocks; opening hours, about and reviews as grey cards; an action bar with WhatsApp, Call and Directions.
 - **Saved:** a big title and one grey block per saved provider.
-- **Suggest:** a form of grey rounded fields with one ink button.
+- **Suggest:** a back arrow; a lavender block with the icon, the title and one sentence; then the questions as grey pill fields (52 dp, the note is a block), labels set in to line up with the typed text, the edge turning ink on focus and red on an error; the ink button stays docked above the keyboard.
 
 ## Right-to-left
 

@@ -292,6 +292,13 @@ export const size = {
   mapPinTip: 10,
   /** Longest name a map pin shows before it is cut with an ellipsis. */
   mapPinChars: 18,
+  /** A pin with no room for its name: the round mark alone, and the box around it that takes the tap. */
+  mapDot: 22,
+  mapDotBox: 32,
+  /** The small switch inside the "Verified only" filter: its track and the round thumb. */
+  switchTrackW: 36,
+  switchTrackH: 22,
+  switchThumb: 16,
   /** The "search position" dot on the map. */
   mapHere: 20,
   /** The least height the map may ever have. */

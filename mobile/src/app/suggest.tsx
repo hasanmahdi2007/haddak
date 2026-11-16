@@ -7,6 +7,7 @@ import {
   ChevronUp,
   CircleAlert,
   HeartHandshake,
+  LockKeyhole,
   Search,
   X,
 } from 'lucide-react-native';
@@ -47,7 +48,7 @@ const PHONE_EXAMPLE = '⁦+961 70 123 456⁩';
 /** How many category rows show before the list scrolls. */
 const VISIBLE_CATEGORIES = 5;
 
-// Web only: the field's own border shows focus, so the browser's ring is turned off.
+// Web only: the field's own ink edge shows focus, so the browser's ring is turned off.
 const NO_FOCUS_RING = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : null;
 
 /**
@@ -77,15 +78,19 @@ interface FieldProps {
   children: ReactNode;
 }
 
-/** A form field: the label above, the control, then a hint or the error under it. */
+/**
+ * One question of the form: its label, the field, then a hint or the error.
+ * The label and the lines under the field are set in by the field's own
+ * padding, so the words line up with the text typed inside the pill.
+ */
 function Field({ label, optional, hint, error, aside, onLayoutY, children }: FieldProps) {
   const { colors } = useTheme();
   const { s, row } = useI18n();
   const styles = useStyles();
   return (
-    <View style={styles.fieldGroup} onLayout={(event) => onLayoutY(event.nativeEvent.layout.y)}>
+    <View style={styles.field} onLayout={(event) => onLayoutY(event.nativeEvent.layout.y)}>
       <View style={[styles.labelRow, { flexDirection: row }]}>
-        <Txt role="label" style={styles.labelText}>
+        <Txt role="bodyStrong" style={styles.labelText}>
           {label}
           {optional ? (
             <Txt role="label" color="textSubtle">
@@ -104,7 +109,7 @@ function Field({ label, optional, hint, error, aside, onLayoutY, children }: Fie
       {error ? (
         // An alert, so a screen reader says the message as soon as it appears.
         <View
-          style={[styles.message, { flexDirection: row }]}
+          style={[styles.under, styles.message, { flexDirection: row }]}
           accessible
           accessibilityRole="alert"
           accessibilityLiveRegion="assertive"
@@ -118,7 +123,7 @@ function Field({ label, optional, hint, error, aside, onLayoutY, children }: Fie
           </Txt>
         </View>
       ) : hint ? (
-        <Txt role="caption" color="textSubtle">
+        <Txt role="caption" color="textSubtle" style={styles.under}>
           {hint}
         </Txt>
       ) : null}
@@ -156,8 +161,10 @@ export default function SuggestScreen() {
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const nameRef = useRef<ComponentRef<typeof TextInput>>(null);
   const phoneRef = useRef<ComponentRef<typeof TextInput>>(null);
-  // Where each field starts inside the scrolling form, measured as it is laid out.
+  // Where each field starts inside the list of fields, and where that list starts
+  // inside the scrolling page (under the lavender block). Measured as they are laid out.
   const fieldY = useRef<Partial<Record<FieldKey, number>>>({});
+  const fieldsY = useRef(0);
 
   const phoneExample = PHONE_EXAMPLE;
   const nameProblem = name.trim().length === 0 ? s.suggest.nameRequired : null;
@@ -189,13 +196,13 @@ export default function SuggestScreen() {
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const goHome = () => (router.canGoBack() ? router.dismissTo('/') : router.replace('/'));
 
-  // Bring the field being typed in to the top of the form, clear of the keyboard.
+  // Bring the field being typed in to the top of the page, clear of the keyboard.
   // The short wait lets the keyboard finish opening first.
   const onFieldFocus = (key: FieldKey | 'categorySearch') => {
     setFocused(key);
     const y = fieldY.current[key === 'categorySearch' ? 'category' : key];
     if (y === undefined) return;
-    setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, y - space.sm), animated: true }), 250);
+    setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, fieldsY.current + y - space.md), animated: true }), 250);
   };
 
   const submit = async () => {
@@ -235,21 +242,17 @@ export default function SuggestScreen() {
     error ? styles.inputError : null,
   ];
 
-  const header = (
-    <View style={styles.header}>
-      <View style={[styles.column, styles.bar, { flexDirection: row }]}>
-        <IconButton icon={BackIcon} label={s.common.back} onPress={goBack} />
-        <Txt role="display" numberOfLines={1} accessibilityRole="header" style={styles.title}>
-          {s.suggest.title}
-        </Txt>
-      </View>
+  // The top bar holds only the way back. The title lives in the lavender block below it.
+  const bar = (
+    <View style={[styles.column, styles.bar, { flexDirection: row }]}>
+      <IconButton icon={BackIcon} label={s.common.back} onPress={goBack} />
     </View>
   );
 
   if (done) {
     return (
       <View style={[styles.screen, { paddingTop: insets.top }]}>
-        {header}
+        {bar}
         <View style={styles.column}>
           <StateView
             icon={HeartHandshake}
@@ -265,215 +268,231 @@ export default function SuggestScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      {header}
-      {/* Shrinks the form by the keyboard's height, so the send button rides above the keyboard. */}
+      {bar}
+      {/* Shrinks the page by the keyboard's height, so the send button rides above the keyboard. */}
       <KeyboardAvoidingView behavior="padding" style={styles.flex}>
-        <ScrollView
-          ref={scrollRef}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.scroll}
-        >
-          <View style={[styles.column, styles.form]}>
-            <Txt color="textMuted">{s.suggest.intro}</Txt>
+        <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled">
+          {/* The only child of the scrolling page, so a position measured inside it is a scroll position. */}
+          <View style={[styles.column, styles.page]}>
+            {/* What this screen is for: one lavender block, built like a category tile (icon, then words). */}
+            <View style={styles.intro}>
+              <HeartHandshake color={colors.onAccent} size={size.tileIcon} strokeWidth={size.stroke} />
+              <View style={styles.introWords}>
+                <Txt role="display" color="onAccent" accessibilityRole="header">
+                  {s.suggest.title}
+                </Txt>
+                <Txt color="onAccent">{s.suggest.intro}</Txt>
+              </View>
+            </View>
 
-            <Field label={s.suggest.name} error={nameError} onLayoutY={(y) => (fieldY.current.name = y)}>
-              <TextInput
-                ref={nameRef}
-                value={name}
-                onChangeText={setName}
-                onFocus={() => onFieldFocus('name')}
-                onBlur={() => setFocused(null)}
-                placeholder={s.suggest.namePlaceholder}
-                placeholderTextColor={colors.textSubtle}
-                accessibilityLabel={s.suggest.name}
-                accessibilityHint={nameError ?? undefined}
-                aria-invalid={nameError ? true : undefined}
-                autoCapitalize="words"
-                autoCorrect={false}
-                returnKeyType="next"
-                onSubmitEditing={() => phoneRef.current?.focus()}
-                maxLength={NAME_MAX}
-                selectionColor={colors.primary}
-                style={inputStyle('name', nameError)}
-              />
-            </Field>
+            <View style={styles.fields} onLayout={(event) => (fieldsY.current = event.nativeEvent.layout.y)}>
+              <Field label={s.suggest.name} error={nameError} onLayoutY={(y) => (fieldY.current.name = y)}>
+                <TextInput
+                  ref={nameRef}
+                  value={name}
+                  onChangeText={setName}
+                  onFocus={() => onFieldFocus('name')}
+                  onBlur={() => setFocused(null)}
+                  placeholder={s.suggest.namePlaceholder}
+                  placeholderTextColor={colors.textSubtle}
+                  accessibilityLabel={s.suggest.name}
+                  accessibilityHint={nameError ?? undefined}
+                  aria-invalid={nameError ? true : undefined}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  returnKeyType="next"
+                  onSubmitEditing={() => phoneRef.current?.focus()}
+                  maxLength={NAME_MAX}
+                  selectionColor={colors.primary}
+                  style={inputStyle('name', nameError)}
+                />
+              </Field>
 
-            <Field
-              label={s.suggest.phone}
-              optional
-              hint={f(s.suggest.phoneHint, { example: phoneExample })}
-              error={phoneError}
-              onLayoutY={(y) => (fieldY.current.phone = y)}
-            >
-              <TextInput
-                ref={phoneRef}
-                value={phone}
-                onChangeText={setPhone}
-                onFocus={() => onFieldFocus('phone')}
-                onBlur={() => setFocused(null)}
-                placeholder="+961 70 123 456"
-                placeholderTextColor={colors.textSubtle}
-                accessibilityLabel={s.suggest.phone}
-                accessibilityHint={phoneError ?? f(s.suggest.phoneHint, { example: phoneExample })}
-                aria-invalid={phoneError ? true : undefined}
-                keyboardType="phone-pad"
-                inputMode="tel"
-                autoComplete="tel"
-                textContentType="telephoneNumber"
-                maxLength={24}
-                selectionColor={colors.primary}
-                // A phone number reads left to right in Arabic too.
-                style={[inputStyle('phone', phoneError), styles.ltr]}
-              />
-            </Field>
+              <Field
+                label={s.suggest.phone}
+                optional
+                hint={f(s.suggest.phoneHint, { example: phoneExample })}
+                error={phoneError}
+                onLayoutY={(y) => (fieldY.current.phone = y)}
+              >
+                <TextInput
+                  ref={phoneRef}
+                  value={phone}
+                  onChangeText={setPhone}
+                  onFocus={() => onFieldFocus('phone')}
+                  onBlur={() => setFocused(null)}
+                  placeholder="+961 70 123 456"
+                  placeholderTextColor={colors.textSubtle}
+                  accessibilityLabel={s.suggest.phone}
+                  accessibilityHint={phoneError ?? f(s.suggest.phoneHint, { example: phoneExample })}
+                  aria-invalid={phoneError ? true : undefined}
+                  keyboardType="phone-pad"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  textContentType="telephoneNumber"
+                  maxLength={24}
+                  selectionColor={colors.primary}
+                  // A phone number reads left to right in Arabic too.
+                  style={[inputStyle('phone', phoneError), styles.ltr]}
+                />
+              </Field>
 
-            {categories.status === 'ready' ? (
-              <Field label={s.suggest.category} optional onLayoutY={(y) => (fieldY.current.category = y)}>
-                <View style={[styles.input, styles.picker, { flexDirection: row }, pickerOpen ? styles.inputFocused : null]}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`${s.suggest.category}, ${chosen ? categoryName(chosen) : s.suggest.categoryChoose}`}
-                    accessibilityState={{ expanded: pickerOpen }}
-                    onPress={() => setPickerOpen((open) => !open)}
-                    style={[styles.pickerMain, { flexDirection: row }]}
+              {categories.status === 'ready' ? (
+                <Field label={s.suggest.category} optional onLayoutY={(y) => (fieldY.current.category = y)}>
+                  {/* The closed picker looks like the other fields; opening it adds a grey block of choices under it. */}
+                  <View
+                    style={[styles.input, styles.picker, { flexDirection: row }, pickerOpen ? styles.inputFocused : null]}
                   >
-                    <Txt color={chosen ? 'text' : 'textSubtle'} numberOfLines={1} style={styles.pickerText}>
-                      {chosen ? categoryName(chosen) : s.suggest.categoryChoose}
-                    </Txt>
-                    {chosen ? null : pickerOpen ? (
-                      <ChevronUp color={colors.textMuted} size={size.icon} strokeWidth={size.stroke} />
-                    ) : (
-                      <ChevronDown color={colors.textMuted} size={size.icon} strokeWidth={size.stroke} />
-                    )}
-                  </Pressable>
-                  {chosen ? (
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={s.suggest.categoryClear}
-                      onPress={() => setCategoryId(null)}
-                      style={styles.pickerClear}
+                      accessibilityLabel={`${s.suggest.category}, ${chosen ? categoryName(chosen) : s.suggest.categoryChoose}`}
+                      accessibilityState={{ expanded: pickerOpen }}
+                      onPress={() => setPickerOpen((open) => !open)}
+                      style={[styles.pickerMain, { flexDirection: row }]}
                     >
-                      <X color={colors.textMuted} size={size.icon} strokeWidth={size.stroke} />
+                      <Txt color={chosen ? 'text' : 'textSubtle'} numberOfLines={1} style={styles.pickerText}>
+                        {chosen ? categoryName(chosen) : s.suggest.categoryChoose}
+                      </Txt>
+                      {chosen ? null : pickerOpen ? (
+                        <ChevronUp color={colors.text} size={size.icon} strokeWidth={size.stroke} />
+                      ) : (
+                        <ChevronDown color={colors.text} size={size.icon} strokeWidth={size.stroke} />
+                      )}
                     </Pressable>
-                  ) : null}
-                </View>
-
-                {pickerOpen ? (
-                  <View style={styles.panel}>
-                    <View style={[styles.panelSearch, { flexDirection: row }]}>
-                      <Search color={colors.textMuted} size={size.icon} strokeWidth={size.stroke} />
-                      <TextInput
-                        value={categoryQuery}
-                        onChangeText={setCategoryQuery}
-                        onFocus={() => onFieldFocus('categorySearch')}
-                        onBlur={() => setFocused(null)}
-                        placeholder={s.suggest.categorySearch}
-                        placeholderTextColor={colors.textSubtle}
-                        accessibilityLabel={s.suggest.categorySearch}
-                        autoCorrect={false}
-                        returnKeyType="search"
-                        selectionColor={colors.primary}
-                        style={[styles.panelInput, NO_FOCUS_RING, { textAlign, writingDirection }]}
-                      />
-                    </View>
-                    {/* A short list that scrolls inside the form. */}
-                    <ScrollView
-                      nestedScrollEnabled
-                      keyboardShouldPersistTaps="handled"
-                      style={{ maxHeight: size.touch * VISIBLE_CATEGORIES + size.touch / 2 }}
-                    >
-                      {options.length === 0 ? (
-                        <Txt color="textMuted" style={styles.panelEmpty}>
-                          {s.suggest.categoryNone}
-                        </Txt>
-                      ) : null}
-                      {options.map(({ category, parent }) => {
-                        const active = category.id === categoryId;
-                        return (
-                          <Pressable
-                            key={category.id}
-                            accessibilityRole="button"
-                            accessibilityLabel={
-                              parent ? `${categoryName(category)}, ${categoryName(parent)}` : categoryName(category)
-                            }
-                            accessibilityState={{ selected: active }}
-                            onPress={() => {
-                              setCategoryId(category.id);
-                              setPickerOpen(false);
-                              setCategoryQuery('');
-                            }}
-                            android_ripple={{ color: colors.surfaceTintStrong }}
-                            style={({ pressed }) => [
-                              styles.option,
-                              { flexDirection: row },
-                              pressed ? styles.optionPressed : null,
-                            ]}
-                          >
-                            <View style={styles.optionText}>
-                              <Txt role={parent ? 'body' : 'bodyStrong'} numberOfLines={1}>
-                                {categoryName(category)}
-                              </Txt>
-                              {parent ? (
-                                <Txt role="caption" color="textSubtle" numberOfLines={1}>
-                                  {categoryName(parent)}
-                                </Txt>
-                              ) : null}
-                            </View>
-                            {active ? (
-                              <Check color={colors.primary} size={size.icon} strokeWidth={size.strokeBold} />
-                            ) : null}
-                          </Pressable>
-                        );
-                      })}
-                    </ScrollView>
+                    {chosen ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={s.suggest.categoryClear}
+                        onPress={() => setCategoryId(null)}
+                        style={styles.pickerClear}
+                      >
+                        <X color={colors.text} size={size.icon} strokeWidth={size.stroke} />
+                      </Pressable>
+                    ) : null}
                   </View>
-                ) : null}
+
+                  {pickerOpen ? (
+                    <View style={styles.panel}>
+                      {/* A white pill inside the grey block, the same way the facts strip sits in a card. */}
+                      <View style={[styles.panelSearch, { flexDirection: row }]}>
+                        <Search color={colors.textMuted} size={size.icon} strokeWidth={size.stroke} />
+                        <TextInput
+                          value={categoryQuery}
+                          onChangeText={setCategoryQuery}
+                          onFocus={() => onFieldFocus('categorySearch')}
+                          onBlur={() => setFocused(null)}
+                          placeholder={s.suggest.categorySearch}
+                          placeholderTextColor={colors.textSubtle}
+                          accessibilityLabel={s.suggest.categorySearch}
+                          autoCorrect={false}
+                          returnKeyType="search"
+                          selectionColor={colors.primary}
+                          style={[styles.panelInput, NO_FOCUS_RING, { textAlign, writingDirection }]}
+                        />
+                      </View>
+                      {/* A short list that scrolls inside the page. */}
+                      <ScrollView
+                        nestedScrollEnabled
+                        keyboardShouldPersistTaps="handled"
+                        style={{ maxHeight: size.touch * VISIBLE_CATEGORIES + size.touch / 2 }}
+                      >
+                        {options.length === 0 ? (
+                          <Txt color="textMuted" style={styles.panelEmpty}>
+                            {s.suggest.categoryNone}
+                          </Txt>
+                        ) : null}
+                        {options.map(({ category, parent }) => {
+                          const active = category.id === categoryId;
+                          return (
+                            <Pressable
+                              key={category.id}
+                              accessibilityRole="button"
+                              accessibilityLabel={
+                                parent ? `${categoryName(category)}, ${categoryName(parent)}` : categoryName(category)
+                              }
+                              accessibilityState={{ selected: active }}
+                              onPress={() => {
+                                setCategoryId(category.id);
+                                setPickerOpen(false);
+                                setCategoryQuery('');
+                              }}
+                              android_ripple={{ color: colors.surfaceTintStrong }}
+                              style={({ pressed }) => [
+                                styles.option,
+                                { flexDirection: row },
+                                pressed ? styles.optionPressed : null,
+                              ]}
+                            >
+                              <View style={styles.optionText}>
+                                <Txt role={parent ? 'body' : 'bodyStrong'} numberOfLines={1}>
+                                  {categoryName(category)}
+                                </Txt>
+                                {parent ? (
+                                  <Txt role="caption" color="textSubtle" numberOfLines={1}>
+                                    {categoryName(parent)}
+                                  </Txt>
+                                ) : null}
+                              </View>
+                              {active ? (
+                                <Check color={colors.primary} size={size.icon} strokeWidth={size.strokeBold} />
+                              ) : null}
+                            </Pressable>
+                          );
+                        })}
+                      </ScrollView>
+                    </View>
+                  ) : null}
+                </Field>
+              ) : null}
+
+              <Field label={s.suggest.area} optional onLayoutY={(y) => (fieldY.current.area = y)}>
+                <TextInput
+                  value={area}
+                  onChangeText={setArea}
+                  onFocus={() => onFieldFocus('area')}
+                  onBlur={() => setFocused(null)}
+                  placeholder={s.suggest.areaPlaceholder}
+                  placeholderTextColor={colors.textSubtle}
+                  accessibilityLabel={s.suggest.area}
+                  autoCapitalize="words"
+                  maxLength={AREA_MAX}
+                  selectionColor={colors.primary}
+                  style={inputStyle('area')}
+                />
               </Field>
-            ) : null}
 
-            <Field label={s.suggest.area} optional onLayoutY={(y) => (fieldY.current.area = y)}>
-              <TextInput
-                value={area}
-                onChangeText={setArea}
-                onFocus={() => onFieldFocus('area')}
-                onBlur={() => setFocused(null)}
-                placeholder={s.suggest.areaPlaceholder}
-                placeholderTextColor={colors.textSubtle}
-                accessibilityLabel={s.suggest.area}
-                autoCapitalize="words"
-                maxLength={AREA_MAX}
-                selectionColor={colors.primary}
-                style={inputStyle('area')}
-              />
-            </Field>
+              <Field
+                label={s.suggest.note}
+                optional
+                aside={note.length > 0 ? `${note.length} / ${NOTE_MAX}` : undefined}
+                onLayoutY={(y) => (fieldY.current.note = y)}
+              >
+                <TextInput
+                  value={note}
+                  onChangeText={setNote}
+                  onFocus={() => onFieldFocus('note')}
+                  onBlur={() => setFocused(null)}
+                  placeholder={s.suggest.notePlaceholder}
+                  placeholderTextColor={colors.textSubtle}
+                  accessibilityLabel={s.suggest.note}
+                  multiline
+                  maxLength={NOTE_MAX}
+                  selectionColor={colors.primary}
+                  style={[inputStyle('note'), styles.inputMultiline]}
+                />
+              </Field>
+            </View>
 
-            <Field
-              label={s.suggest.note}
-              optional
-              aside={note.length > 0 ? `${note.length} / ${NOTE_MAX}` : undefined}
-              onLayoutY={(y) => (fieldY.current.note = y)}
-            >
-              <TextInput
-                value={note}
-                onChangeText={setNote}
-                onFocus={() => onFieldFocus('note')}
-                onBlur={() => setFocused(null)}
-                placeholder={s.suggest.notePlaceholder}
-                placeholderTextColor={colors.textSubtle}
-                accessibilityLabel={s.suggest.note}
-                multiline
-                maxLength={NOTE_MAX}
-                selectionColor={colors.primary}
-                style={[inputStyle('note'), styles.inputMultiline]}
-              />
-            </Field>
-
-            <Txt role="caption" color="textSubtle">
-              {s.suggest.privacy}
-            </Txt>
+            <View style={[styles.privacy, { flexDirection: row }]}>
+              <LockKeyhole color={colors.textSubtle} size={size.iconSmall} strokeWidth={size.stroke} />
+              <Txt role="caption" color="textSubtle" style={styles.messageText}>
+                {s.suggest.privacy}
+              </Txt>
+            </View>
           </View>
         </ScrollView>
 
+        {/* Outside the scrolling page, so the button is always on screen, above the keyboard too. */}
         <View style={[styles.dock, { paddingBottom: insets.bottom + space.md }]}>
           <View style={[styles.column, styles.dockInner]}>
             {failure ? (
@@ -494,6 +513,10 @@ export default function SuggestScreen() {
   );
 }
 
+// Space between the edge of a pill field and the text inside it. Labels, hints
+// and errors use the same inset, so everything in a field lines up.
+const FIELD_INSET = space.xl;
+
 const useStyles = makeStyles((c) => ({
   screen: {
     flex: 1,
@@ -507,46 +530,57 @@ const useStyles = makeStyles((c) => ({
     maxWidth: size.maxContent,
     alignSelf: 'center',
   },
-  header: {
-  },
   bar: {
     alignItems: 'center',
-    gap: space.xs,
     paddingHorizontal: space.sm,
+    paddingVertical: space.xs,
+  },
+  page: {
+    paddingHorizontal: space.lg,
     paddingTop: space.xs,
-    paddingBottom: space.sm,
-  },
-  title: {
-    flex: 1,
-  },
-  scroll: {
-    padding: space.lg,
     paddingBottom: space.xxl,
+    gap: space.xxl,
   },
-  form: {
+  // The lavender block: icon on top, the title and one sentence under it.
+  intro: {
+    backgroundColor: c.accent,
+    borderRadius: radius.sheet,
+    padding: space.xl,
     gap: space.xl,
   },
-  fieldGroup: {
+  introWords: {
     gap: space.xs,
+  },
+  fields: {
+    gap: space.xl,
+  },
+  field: {
+    gap: space.sm,
   },
   labelRow: {
     alignItems: 'baseline',
     gap: space.sm,
+    paddingHorizontal: FIELD_INSET,
   },
   labelText: {
     flex: 1,
   },
-  // A soft grey field with round corners: 48 dp, ink edge on focus.
+  // What sits under a field: the hint or the error.
+  under: {
+    paddingHorizontal: FIELD_INSET,
+  },
+  // A grey pill, as tall as the button. No outline at rest: the edge has the
+  // field's own colour and turns ink on focus, red on an error, so nothing moves.
   input: {
     ...typeScale.body,
-    minHeight: size.touch,
+    minHeight: size.button,
     backgroundColor: c.surfaceTint,
-    borderRadius: radius.lg,
-    borderWidth: size.lineMid,
+    borderRadius: radius.pill,
+    borderWidth: size.lineBold,
     borderColor: c.surfaceTint,
     color: c.text,
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
+    paddingHorizontal: FIELD_INSET - size.lineBold,
+    paddingVertical: space.md,
   },
   inputFocused: {
     borderColor: c.primary,
@@ -554,8 +588,11 @@ const useStyles = makeStyles((c) => ({
   inputError: {
     borderColor: c.danger,
   },
+  // Several lines do not fit a pill, so the note is a block with the card radius.
   inputMultiline: {
-    minHeight: size.touch * 2,
+    minHeight: size.tile,
+    borderRadius: radius.lg,
+    paddingTop: space.lg,
     textAlignVertical: 'top',
   },
   ltr: {
@@ -574,39 +611,42 @@ const useStyles = makeStyles((c) => ({
   },
   picker: {
     alignItems: 'center',
+    // The two buttons inside bring their own padding.
     paddingVertical: space.none,
-    // The clear button brings its own 48 dp box, so the end side needs no padding.
     paddingHorizontal: space.none,
   },
   pickerMain: {
     flex: 1,
     minWidth: 0,
-    minHeight: size.touch - size.lineMid * 2,
+    minHeight: size.button - size.lineBold * 2,
     alignItems: 'center',
     gap: space.sm,
-    paddingHorizontal: space.md,
+    paddingHorizontal: FIELD_INSET - size.lineBold,
   },
   pickerText: {
     flex: 1,
   },
   pickerClear: {
-    width: size.touch,
-    height: size.touch - size.lineMid * 2,
+    width: size.button,
+    height: size.button - size.lineBold * 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // The choices: a grey block with a white search pill inset at its top.
   panel: {
     borderRadius: radius.lg,
     backgroundColor: c.surfaceTint,
     overflow: 'hidden',
+    paddingBottom: space.sm,
   },
   panelSearch: {
     alignItems: 'center',
     gap: space.sm,
     minHeight: size.touch,
+    margin: space.sm,
     paddingHorizontal: space.md,
-    borderBottomWidth: size.hairline,
-    borderBottomColor: c.border,
+    borderRadius: radius.pill,
+    backgroundColor: c.surface,
   },
   panelInput: {
     ...typeScale.body,
@@ -617,13 +657,14 @@ const useStyles = makeStyles((c) => ({
     paddingVertical: space.none,
   },
   panelEmpty: {
-    padding: space.md,
+    paddingHorizontal: FIELD_INSET,
+    paddingVertical: space.md,
   },
   option: {
     minHeight: size.touch,
     alignItems: 'center',
     gap: space.sm,
-    paddingHorizontal: space.md,
+    paddingHorizontal: FIELD_INSET,
     paddingVertical: space.xs,
   },
   optionPressed: {
@@ -632,6 +673,13 @@ const useStyles = makeStyles((c) => ({
   optionText: {
     flex: 1,
     minWidth: 0,
+  },
+  privacy: {
+    alignItems: 'flex-start',
+    gap: space.sm,
+    paddingHorizontal: FIELD_INSET,
+    // Sits closer to the form than the form's blocks sit to each other.
+    marginTop: -space.sm,
   },
   dock: {
     backgroundColor: c.background,
@@ -643,10 +691,10 @@ const useStyles = makeStyles((c) => ({
   },
   notice: {
     alignItems: 'flex-start',
-    gap: space.xs,
+    gap: space.sm,
     backgroundColor: c.dangerSoft,
-    borderRadius: radius.md,
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
+    borderRadius: radius.lg,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
   },
 }));

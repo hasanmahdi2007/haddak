@@ -15,7 +15,8 @@ import { Txt } from './Txt';
 /**
  * The pieces the map view shares between the phone (ResultsMap.tsx, a real map)
  * and the web build (ResultsMap.web.tsx, a plain preview): the props, the area
- * to show for a radius, the pin, the "search position" dot and the docked card.
+ * to show for a radius, which pins have room for their name, the pin in its two
+ * forms (name pill and dot), the "search position" dot and the docked card.
  */
 
 export interface ResultsMapProps {
@@ -58,9 +59,142 @@ export function regionFor(center: Coordinates, radiusM: RadiusM): MapRegion {
   };
 }
 
-/** How many metres one degree of longitude is at this latitude (used by the web preview). */
+/** How many metres one degree of latitude and of longitude are at this latitude. */
 export function metresPerDegree(lat: number): { lat: number; lng: number } {
   return { lat: METRES_PER_DEGREE, lng: METRES_PER_DEGREE * Math.cos((lat * Math.PI) / 180) };
+}
+
+/**
+ * The area the map really shows when asked for `region` in a view of this size.
+ * A map keeps one scale in both directions, so it shows the asked region plus
+ * whatever extra the longer side of the view has room for.
+ */
+export function fitRegion(region: MapRegion, width: number, height: number): MapRegion {
+  const metres = metresPerDegree(region.latitude);
+  const pxPerMetre = Math.min(
+    width / (region.longitudeDelta * metres.lng),
+    height / (region.latitudeDelta * metres.lat),
+  );
+  return {
+    ...region,
+    longitudeDelta: width / (pxPerMetre * metres.lng),
+    latitudeDelta: height / (pxPerMetre * metres.lat),
+  };
+}
+
+/**
+ * Where a position lands on screen, in dp from the top left of the map, when
+ * the map shows exactly `shown`. Straight-line maths: at city scale the real
+ * map projection differs from this by less than a pixel.
+ */
+export function screenPoint(
+  lat: number,
+  lng: number,
+  shown: MapRegion,
+  width: number,
+  height: number,
+): { x: number; y: number } {
+  return {
+    x: width / 2 + ((lng - shown.longitude) / shown.longitudeDelta) * width,
+    y: height / 2 - ((lat - shown.latitude) / shown.latitudeDelta) * height,
+  };
+}
+
+/** A pin is drawn either as a pill with the name, or as the round mark alone. */
+export type PinForm = 'pill' | 'dot';
+
+interface Box {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+const overlaps = (a: Box, b: Box) =>
+  a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+
+// Rough drawn sizes in dp, used only to decide which names fit. They lean
+// large on purpose: a name hidden too early is better than two names overlapping.
+const CHAR_W = 6.8; // one caption letter, on average
+const CHAR_W_SELECTED = 7.6; // one label letter
+const PILL_EXTRA = 44; // disc, gap, padding and edges around the name
+const PILL_EXTRA_SELECTED = 56;
+const PILL_H = 38; // pill plus the pointer under it
+const PILL_H_SELECTED = 44;
+/** Air kept between two names. */
+const PILL_GAP = space.xs;
+
+/**
+ * Decides which pins have room to show their name.
+ *
+ * Pins are taken in order of importance: the selected one, then sponsored and
+ * featured, then verified, then the rest, each group in the order the search
+ * ranked them. A pin gets its name pill only if that pill would cover neither
+ * a name nor a dot placed before it; otherwise it becomes a dot. Names are
+ * drawn over dots (see pinZIndex), so a name is always readable; a less
+ * important dot can end up partly or fully under a name until the user zooms
+ * in. Zooming in spreads the pins apart, so more names fit; tapping a dot
+ * selects it, which always shows its name.
+ *
+ * Returns the form of every pin, by provider id.
+ */
+export function layoutPins(
+  providers: ProviderSummary[],
+  selectedId: string | null,
+  shown: MapRegion,
+  width: number,
+  height: number,
+  fontScale = 1,
+): Map<string, PinForm> {
+  const forms = new Map<string, PinForm>();
+  if (width <= 0 || height <= 0) return forms;
+
+  const weight = (provider: ProviderSummary) =>
+    provider.id === selectedId ? 0 : provider.sponsored || provider.featured ? 1 : provider.verified ? 2 : 3;
+  // Array.sort is stable, so inside one group the search order (the rank) is kept.
+  const ordered = [...providers].sort((a, b) => weight(a) - weight(b));
+  // Pins stop growing with the system font size at 1.2 (see ProviderPin).
+  const scale = Math.min(Math.max(fontScale, 1), 1.2);
+  const half = size.mapDot / 2;
+  // The room taken so far, by names and by dots.
+  const placed: Box[] = [];
+
+  for (const provider of ordered) {
+    const isSelected = provider.id === selectedId;
+    const { x, y } = screenPoint(provider.lat, provider.lng, shown, width, height);
+    const letters = pinName(provider.name).length;
+    const w =
+      (isSelected ? letters * CHAR_W_SELECTED : letters * CHAR_W) * scale +
+      (isSelected ? PILL_EXTRA_SELECTED : PILL_EXTRA);
+    const h = isSelected ? PILL_H_SELECTED : PILL_H;
+    // The pointer's tip is on the position, so the pill sits above it, centred.
+    const pill: Box = {
+      left: x - w / 2 - PILL_GAP,
+      right: x + w / 2 + PILL_GAP,
+      top: y - h - PILL_GAP,
+      bottom: y,
+    };
+    // The selected pin always shows its name, whatever is under it.
+    if (isSelected || !placed.some((other) => overlaps(pill, other))) {
+      forms.set(provider.id, 'pill');
+      placed.push(pill);
+    } else {
+      forms.set(provider.id, 'dot');
+      placed.push({ left: x - half, right: x + half, top: y - half, bottom: y + half });
+    }
+  }
+  return forms;
+}
+
+/**
+ * Which pin is drawn over which. The selected pin is on top. Then names:
+ * featured over verified over the rest. Dots are at the bottom, so a dot can
+ * never cut through a name.
+ */
+export function pinZIndex(provider: ProviderSummary, form: PinForm, selected: boolean): number {
+  if (selected) return 5;
+  if (form === 'dot') return 1;
+  return provider.sponsored || provider.featured ? 4 : provider.verified ? 3 : 2;
 }
 
 /** What a screen reader says for a pin. */
@@ -152,6 +286,31 @@ export function ProviderPin({ name, verified, featured, selected }: PinProps) {
         >
           {pinName(name)}
         </Txt>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * A pin that has no room for its name: the round mark alone, centred on the
+ * position. Verified: a mint disc with a check and an ink edge. Not verified:
+ * a grey disc with a grey ring. Featured (paid): the disc is lavender.
+ * Tapping it selects the provider, which shows the name.
+ */
+export function ProviderDot({ verified, featured }: Pick<PinProps, 'verified' | 'featured'>) {
+  const { colors } = useTheme();
+  const styles = useStyles();
+  return (
+    <View style={styles.dotBox} collapsable={false}>
+      <View
+        style={[
+          styles.dot,
+          featured ? styles.dotFeatured : verified ? styles.dotVerified : styles.dotPlain,
+        ]}
+      >
+        {verified ? (
+          <Check color={colors.onMint} size={size.mapDot - space.sm - space.xxs} strokeWidth={size.strokeHeavy} />
+        ) : null}
       </View>
     </View>
   );
@@ -280,6 +439,34 @@ const useStyles = makeStyles((c) => ({
   },
   pinName: {
     fontFamily: fonts.bodyStrong,
+  },
+  // A clear box a little larger than the mark, so a finger finds it.
+  dotBox: {
+    width: size.mapDotBox,
+    height: size.mapDotBox,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dot: {
+    width: size.mapDot,
+    height: size.mapDot,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: size.lineMid,
+  },
+  dotVerified: {
+    backgroundColor: c.mint,
+    borderColor: c.onMint,
+  },
+  dotFeatured: {
+    backgroundColor: c.accent,
+    borderColor: c.onAccent,
+  },
+  dotPlain: {
+    backgroundColor: c.surfaceTint,
+    borderWidth: size.lineBold,
+    borderColor: c.outline,
   },
   here: {
     width: size.mapHere,
