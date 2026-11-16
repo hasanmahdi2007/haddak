@@ -1,6 +1,13 @@
 import { isOpenAt } from '@/lib/hours';
 
-import { MOCK_CATEGORIES, MOCK_PROVIDERS, REVIEW_AUTHORS, REVIEW_COMMENTS } from './mockData';
+import {
+  MOCK_CATEGORIES,
+  MOCK_PROVIDERS,
+  REVIEW_AUTHORS,
+  REVIEW_COMMENTS,
+  mockBanner,
+  mockStories,
+} from './mockData';
 import {
   ApiError,
   type ContactEventType,
@@ -82,6 +89,9 @@ function toSummary(provider: ProviderDetail, distance_m: number | null): Provide
     distance_m,
     sponsored,
     sponsor_hook,
+    // Stories and banners are dated from "now", so they never run out in mock mode.
+    has_active_story: mockStories(id).length > 0,
+    banner_title: mockBanner(id)?.title ?? null,
     cover_photo_url,
     // The backend works this out in Lebanon time; the mock uses the device clock.
     open_now: isOpenAt(provider.opening_hours, new Date()),
@@ -159,6 +169,9 @@ export function createMockApi(): HaddakApi & { controls: MockControls } {
       whatsapp: provider.whatsapp ?? provider.phone,
       distance_m: from ? Math.round(haversineM(from, provider)) : null,
       open_now: isOpenAt(provider.opening_hours, new Date()),
+      has_active_story: mockStories(provider.id).length > 0,
+      active_banner: mockBanner(provider.id),
+      banner_title: mockBanner(provider.id)?.title ?? null,
     };
   }
 
@@ -210,6 +223,25 @@ export function createMockApi(): HaddakApi & { controls: MockControls } {
         }
         const size = Math.min(Math.max(limit, 1), 50);
         return { items: all.slice(offset, offset + size), total: all.length };
+      }),
+
+    getProviderStories: (providerId) =>
+      respond(() => {
+        find((p) => p.id === providerId);
+        return { items: mockStories(providerId) };
+      }),
+
+    getNearbyStories: ({ lat, lng, radius_m }) =>
+      respond(() => {
+        const items = MOCK_PROVIDERS.filter((p) => p.verified)
+          .map((p) => ({
+            provider: toSummary(p, Math.round(haversineM({ lat, lng }, p))),
+            stories: mockStories(p.id),
+          }))
+          .filter((group) => group.stories.length > 0 && (group.provider.distance_m ?? 0) <= radius_m)
+          // The provider with the newest story comes first.
+          .sort((a, b) => Date.parse(b.stories[0].created_at) - Date.parse(a.stories[0].created_at));
+        return { items: items.slice(0, 30) };
       }),
 
     logContactEvent: (providerId, type) =>

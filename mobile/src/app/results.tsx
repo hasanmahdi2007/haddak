@@ -22,6 +22,9 @@ import { makeStyles, radius, size, space, useTheme } from '@/theme';
 
 type ViewMode = 'list' | 'map';
 
+/** The most paid cards shown above a list of results. */
+const MAX_SPONSORED = 2;
+
 /** A loading card in the shape of ProviderCard: photo, two lines, a badge, the facts strip. */
 function CardSkeleton() {
   const styles = useStyles();
@@ -98,6 +101,16 @@ export default function ResultsScreen() {
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const openProvider = (provider: ProviderSummary) =>
     router.push({ pathname: '/provider/[id]', params: { id: provider.id } });
+  const openStory = (provider: ProviderSummary) =>
+    router.push({ pathname: '/stories/[providerId]', params: { providerId: provider.id } });
+
+  // Paid cards get their own labelled section at the top of the list: at most two,
+  // and only when browsing a category or everyone (a search by name stays a plain list).
+  // Each one is taken out of the list below, so nobody is shown twice.
+  const items = search.status === 'ready' ? search.data.items : [];
+  const sponsoredItems = q ? [] : items.filter((item) => item.sponsored).slice(0, MAX_SPONSORED);
+  const sponsoredIds = new Set(sponsoredItems.map((item) => item.id));
+  const listItems = items.filter((item) => !sponsoredIds.has(item.id));
 
   const modes: { key: ViewMode; label: string; icon: typeof List }[] = [
     { key: 'list', label: s.results.viewList, icon: List },
@@ -225,11 +238,48 @@ export default function ResultsScreen() {
             <CardSkeleton />
           </View>
         ) : (
-          // Sponsored cards (paid) come first from the API, so they sit at the top of the list.
           <FlatList
-            data={search.data.items}
+            data={listItems}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <ProviderCard provider={item} onPress={() => openProvider(item)} />}
+            // `plain`: a sponsored provider outside the section is drawn as an ordinary card.
+            renderItem={({ item }) => (
+              <ProviderCard
+                provider={item}
+                plain
+                onPress={() => openProvider(item)}
+                onOpenStory={() => openStory(item)}
+              />
+            )}
+            ListHeaderComponent={
+              sponsoredItems.length > 0 ? (
+                <View style={styles.sponsored}>
+                  <View
+                    style={[styles.sectionHead, { flexDirection: row }]}
+                    accessible
+                    accessibilityRole="header"
+                    accessibilityLabel={s.sponsored.sectionLabel}
+                  >
+                    <Txt role="title">{s.sponsored.section}</Txt>
+                    <Txt role="label" color="textMuted">
+                      {s.sponsored.sectionNote}
+                    </Txt>
+                  </View>
+                  {sponsoredItems.map((item) => (
+                    <ProviderCard
+                      key={item.id}
+                      provider={item}
+                      onPress={() => openProvider(item)}
+                      onOpenStory={() => openStory(item)}
+                    />
+                  ))}
+                  {listItems.length > 0 ? (
+                    <Txt role="title" accessibilityRole="header" style={styles.restHead}>
+                      {s.sponsored.rest}
+                    </Txt>
+                  ) : null}
+                </View>
+              ) : undefined
+            }
             ItemSeparatorComponent={() => <View style={styles.separator} />}
             contentContainerStyle={[styles.list, styles.column, { paddingBottom: insets.bottom + space.xxl }]}
           />
@@ -302,6 +352,21 @@ const useStyles = makeStyles((c) => ({
   },
   separator: {
     height: space.md,
+  },
+  // The paid section: its heading, the cards, then the heading of the ordinary results.
+  sponsored: {
+    gap: space.md,
+    paddingBottom: space.md,
+  },
+  sectionHead: {
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: space.md,
+    paddingHorizontal: space.xs,
+  },
+  restHead: {
+    marginTop: space.md,
+    paddingHorizontal: space.xs,
   },
   skeletonCard: {
     backgroundColor: c.surfaceTint,

@@ -3,7 +3,7 @@
  * the reviews and the prices. Photos are placeholder stock images.
  * The real seed data lives in the backend.
  */
-import type { Category, DayKey, OpeningHours, ProviderDetail, TimeRange } from './types';
+import type { Banner, Category, DayKey, OpeningHours, ProviderDetail, Story, TimeRange } from './types';
 
 /** Haret Hreik: the seed area and the fallback when location is unavailable. */
 export const HARET_HREIK = { lat: 33.8547, lng: 35.5097 } as const;
@@ -685,6 +685,8 @@ const HOURS_PATTERNS: (OpeningHours | null)[] = [
 /** Providers (by position) that chose to show how many people contacted them this month. */
 const CONTACT_COUNTS: Record<number, number> = { 0: 12, 1: 31, 3: 2, 6: 1, 10: 104, 14: 7 };
 
+const FOLLOWER_COUNTS: Record<number, number> = { 0: 48, 1: 132, 4: 17, 9: 64, 20: 211, 22: 9 };
+
 /** Stable fake UUID so links keep working between reloads. */
 const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
@@ -719,8 +721,78 @@ export const MOCK_PROVIDERS: ProviderDetail[] = SEEDS.map((seed, index) => {
     contacts_this_month: CONTACT_COUNTS[index] ?? null,
     // Filled in per request from the clock (see mock.ts).
     open_now: null,
+    // Stories and banners are also filled in per request (mockStories and mockBanner below).
+    has_active_story: false,
+    banner_title: null,
+    active_banner: null,
+    follower_count: FOLLOWER_COUNTS[index] ?? (index * 7) % 23,
+    is_following: false,
   };
 });
+
+// ---------------------------------------------------------------------------
+// Stories and banners
+// ---------------------------------------------------------------------------
+
+const HOUR_MS = 3_600_000;
+
+/** Stories by provider number (1 is the first seed): [hours ago, text, photo or null]. Newest first. */
+const STORY_SEEDS: Record<number, [hoursAgo: number, text: string, image: string | null][]> = {
+  1: [
+    [2, 'Two MacBook screens done before noon. Walk in, no appointment needed today.', null],
+    [9, 'A new batch of original chargers arrived.', PHOTOS.laptop],
+  ],
+  2: [[1, 'iPhone 13 screens are back in stock. 30 minutes while you wait.', null]],
+  5: [[5, 'On call tonight until 11 for leaks and blocked drains.', null]],
+  10: [
+    [3, 'Two evening piano slots opened for December: Tuesday and Thursday at 6.', null],
+    [20, 'Our students played their first recital on Saturday. Proud of every one of them.', null],
+  ],
+  21: [[4, 'معمول العيد جاهز. الطلبيات لآخر الأسبوع.', null]],
+  23: [[7, 'Open this Sunday from 10 to 4.', null]],
+};
+
+/** Offers by provider number: [title, text, discount percent, days left]. */
+const BANNER_SEEDS: Record<
+  number,
+  [title: string, text: string | null, discount: number | null, daysLeft: number]
+> = {
+  2: ['Screen week', 'Every phone screen replacement, fitted while you wait.', 20, 5],
+  10: ['First lesson free', 'Try one piano lesson before you decide.', null, 12],
+  21: ['Eid boxes', 'Order a mixed box of 1 kg or more.', 15, 1],
+};
+
+/** The number at the end of a mock id (see `uuid`). */
+const numberOf = (providerId: string) => Number(providerId.slice(-12));
+
+/** A provider's active stories, dated back from this moment. */
+export function mockStories(providerId: string): Story[] {
+  const now = Date.now();
+  return (STORY_SEEDS[numberOf(providerId)] ?? []).map(([hoursAgo, text, image], i) => ({
+    id: `${providerId.slice(0, 24)}${String(700000000000 + i)}`,
+    provider_id: providerId,
+    text,
+    image_url: image,
+    created_at: new Date(now - hoursAgo * HOUR_MS).toISOString(),
+    // A story lives for 24 hours.
+    expires_at: new Date(now + (24 - hoursAgo) * HOUR_MS).toISOString(),
+  }));
+}
+
+/** A provider's running offer, or null. */
+export function mockBanner(providerId: string): Banner | null {
+  const seed = BANNER_SEEDS[numberOf(providerId)];
+  if (!seed) return null;
+  const [title, text, discount_percent, daysLeft] = seed;
+  const now = Date.now();
+  return {
+    title,
+    text,
+    discount_percent,
+    starts_at: new Date(now - 48 * HOUR_MS).toISOString(),
+    expires_at: new Date(now + daysLeft * 24 * HOUR_MS).toISOString(),
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Reviews

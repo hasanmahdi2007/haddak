@@ -1,4 +1,4 @@
-import { Award, Badge, BadgeCheck, Users } from 'lucide-react-native';
+import { Award, Badge, BadgeCheck, Tag, Users } from 'lucide-react-native';
 import { View } from 'react-native';
 
 import { useI18n } from '@/i18n';
@@ -97,6 +97,46 @@ export function FeaturedTag() {
   );
 }
 
+/**
+ * Sponsored means the provider paid to appear first, and the label says so.
+ * An ink pill with lavender text, made to sit on the lavender sponsored card;
+ * on a profile it is the same pill on the page.
+ */
+export function SponsoredTag({ decorative = false }: { decorative?: boolean }) {
+  const { s } = useI18n();
+  const styles = useStyles();
+  return (
+    <View
+      style={[styles.pill, styles.sponsored]}
+      accessible={!decorative}
+      accessibilityLabel={decorative ? undefined : s.results.sponsoredLabel}
+    >
+      <Txt role="caption" color="accent" style={styles.pillText}>
+        {s.results.sponsored}
+      </Txt>
+    </View>
+  );
+}
+
+/**
+ * A provider's running offer, on a result card: an ink pill with a tag icon and
+ * the offer's title. Ink, so it is not mistaken for the mint Verified mark or
+ * the lavender paid labels.
+ */
+export function OfferTag({ title }: { title: string }) {
+  const { colors } = useTheme();
+  const { row } = useI18n();
+  const styles = useStyles();
+  return (
+    <View style={[styles.pill, styles.offer, { flexDirection: row }]}>
+      <Tag color={colors.onPrimary} size={size.star} strokeWidth={size.lineBold} />
+      <Txt role="caption" color="onPrimary" numberOfLines={1} style={[styles.pillText, styles.offerText]} content>
+        {title}
+      </Txt>
+    </View>
+  );
+}
+
 const useStyles = makeStyles((c) => ({
   pill: {
     minHeight: size.badge,
@@ -122,6 +162,19 @@ const useStyles = makeStyles((c) => ({
   featured: {
     backgroundColor: c.accent,
     paddingHorizontal: space.md,
+  },
+  // Always ink with lavender text, in the dark theme too (it sits on lavender).
+  sponsored: {
+    backgroundColor: c.onAccent,
+    paddingHorizontal: space.md,
+  },
+  offer: {
+    backgroundColor: c.primary,
+    paddingHorizontal: space.md,
+    maxWidth: '100%',
+  },
+  offerText: {
+    flexShrink: 1,
   },
   community: {
     alignItems: 'center',

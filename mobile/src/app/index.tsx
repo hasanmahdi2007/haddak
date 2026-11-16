@@ -20,6 +20,7 @@ import { IconButton } from '@/components/IconButton';
 import { RadiusChips } from '@/components/RadiusChips';
 import { Skeleton } from '@/components/Skeleton';
 import { StateView } from '@/components/StateView';
+import { StoriesRow } from '@/components/StoriesRow';
 import { TextLink } from '@/components/TextLink';
 import { Txt } from '@/components/Txt';
 import { useI18n } from '@/i18n';
@@ -261,6 +262,18 @@ export default function HomeScreen() {
             </Txt>
             <RadiusChips value={radiusM} onChange={setRadiusM} style={styles.radiusChips} />
           </View>
+
+          {/* Updates from providers inside the chosen distance. Not there when nobody posted. */}
+          {openParent ? null : (
+            <StoriesRow
+              coords={location.coords}
+              radiusM={radiusM}
+              ready={location.status !== 'locating'}
+              onOpen={(provider) =>
+                router.push({ pathname: '/stories/[providerId]', params: { providerId: provider.id } })
+              }
+            />
+          )}
 
           {openParent ? (
             <View style={[styles.levelHeader, { flexDirection: row }]}>

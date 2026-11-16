@@ -47,10 +47,45 @@ export interface ProviderSummary {
   cover_photo_url: string | null;
   /** Open at this moment (Lebanon time). Null when the provider gave no opening hours. */
   open_now: boolean | null;
-  /** Paid card shown above the results. Optional until the backend sends it. */
-  sponsored?: boolean;
+  /** Paid placement: shown in the "Sponsored" section above the results. */
+  sponsored: boolean;
   /** One line written by the sponsor, shown on the sponsored card. */
-  sponsor_hook?: string | null;
+  sponsor_hook: string | null;
+  /** The provider posted an update that has not expired yet. */
+  has_active_story: boolean;
+  /** Title of the offer running now, or null. */
+  banner_title: string | null;
+}
+
+/** A short update posted by a provider. It disappears at `expires_at`. */
+export interface Story {
+  id: string;
+  provider_id: string;
+  text: string;
+  image_url: string | null;
+  created_at: string;
+  expires_at: string;
+}
+
+/** An offer a provider runs for a limited time, shown on the profile. */
+export interface Banner {
+  title: string;
+  text: string | null;
+  discount_percent: number | null;
+  starts_at: string;
+  expires_at: string;
+}
+
+/** One provider and their active stories, newest first. */
+export interface StoryGroup {
+  provider: ProviderSummary;
+  stories: Story[];
+}
+
+export interface NearbyStoriesParams {
+  lat: number;
+  lng: number;
+  radius_m: number;
 }
 
 export type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
@@ -72,6 +107,10 @@ export interface ProviderDetail extends ProviderSummary {
   opening_hours: OpeningHours | null;
   /** WhatsApp taps and calls this month. Null unless the provider chose to show it. */
   contacts_this_month: number | null;
+  active_banner: Banner | null;
+  follower_count: number;
+  /** Always false while signed out. */
+  is_following: boolean;
 }
 
 export type ProviderStatus = 'pending' | 'verified' | 'rejected';
@@ -196,6 +235,10 @@ export interface HaddakApi {
   getProvider(id: string, from?: Coordinates): Promise<ProviderDetail>;
   getProviderBySlug(slug: string, from?: Coordinates): Promise<ProviderDetail>;
   getReviews(providerId: string, params?: ReviewListParams): Promise<Page<Review>>;
+  /** A provider's active stories, newest first. */
+  getProviderStories(providerId: string): Promise<{ items: Story[] }>;
+  /** Providers around a point who have active stories (at most 30). */
+  getNearbyStories(params: NearbyStoriesParams): Promise<{ items: StoryGroup[] }>;
   logContactEvent(providerId: string, type: ContactEventType): Promise<void>;
   /** Suggest a provider who is not on Haddak yet. 429 after 5 in an hour. */
   submitSuggestion(input: SuggestionInput): Promise<{ id: string }>;

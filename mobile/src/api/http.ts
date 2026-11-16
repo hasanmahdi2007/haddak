@@ -5,6 +5,7 @@ import {
   type Coordinates,
   type HaddakApi,
   type HealthResponse,
+  type NearbyStoriesParams,
   type OwnProvider,
   type Page,
   type ProviderCreateInput,
@@ -16,6 +17,8 @@ import {
   type ReviewInput,
   type ReviewListParams,
   type SearchParams,
+  type Story,
+  type StoryGroup,
   type SuggestionInput,
 } from './types';
 
@@ -119,6 +122,10 @@ export function createHttpApi(
       request<ProviderDetail>(`/providers/by-slug/${id(slug)}`, { query: { ...from } }),
     getReviews: (providerId: string, params?: ReviewListParams) =>
       request<Page<Review>>(`/providers/${id(providerId)}/reviews`, { query: { ...params } }),
+    getProviderStories: (providerId: string) =>
+      request<{ items: Story[] }>(`/providers/${id(providerId)}/stories`),
+    getNearbyStories: (params: NearbyStoriesParams) =>
+      request<{ items: StoryGroup[] }>('/stories/nearby', { query: { ...params } }),
     logContactEvent: (providerId: string, type: ContactEventType) =>
       request<void>(`/providers/${id(providerId)}/contact-events`, {
         method: 'POST',

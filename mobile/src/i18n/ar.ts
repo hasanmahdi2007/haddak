@@ -97,8 +97,7 @@ export const ar: Strings = {
 
   filter: {
     label: 'الموثّقين بس',
-    verifiedOnly: 'الموثّقين بس',
-    unverifiedToo: 'مع غير الموثّقين',
+    hint: 'إذا طفّيتها، بيبيّنوا كمان اللي حدّك بعده ما تأكّد منهم.',
   },
 
   badges: {
@@ -241,5 +240,65 @@ export const ar: Strings = {
     emptyBody: 'اكبس عالقلب بصفحة أي حدا ليبقى هون للمرة الجاية.',
     emptyAction: 'رجوع للبحث',
     note: 'محفوظين على هالتلفون بس.',
+  },
+  stories: {
+    nearby: 'جديد حدّك',
+    open: 'شوف جديد {name}',
+    openHint: 'بيفتح آخر أخبارهم',
+    close: 'سكّر',
+    next: 'اللي بعده',
+    previous: 'اللي قبله',
+    position: '{i} من {n}',
+    viewProfile: 'شوف الصفحة',
+    holdHint: 'خلّي إصبعك لتوقّف',
+    paused: 'واقف',
+    justNow: 'هلّق',
+    minutesAgo: 'من {n} د',
+    hoursAgo: 'من {n} س',
+    yesterday: 'مبارح',
+    emptyTitle: 'ما في جديد هلّق',
+    emptyBody: 'الأخبار بتبقى يوم واحد. صفحتهم دايماً موجودة.',
+    errorTitle: 'ما قدرنا نحمّل الأخبار',
+    loading: 'عم نحمّل الأخبار',
+  },
+
+  offer: {
+    label: 'عرض',
+    labelNamed: 'عرض: {title}',
+    off: 'حسم',
+    discountLabel: 'حسم {n}%',
+    ends: {
+      zero: 'بيخلص اليوم',
+      one: 'بيخلص بكرا',
+      two: 'بيخلص بعد يومين',
+      few: 'بيخلص بعد {n} إيام',
+      many: 'بيخلص بعد {n} يوم',
+      other: 'بيخلص بعد {n} يوم',
+    },
+  },
+
+  sponsored: {
+    section: 'إعلانات',
+    sectionNote: 'ظهور مدفوع',
+    sectionLabel: 'إعلانات. هالمحلات دفعت لتطلع بالأول.',
+    rest: 'كل النتائج',
+  },
+
+  follow: {
+    follow: 'تابِع',
+    following: 'عم تتابع',
+    followLabel: 'تابِع {name}',
+    count: {
+      zero: 'ما في متابعين بعد',
+      one: 'متابع واحد',
+      two: 'متابعَين',
+      few: '{n} متابعين',
+      many: '{n} متابع',
+      other: '{n} متابع',
+    },
+  },
+
+  auth: {
+    comingSoon: 'تسجيل الدخول جايي قريباً',
   },
 };

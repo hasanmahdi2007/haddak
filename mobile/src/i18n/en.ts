@@ -91,8 +91,7 @@ export const en = {
 
   filter: {
     label: 'Verified only',
-    verifiedOnly: 'Verified only',
-    unverifiedToo: 'Unverified too',
+    hint: 'When off, listings Haddak has not checked are shown too.',
   },
 
   badges: {
@@ -235,6 +234,67 @@ export const en = {
     emptyBody: 'Tap the heart on a profile to keep it here for next time.',
     emptyAction: 'Back to search',
     note: 'Saved on this phone only.',
+  },
+
+  stories: {
+    nearby: 'Updates nearby',
+    open: "See {name}'s updates",
+    openHint: 'Opens their latest updates',
+    close: 'Close',
+    next: 'Next update',
+    previous: 'Previous update',
+    position: 'Update {i} of {n}',
+    viewProfile: 'View profile',
+    holdHint: 'Hold to pause',
+    paused: 'Paused',
+    justNow: 'Just now',
+    minutesAgo: '{n} min ago',
+    hoursAgo: '{n} h ago',
+    yesterday: 'Yesterday',
+    emptyTitle: 'No updates right now',
+    emptyBody: 'Updates stay for a day. Their profile is always there.',
+    errorTitle: "Couldn't load the updates",
+    loading: 'Loading updates',
+  },
+
+  offer: {
+    label: 'Offer',
+    labelNamed: 'Offer: {title}',
+    off: 'off',
+    discountLabel: '{n}% off',
+    ends: {
+      zero: 'Ends today',
+      one: 'Ends tomorrow',
+      two: 'Ends in 2 days',
+      few: 'Ends in {n} days',
+      many: 'Ends in {n} days',
+      other: 'Ends in {n} days',
+    },
+  },
+
+  sponsored: {
+    section: 'Sponsored',
+    sectionNote: 'Paid placement',
+    sectionLabel: 'Sponsored. These businesses paid to appear first.',
+    rest: 'All results',
+  },
+
+  follow: {
+    follow: 'Follow',
+    following: 'Following',
+    followLabel: 'Follow {name}',
+    count: {
+      zero: 'No followers yet',
+      one: '1 follower',
+      two: '2 followers',
+      few: '{n} followers',
+      many: '{n} followers',
+      other: '{n} followers',
+    },
+  },
+
+  auth: {
+    comingSoon: 'Sign-in is coming soon',
   },
 };
 

@@ -6,11 +6,13 @@ import {
   Badge,
   BadgeCheck,
   Banknote,
+  Check,
   Heart,
   MapPin,
   MessageCircle,
   Navigation,
   Phone,
+  Plus,
   Share2,
   Star,
   Users,
@@ -35,22 +37,25 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { api, type ContactEventType, type OpeningHours, type ProviderDetail, type Review } from '@/api';
-import { FeaturedTag, FoundingBadge } from '@/components/Badges';
+import { FeaturedTag, FoundingBadge, SponsoredTag } from '@/components/Badges';
 import { Button } from '@/components/Button';
 import { IconButton } from '@/components/IconButton';
+import { OfferBlock } from '@/components/OfferBlock';
 import { OpenStatus } from '@/components/OpenStatus';
 import { Photo } from '@/components/Photo';
 import { Stars } from '@/components/Rating';
 import { Skeleton } from '@/components/Skeleton';
 import { StateView } from '@/components/StateView';
+import { StoryRing } from '@/components/StoryRing';
 import { Txt } from '@/components/Txt';
 import { useI18n } from '@/i18n';
 import { directionsUrl, shareUrl, telUrl, whatsappUrl } from '@/lib/links';
 import { useFavourites } from '@/lib/favourites';
 import { DAY_KEYS, dayKeyOf, to12Hour } from '@/lib/hours';
 import { useLocation } from '@/lib/location';
+import { requireSignIn } from '@/lib/auth';
 import { useAsync } from '@/lib/useAsync';
-import { makeStyles, motion, radius, size, space, useTheme } from '@/theme';
+import { makeStyles, motion, opacity, radius, size, space, useTheme } from '@/theme';
 
 const REVIEW_PAGE = 10;
 
@@ -374,6 +379,15 @@ export default function ProviderScreen() {
     );
   };
 
+  const openStories = (target: ProviderDetail) =>
+    router.push({ pathname: '/stories/[providerId]', params: { providerId: target.id, from: 'profile' } });
+
+  // Following needs an account. There is no sign-in yet, so this only shows the
+  // "coming soon" notice; the follow request itself is added with sign-in.
+  const follow = () => {
+    if (!requireSignIn()) return;
+  };
+
   // Saves or removes the provider on this phone, with a short pulse and a spoken confirmation.
   const toggleSaved = (target: ProviderDetail) => {
     const nowSaved = favourites.toggle(target);
@@ -457,12 +471,47 @@ export default function ProviderScreen() {
             {/* The hero block: mint when Haddak has verified this provider, grey when it has not.
                 Text on mint is dark in both themes. */}
             <View style={[styles.hero, provider.verified ? styles.heroVerified : null]}>
-              <Txt role="label" color={heroMuted}>
-                {categoryName(provider.category)} · {provider.area_name}
-              </Txt>
-              <Txt role="display" color={heroText} accessibilityRole="header" content>
-                {provider.name}
-              </Txt>
+              <View style={[styles.heroHead, { flexDirection: row }]}>
+                <View style={styles.trustText}>
+                  <Txt role="label" color={heroMuted}>
+                    {categoryName(provider.category)} · {provider.area_name}
+                  </Txt>
+                  <Txt role="display" color={heroText} accessibilityRole="header" content>
+                    {provider.name}
+                  </Txt>
+                </View>
+                {/* The provider posted an update: their photo, ringed, opens it. */}
+                {provider.has_active_story ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={f(s.stories.open, { name: provider.name })}
+                    accessibilityHint={s.stories.openHint}
+                    onPress={() => openStories(provider)}
+                    style={({ pressed }) => (pressed ? styles.dim : null)}
+                  >
+                    <StoryRing
+                      active
+                      box={size.avatarLarge}
+                      round={radius.md}
+                      tone={provider.verified ? 'ink' : 'accent'}
+                    >
+                      <Photo
+                        uri={provider.cover_photo_url}
+                        fallbackIcon={provider.category.icon}
+                        fallbackIconSize={size.icon}
+                        style={styles.fill}
+                      />
+                    </StoryRing>
+                  </Pressable>
+                ) : null}
+              </View>
+
+              {/* A sponsored profile carries the sponsor's own line. */}
+              {provider.sponsored && provider.sponsor_hook ? (
+                <Txt role="bodyStrong" color={heroText} content="block">
+                  {provider.sponsor_hook}
+                </Txt>
+              ) : null}
 
               <View
                 style={[styles.trust, { flexDirection: row }]}
@@ -508,10 +557,49 @@ export default function ProviderScreen() {
               )}
             </View>
 
-            {provider.featured || provider.founding_member || shownContacts > 0 ? (
+            {/* Followers, and the Follow pill (it asks for sign-in, which is not built yet). */}
+            <View style={[styles.followRow, { flexDirection: row }]}>
+              <View style={[styles.contactCount, styles.trustText, { flexDirection: row }]}>
+                <Users color={colors.textSubtle} size={size.iconSmall} strokeWidth={size.stroke} />
+                <Txt role="label" color="textMuted" style={styles.trustText}>
+                  {plural(s.follow.count, provider.follower_count)}
+                </Txt>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  provider.is_following ? s.follow.following : f(s.follow.followLabel, { name: provider.name })
+                }
+                accessibilityState={{ selected: provider.is_following }}
+                onPress={follow}
+                // 40 dp to the eye; hitSlop makes the touch target 48.
+                hitSlop={space.xs}
+                android_ripple={{ color: colors.surfaceTintStrong }}
+                style={({ pressed }) => [
+                  styles.follow,
+                  { flexDirection: row },
+                  provider.is_following ? styles.following : null,
+                  pressed ? styles.dim : null,
+                ]}
+              >
+                {provider.is_following ? (
+                  <Check color={colors.text} size={size.iconSmall} strokeWidth={size.strokeBold} />
+                ) : (
+                  <Plus color={colors.onPrimary} size={size.iconSmall} strokeWidth={size.strokeBold} />
+                )}
+                <Txt role="action" color={provider.is_following ? 'text' : 'onPrimary'}>
+                  {provider.is_following ? s.follow.following : s.follow.follow}
+                </Txt>
+              </Pressable>
+            </View>
+
+            {provider.active_banner ? <OfferBlock banner={provider.active_banner} /> : null}
+
+            {provider.sponsored || provider.featured || provider.founding_member || shownContacts > 0 ? (
             <View style={styles.extras}>
-              {provider.featured || provider.founding_member ? (
+              {provider.sponsored || provider.featured || provider.founding_member ? (
                 <View style={[styles.badges, { flexDirection: row }]}>
+                  {provider.sponsored ? <SponsoredTag /> : null}
                   {provider.featured ? <FeaturedTag /> : null}
                   {provider.founding_member ? <FoundingBadge /> : null}
                 </View>
@@ -749,6 +837,36 @@ const useStyles = makeStyles((c) => ({
   },
   heroVerified: {
     backgroundColor: c.mint,
+  },
+  heroHead: {
+    alignItems: 'flex-start',
+    gap: space.md,
+  },
+  fill: {
+    flex: 1,
+    alignSelf: 'stretch',
+  },
+  dim: {
+    opacity: opacity.pressed,
+  },
+  followRow: {
+    alignItems: 'center',
+    gap: space.md,
+    paddingHorizontal: space.xs,
+  },
+  // The Follow pill: ink; grey once following.
+  follow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.xs + space.xxs,
+    minHeight: size.segment + space.xs,
+    paddingHorizontal: space.lg,
+    borderRadius: radius.pill,
+    backgroundColor: c.primary,
+    overflow: 'hidden',
+  },
+  following: {
+    backgroundColor: c.surfaceTint,
   },
   trust: {
     alignItems: 'center',

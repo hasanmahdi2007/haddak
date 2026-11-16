@@ -11,6 +11,8 @@ import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { SignInNotice } from '@/components/SignInNotice';
+
 import { I18nProvider } from '@/i18n';
 import { CategoriesProvider } from '@/lib/categories';
 import { FavouritesProvider } from '@/lib/favourites';
@@ -53,7 +55,15 @@ export default function RootLayout() {
                   headerShown: false,
                   contentStyle: { backgroundColor: colors.background },
                 }}
-              />
+              >
+                {/* A provider's updates open over everything, full screen, and fade in. */}
+                <Stack.Screen
+                  name="stories/[providerId]"
+                  options={{ presentation: 'fullScreenModal', animation: 'fade' }}
+                />
+              </Stack>
+              {/* The "Sign-in is coming soon" notice (see src/lib/auth.ts). */}
+              <SignInNotice />
             </FavouritesProvider>
           </CategoriesProvider>
         </LocationProvider>
