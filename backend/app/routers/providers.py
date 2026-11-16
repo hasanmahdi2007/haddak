@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth import get_optional_user_id
 from app.db import get_db
 from app.models import PUBLIC_STATUSES, ContactEvent, Provider, ProviderReport
 from app.rate_limit import is_repeated_contact_event, limit_contact_events, limit_reports
@@ -16,7 +17,7 @@ from app.schemas import (
     ReportCreated,
     ReportIn,
 )
-from app.services.provider_views import current_date, to_detail, to_summary
+from app.services.provider_views import current_date, to_detail, to_summaries
 from app.services.search import distance_to_provider, search_providers
 
 router = APIRouter(tags=["providers"])
@@ -39,12 +40,16 @@ def get_public_provider(db: Session, provider_id: uuid.UUID) -> Provider:
 
 
 def detail_response(
-    db: Session, provider: Provider, lat: float | None, lng: float | None
+    db: Session,
+    provider: Provider,
+    lat: float | None,
+    lng: float | None,
+    viewer_id: uuid.UUID | None,
 ) -> ProviderDetail:
     distance_m = None
     if lat is not None and lng is not None:
         distance_m = distance_to_provider(db, provider.id, lat, lng)
-    return to_detail(db, provider, distance_m)
+    return to_detail(db, provider, distance_m, viewer_id)
 
 
 # Note: the fixed paths (/search, /by-slug/...) are declared before
@@ -76,8 +81,7 @@ def search(
         limit=limit,
         offset=offset,
     )
-    items = [to_summary(provider, distance_m) for provider, distance_m in rows]
-    return ProviderSearchResult(items=items, total=total)
+    return ProviderSearchResult(items=to_summaries(db, rows), total=total)
 
 
 @router.get("/providers/by-slug/{slug}", response_model=ProviderDetail)
@@ -86,9 +90,11 @@ def get_provider_by_slug(
     lat: float | None = Query(default=None, ge=-90, le=90),
     lng: float | None = Query(default=None, ge=-180, le=180),
     db: Session = Depends(get_db),
+    # None when nobody is logged in; only used to fill is_following.
+    viewer_id: uuid.UUID | None = Depends(get_optional_user_id),
 ):
     provider = require_public(db.scalar(select(Provider).where(Provider.slug == slug)))
-    return detail_response(db, provider, lat, lng)
+    return detail_response(db, provider, lat, lng, viewer_id)
 
 
 @router.get("/providers/{provider_id}", response_model=ProviderDetail)
@@ -97,9 +103,10 @@ def get_provider(
     lat: float | None = Query(default=None, ge=-90, le=90),
     lng: float | None = Query(default=None, ge=-180, le=180),
     db: Session = Depends(get_db),
+    viewer_id: uuid.UUID | None = Depends(get_optional_user_id),
 ):
     provider = get_public_provider(db, provider_id)
-    return detail_response(db, provider, lat, lng)
+    return detail_response(db, provider, lat, lng, viewer_id)
 
 
 @router.post(

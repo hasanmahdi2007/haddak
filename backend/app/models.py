@@ -95,6 +95,9 @@ class Provider(Base):
     # Who created the listing: 'owner' (the provider, in the app) or
     # 'suggestion' (the admin published it from a suggestion).
     source: Mapped[str] = mapped_column(Text, server_default=text("'owner'"))
+    # One-sentence pitch written by the owner. The public only receives it
+    # while the provider is sponsored (verified + featured_until not passed).
+    sponsor_hook: Mapped[str | None] = mapped_column(Text)
 
     # Not real columns: whenever a provider is loaded, the database also
     # computes latitude and longitude from `location`, so Python code can
@@ -180,3 +183,50 @@ class ProviderReport(Base):
 
     # Loaded in the same query: the admin list shows the provider's name and status.
     provider: Mapped[Provider] = relationship(lazy="joined", innerjoin=True)
+
+
+class Story(Base):
+    """A short post by a verified provider, shown for 24 hours.
+
+    Expired rows stay in the table; every query filters on expires_at.
+    """
+
+    __tablename__ = "stories"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    provider_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("providers.id", ondelete="CASCADE"))
+    text: Mapped[str] = mapped_column(Text)
+    image_url: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Banner(Base):
+    """A provider's current offer. provider_id is the primary key, so a
+    provider has at most one row; a new banner overwrites it."""
+
+    __tablename__ = "banners"
+
+    provider_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("providers.id", ondelete="CASCADE"), primary_key=True
+    )
+    title: Mapped[str] = mapped_column(Text)
+    text: Mapped[str | None] = mapped_column(Text)
+    discount_percent: Mapped[int | None] = mapped_column(SmallInteger)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Follow(Base):
+    """One row = this user follows this provider. The primary key is both columns
+    together, so the same follow cannot exist twice."""
+
+    __tablename__ = "follows"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    provider_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("providers.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

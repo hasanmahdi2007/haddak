@@ -146,7 +146,8 @@ def limit_contact_events(request: Request) -> None:
 
 
 def limit_writes(request: Request) -> None:
-    """20 per minute per IP, shared by the review and profile write routes."""
+    """20 per minute per IP, shared by the review, profile, story, banner and
+    follow write routes."""
     enforce_limit(f"writes:{get_client_ip(request)}", WRITES_PER_MINUTE)
 
 

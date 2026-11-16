@@ -94,6 +94,7 @@ def create_my_provider(
         verification_doc_url=body.verification_doc_url,
         show_contact_count=body.show_contact_count,
         opening_hours=body.opening_hours,
+        sponsor_hook=body.sponsor_hook,
     )
     db.add(provider)
     try:

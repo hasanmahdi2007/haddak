@@ -32,14 +32,21 @@ Admin routes use the header `X-Admin-Key: <ADMIN_API_KEY>` instead.
   "founding_member": true, "featured": false,  // featured is always false unless verified
   "lat": 33.8551, "lng": 35.5102, "distance_m": 184,
   "cover_photo_url": "https://...",            // null if no photos
-  "open_now": true }                           // null if the provider gave no opening hours
+  "open_now": true,                            // null if the provider gave no opening hours
+  "sponsored": false,                          // verified AND featured_until not passed; show as "Sponsored"
+  "sponsor_hook": null,                        // one-sentence pitch; always null unless sponsored
+  "has_active_story": false,                   // a story posted in the last 24 hours
+  "banner_title": null }                       // title of the active banner, or null
 
 // ProviderDetail = ProviderSummary plus:
 { "description": "…", "phone": "+96170123456", "whatsapp": "+96170123456",
   "photos": ["https://...", "https://..."],
   "created_at": "2026-11-15T10:00:00Z",
   "opening_hours": { "mon": [["09:00", "13:00"], ["15:00", "19:00"]], "sat": [["10:00", "14:00"]] },  // or null
-  "contacts_this_month": 12 }                  // null unless the provider chose to show it
+  "contacts_this_month": 12,                   // null unless the provider chose to show it
+  "active_banner": null,                       // Banner (below) or null
+  "follower_count": 14,
+  "is_following": false }                      // true only when a valid token is sent and that user follows
 // distance_m is null in ProviderDetail unless lat and lng are passed.
 
 // OwnProvider (what the owner and the admin see) = ProviderDetail plus:
@@ -47,6 +54,21 @@ Admin routes use the header `X-Admin-Key: <ADMIN_API_KEY>` instead.
   "source": "owner",                           // "owner" | "suggestion"
   "featured_until": null, "verification_doc_url": "…",
   "show_contact_count": false }
+// In OwnProvider, sponsor_hook is the stored text even when the profile is not sponsored,
+// so the owner can edit it. is_following is always false there.
+
+// Story
+{ "id": "uuid", "provider_id": "uuid", "text": "Fresh knafeh this morning.",
+  "image_url": "https://...",                  // or null
+  "created_at": "2026-11-16T08:00:00Z", "expires_at": "2026-11-17T08:00:00Z" }
+
+// Banner
+{ "title": "Back to school offer", "text": "All laptop repairs this week.",   // text or null
+  "discount_percent": 20,                      // or null
+  "starts_at": "2026-11-16T08:00:00Z", "expires_at": "2026-11-23T08:00:00Z" }
+
+// StoryGroup (one provider and its active stories, newest story first)
+{ "provider": ProviderSummary, "stories": [Story] }
 
 // Suggestion (admin only)
 { "id": "uuid", "name": "Abu Ali Tailor", "phone": "+96170123456",
@@ -93,6 +115,10 @@ A provider can be listed without being verified.
 | `POST /providers/{id}/contact-events` | Body `{"type": "view" \| "whatsapp" \| "call"}`. Returns 204. No login. |
 | `POST /providers/{id}/reports` | Flag a bad listing. Body below. Returns 201 `{"id": "uuid"}`. No login. 404 if unknown or rejected. |
 | `POST /suggestions` | Suggest a provider who is not on Haddak yet. Body below. Returns 201 `{"id": "uuid"}`. No login. |
+| `GET /providers/{id}/stories` | `{"items": [Story]}`: the provider's active stories, newest first. 404 if unknown or rejected. |
+| `GET /stories/nearby` | `{"items": [StoryGroup]}`. Query: `lat`, `lng`, `radius_m` (100 to 50000), all required. Active stories of verified providers inside the circle, grouped by provider; the provider with the newest story comes first; at most 30 providers. `distance_m` is set in each provider. |
+
+`GET /providers/{id}` and `GET /providers/by-slug/{slug}` read the login token when one is sent, only to fill `is_following`. A missing or bad token is treated as anonymous.
 
 ### `GET /providers/search`
 
@@ -138,6 +164,14 @@ Limits: `name` 1 to 100 characters, `area_name` up to 100, `note` up to 500; `ph
 | `POST /me/provider` | Create my profile. Body below. Returns 201 `OwnProvider`. `status` is `"pending"` if a `verification_doc_url` was sent, otherwise `"unverified"`; the profile is listed publicly either way. 409 if one exists. |
 | `PATCH /me/provider` | Update any of the create fields. Returns `OwnProvider`. Status rules below. |
 | `GET /me/provider/stats` | `{"month": "2026-11", "views": 40, "whatsapp": 9, "calls": 3}` for the current month. |
+| `POST /me/provider/stories` | Post a story. Body `{"text": "…", "image_url": "https://…"}` (`image_url` optional). Returns 201 `Story`. Rules below. |
+| `DELETE /me/provider/stories/{story_id}` | Delete one of my stories. 204; 404 if it is not mine or does not exist. |
+| `PUT /me/provider/banner` | Set my banner, replacing the one I had. Body below. Returns `Banner`. |
+| `DELETE /me/provider/banner` | Remove my banner. 204, also when there was none. |
+| `PUT /providers/{id}/follow` | Follow a provider. 204, also when already following. 404 if unknown or rejected. |
+| `DELETE /providers/{id}/follow` | Unfollow. 204, also when not following. 404 if unknown or rejected. |
+| `GET /me/following` | `{"items": [ProviderSummary], "total": n}`: providers I follow, most recently followed first. Query: `limit` (default 50, max 100), `offset`. Rejected providers are left out. `distance_m` is null. |
+| `GET /me/feed` | `{"items": [StoryGroup]}`: active stories of the verified providers I follow, grouped by provider; newest story first; at most 30 providers. `distance_m` is null. |
 
 Create body:
 
@@ -160,6 +194,28 @@ Two optional fields can also be sent on create and on update:
 
 - `show_contact_count` (boolean, default `false`): when `true`, the public profile shows `contacts_this_month`.
 - `opening_hours` (object or `null`, default `null`): see below. `PATCH` with `null` clears the hours.
+
+- `sponsor_hook` (string or `null`, default `null`): a one-sentence pitch, 1 to 80 characters. `null` (or an empty string) clears it. The owner may set it at any time, but the public only receives it while the profile is sponsored (see "Sponsored" below).
+
+### Stories and banners
+
+Only the owner of a `verified` profile may post: 404 without a profile, 403 while the profile is not verified. Deleting your own story or banner is always allowed.
+
+- **Story.** `text` 1 to 280 characters; `image_url` optional (`null` or an empty string means none), must start with `https://`, up to 1000 characters. It is active for 24 hours (`expires_at` = `created_at` + 24 h). At most 5 active stories per provider: a sixth is 409 until one expires or is deleted.
+- **Banner.** One per provider; `PUT` replaces the old one. Body:
+
+```jsonc
+{ "title": "Back to school offer", "text": "All laptop repairs this week.",
+  "discount_percent": 20, "days": 7 }
+```
+
+`title` 1 to 60 characters. `text` optional, up to 200 (`null` or an empty string means none). `discount_percent` optional, 1 to 90. `days` optional, 1 to 7, default 7: the banner starts now (`starts_at`) and expires `days` days later.
+
+Expired stories and banners are simply no longer returned; nothing deletes them in the background. If a profile stops being verified, its stories and banner are hidden everywhere public until it is verified again: `has_active_story` is `false`, `banner_title` and `active_banner` are `null`, and its story list is empty.
+
+### Sponsored
+
+"Sponsored" is what users see for the admin's "featured" placement. `sponsored` is `true` when the provider is verified and `featured_until` has not passed; it always equals `featured`, which is kept for older app builds. `sponsor_hook` is `null` unless `sponsored` is `true`. Sponsored providers come first among verified ones in search (the existing featured rule; nothing else about the order changed). There are no payments in the app: the admin sets `featured_until` by hand.
 
 ### Opening hours
 
@@ -184,6 +240,8 @@ Two optional fields can also be sent on create and on update:
 | `POST /admin/suggestions/{id}/publish` | Turn a suggestion into a public, unverified listing. Body below. Returns 201 `OwnProvider`. |
 | `GET /admin/reports` | `{"items": [Report], "total": n}`, newest first. Query: `limit` (default 50, max 100), `offset`. |
 | `DELETE /admin/reports/{id}` | Dismiss a report. 204; 404 if there is no such report. |
+| `DELETE /admin/stories/{story_id}` | Remove any story. 204; 404 if there is no such story. |
+| `DELETE /admin/providers/{id}/banner` | Remove a provider's banner. 204; 404 if the provider has no banner. |
 
 Both provider routes return `OwnProvider` items; the list is `{"items": [...], "total": n}`, oldest first, `status` defaulting to `pending`.
 
@@ -229,6 +287,8 @@ The body is optional. Any field in it overrides the suggestion's value; a field 
 - Limits: name and area 100 characters, description and comment 2000, 10 photos, `author_name` required, up to 80.
 - **Open decision:** `PATCH /me/provider` keeps the current `status` (apart from the proof rules above), so a verified provider can change name or category without a new review.
 - `featured` in public shapes is `true` only for a verified provider whose `featured_until` has not passed. `OwnProvider.featured_until` shows the stored date whatever the status.
+- Following needs a login but not a profile; a user may follow any public provider, including an unverified one or their own. `follower_count` counts every follower.
+- The story limit (5 active) and the banner replace are done with the provider row locked, so two simultaneous posts cannot go over the limit.
 - A listing with no owner (`claimed: false`) cannot be edited through `/me/provider`; claiming it is not built yet. The admin can still verify, reject or feature it.
 
 ## Rate limits
@@ -236,7 +296,7 @@ The body is optional. Any field in it overrides the suggestion's value; a field 
 Write routes are limited per client IP, in the API process's memory (no extra service). Over the limit returns 429 with `{"detail": "..."}` and a `Retry-After` header.
 
 - `POST /providers/{id}/contact-events`: 30 per minute per IP. In addition, the same IP, provider and type is counted at most once per 10 minutes; repeats still return 204 but are not stored. This keeps provider stats honest.
-- `PUT /providers/{id}/reviews/mine`, `POST` and `PATCH /me/provider`: 20 per minute per IP. One shared allowance across these routes.
+- `PUT /providers/{id}/reviews/mine`, `POST` and `PATCH /me/provider`, `POST /me/provider/stories`, `DELETE /me/provider/stories/{story_id}`, `PUT` and `DELETE /me/provider/banner`, `PUT` and `DELETE /providers/{id}/follow`: 20 per minute per IP. One shared allowance across these routes.
 - `POST /suggestions`: 5 per hour per IP (its own allowance). Requests refused for a validation error count too.
 - `POST /providers/{id}/reports`: 10 per hour per IP (its own allowance). Requests refused for a validation error or an unknown provider count too.
 

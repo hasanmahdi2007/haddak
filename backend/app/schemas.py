@@ -57,6 +57,21 @@ def check_opening_hours(hours: dict | None) -> dict | None:
     return hours
 
 
+def blank_to_none(value: object) -> object:
+    """Runs before the normal checks: "" or "   " is treated like null.
+
+    Lets the app send an empty text box as it is for optional texts."""
+    if isinstance(value, str) and not value.strip():
+        return None
+    return value
+
+
+def check_https_url(value: str | None) -> str | None:
+    if value is not None and not value.startswith("https://"):
+        raise ValueError("must be an https:// URL")
+    return value
+
+
 def check_lat_lng_together(lat: float | None, lng: float | None) -> None:
     if (lat is None) != (lng is None):
         raise ValueError("lat and lng must be sent together")
@@ -96,6 +111,35 @@ class CategoryBrief(BaseModel):
     icon: str
 
 
+# ---------- Stories and banners (responses) ----------
+# These come before the provider shapes because ProviderDetail contains a banner.
+
+
+class StoryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    provider_id: uuid.UUID
+    text: str
+    image_url: str | None
+    created_at: datetime
+    expires_at: datetime
+
+
+class StoryList(BaseModel):
+    items: list[StoryOut]
+
+
+class BannerOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    title: str
+    text: str | None
+    discount_percent: int | None
+    starts_at: datetime
+    expires_at: datetime
+
+
 # ---------- Providers (responses) ----------
 
 
@@ -117,6 +161,11 @@ class ProviderSummary(BaseModel):
     distance_m: int | None
     cover_photo_url: str | None
     open_now: bool | None  # None when the provider gave no opening hours
+    # What users see as "Sponsored": the same value as `featured`.
+    sponsored: bool
+    sponsor_hook: str | None  # always None unless sponsored
+    has_active_story: bool
+    banner_title: str | None  # title of the active banner, if there is one
 
 
 class ProviderDetail(ProviderSummary):
@@ -129,10 +178,17 @@ class ProviderDetail(ProviderSummary):
     # whatsapp + call taps in the current UTC month. None unless the provider
     # switched on show_contact_count.
     contacts_this_month: int | None
+    active_banner: BannerOut | None
+    follower_count: int
+    is_following: bool  # False for anonymous callers
 
 
 class OwnProvider(ProviderDetail):
-    """What the owner (and the admin) sees: includes the private fields."""
+    """What the owner (and the admin) sees: includes the private fields.
+
+    Here sponsor_hook is the stored text even when the profile is not
+    sponsored, so the owner can read and edit it.
+    """
 
     status: str
     source: str  # 'owner' or 'suggestion'
@@ -149,6 +205,17 @@ class ProviderSearchResult(BaseModel):
 class OwnProviderList(BaseModel):
     items: list[OwnProvider]
     total: int
+
+
+class StoryGroup(BaseModel):
+    """One provider and its active stories, newest story first."""
+
+    provider: ProviderSummary
+    stories: list[StoryOut]
+
+
+class StoryGroupList(BaseModel):
+    items: list[StoryGroup]
 
 
 class ProviderStats(BaseModel):
@@ -177,7 +244,9 @@ class ProviderCreate(BaseModel):
     verification_doc_url: str | None = Field(default=None, max_length=1000)
     show_contact_count: bool = False
     opening_hours: OpeningHours | None = None
+    sponsor_hook: str | None = Field(default=None, max_length=80)
 
+    _blank_hook = field_validator("sponsor_hook", mode="before")(blank_to_none)
     _phones = field_validator("phone", "whatsapp")(check_phone)
     _photos = field_validator("photos")(check_photo_urls)
     _hours = field_validator("opening_hours")(check_opening_hours)
@@ -201,15 +270,17 @@ class ProviderUpdate(BaseModel):
     verification_doc_url: str | None = Field(default=None, max_length=1000)
     show_contact_count: bool | None = None
     opening_hours: OpeningHours | None = None
+    sponsor_hook: str | None = Field(default=None, max_length=80)
 
+    _blank_hook = field_validator("sponsor_hook", mode="before")(blank_to_none)
     _phones = field_validator("phone", "whatsapp")(check_phone)
     _photos = field_validator("photos")(check_photo_urls)
     _hours = field_validator("opening_hours")(check_opening_hours)
 
     @model_validator(mode="after")
     def required_fields_not_null(self) -> "ProviderUpdate":
-        # price_text, whatsapp, verification_doc_url and opening_hours may be
-        # cleared with null.
+        # price_text, whatsapp, verification_doc_url, opening_hours and
+        # sponsor_hook may be cleared with null.
         reject_nulls(
             self,
             {
@@ -244,6 +315,31 @@ class AdminProviderUpdate(BaseModel):
 
 class ContactEventIn(BaseModel):
     type: Literal["view", "whatsapp", "call"]
+
+
+# ---------- Stories and banners (requests) ----------
+
+
+class StoryCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    text: str = Field(min_length=1, max_length=280)
+    image_url: str | None = Field(default=None, max_length=1000)
+
+    _blank_image = field_validator("image_url", mode="before")(blank_to_none)
+    _https_image = field_validator("image_url")(check_https_url)
+
+
+class BannerIn(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    title: str = Field(min_length=1, max_length=60)
+    text: str | None = Field(default=None, max_length=200)
+    discount_percent: int | None = Field(default=None, ge=1, le=90)
+    # How long the banner runs, starting now.
+    days: int = Field(default=7, ge=1, le=7)
+
+    _blank_text = field_validator("text", mode="before")(blank_to_none)
 
 
 # ---------- Reviews ----------

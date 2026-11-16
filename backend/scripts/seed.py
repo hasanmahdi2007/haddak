@@ -1,4 +1,5 @@
-"""Fill the development database with categories, fake providers and reviews.
+"""Fill the development database with categories, fake providers, reviews,
+stories and banners.
 
     python scripts/seed.py
 
@@ -15,11 +16,11 @@ from pathlib import Path
 # Allow `python scripts/seed.py` to import the `app` package.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from sqlalchemy import select  # noqa: E402
+from sqlalchemy import delete, select  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
 from app.db import SessionLocal  # noqa: E402
-from app.models import Category, Provider, Review  # noqa: E402
+from app.models import Banner, Category, Provider, Review, Story  # noqa: E402
 from app.services.geo import point_for_storage, project_point  # noqa: E402
 from app.services.ratings import recalculate_rating  # noqa: E402
 
@@ -177,8 +178,12 @@ CATEGORIES = [
 #   slug, name, category slug, area, distance from the centre in metres,
 #   compass bearing in degrees (0 = north, 90 = east), number of reviews,
 #   typical rating, price text, flags.
-# Flags: "featured" (featured for the next 30 days), "was-featured" (expired
-# yesterday), "founding", "pending" (not public yet), "no-photos".
+# Flags: "featured" (sponsored for the next 30 days), "was-featured" (expired
+# yesterday), "founding", "no-photos", and for the status:
+#   "pending"    - proof sent, waiting for the founder (listed without the badge)
+#   "unverified" - no proof (listed without the badge)
+#   "community"  - with "unverified": published from a suggestion, no owner
+# No status flag means verified.
 # ---------------------------------------------------------------------------
 PROVIDERS = [
     # --- within 500 m ---
@@ -191,7 +196,7 @@ PROVIDERS = [
     ("fix-phone-hh", "FixPhone", "phone-repair", "Haret Hreik", 420, 345, 0, 0, "Screen from $25", {"no-photos"}),
     ("studio-lina-art", "Studio Lina", "drawing-lessons", "Bir el Abed", 470, 40, 16, 4.8, "$12 per class", set()),
     # --- 500 m to 1 km ---
-    ("karim-electric", "Karim Electric", "electrician", "Bir el Abed", 540, 60, 19, 4.5, "Visit from $10", {"founding"}),
+    ("karim-electric", "Karim Electric", "electrician", "Bir el Abed", 540, 60, 19, 4.5, "Visit from $10", {"featured", "founding"}),
     ("piano-with-nour", "Piano with Nour", "piano-lessons", "Bir el Abed", 620, 15, 27, 4.9, "$25 per lesson", set()),
     ("halawiyat-al-baba", "Halawiyat Al Baba", "arabic-sweets", "Ghobeiry", 700, 330, 55, 4.7, None, {"featured"}),
     ("salon-jad", "Salon Jad", "barber", "Rouweiss", 780, 170, 14, 4.2, "Haircut $5", set()),
@@ -215,10 +220,56 @@ PROVIDERS = [
     ("khalde-car-wash", "Khalde Car Wash", "car-wash", "Khalde", 9000, 204, 20, 4.0, "Wash $5", set()),
     ("jounieh-piano", "Jounieh Piano Academy", "piano-lessons", "Jounieh", 17000, 35, 18, 4.7, "$30 per lesson", set()),
     ("saida-sweets", "Saida Sweets", "arabic-sweets", "Saida", 36000, 202, 60, 4.8, None, {"founding"}),
-    # --- pending (must not appear publicly) ---
+    # --- pending (listed without the badge; proof waits for the founder) ---
     ("pending-painter", "Hussein Painting", "painter", "Haret Hreik", 200, 90, 0, 0, None, {"pending"}),
     ("pending-yoga", "Zen Yoga Studio", "yoga", "Bir el Abed", 650, 20, 0, 0, "$10 per class", {"pending"}),
+    # --- unverified (listed without the badge); "community" ones have no owner ---
+    ("unv-mobile-fix", "Hassan Mobile Fix", "phone-repair", "Haret Hreik", 150, 200, 2, 4.0, "Screen from $20", {"unverified"}),
+    ("unv-oum-ali-sweets", "Oum Ali Sweets", "arabic-sweets", "Haret Hreik", 330, 110, 0, 0, None, {"unverified", "community"}),
+    ("unv-barber-rami", "Rami Barber Shop", "barber", "Bir el Abed", 520, 30, 4, 4.5, "Haircut $4", {"unverified"}),
+    ("unv-abu-fadi-electric", "Abu Fadi Electrician", "electrician", "Ghobeiry", 690, 300, 0, 0, None, {"unverified", "community"}),
+    ("unv-french-nadine", "French with Nadine", "french-tutoring", "Rouweiss", 810, 160, 1, 5.0, "$12 per hour", {"unverified"}),
+    ("unv-shoe-repair", "Abu Mahmoud Shoe Repair", "shoe-repair", "Bourj el Barajneh", 950, 230, 0, 0, None, {"unverified", "community"}),
 ]  # fmt: skip
+
+# One-sentence pitch of the four sponsored ("featured") providers.
+SPONSOR_HOOKS = {
+    "hadi-sax": "First saxophone lesson free this month.",
+    "halawiyat-al-baba": "Fresh knafeh every morning from 7.",
+    "karim-electric": "At your door within the hour, day or night.",
+    "achrafieh-oud": "Learn oud from a conservatory teacher.",
+}
+
+# Active stories of verified providers: slug -> list of (text, hours ago, with image?).
+STORIES = {
+    "hadi-sax": [
+        ("Two evening slots opened up this week. Message me to book.", 2, False),
+        ("Student concert on Saturday at 6. Everyone is welcome!", 9, True),
+    ],
+    "halawiyat-al-baba": [
+        ("Fresh maamoul just out of the oven.", 1, True),
+    ],
+    "ali-tech": [
+        ("New batch of laptop batteries arrived. Most models in stock.", 4, False),
+        ("Open until 9 tonight.", 20, False),
+    ],
+    "sweet-corner": [
+        ("New imported chocolates on the shelf today.", 6, True),
+    ],
+    "karim-electric": [
+        ("Generator switch installations: booking for next week.", 12, False),
+    ],
+    "piano-with-nour": [
+        ("Recital photos are up. So proud of my students!", 15, True),
+    ],
+}
+
+# Active banners: slug -> (title, text, discount percent, days it runs).
+BANNERS = {
+    "ali-tech": ("Back to school offer", "All laptop repairs this week.", 20, 7),
+    "halawiyat-al-baba": ("Weekend special", "Buy 1 kg of baklava, get 250 g free.", None, 3),
+    "salon-jad": ("Student discount", None, 15, 7),
+}
 
 # ---------------------------------------------------------------------------
 # Opening hours (Lebanon local time; shape in docs/API.md). Chosen by category
@@ -331,10 +382,15 @@ def seed_provider(
     lat, lng = project_point(db, CENTER_LAT, CENTER_LNG, distance_m, bearing)
     category = categories[category_slug]
 
+    # "Community" listings were published from a suggestion: nobody owns them.
+    is_community = "community" in flags
+
     provider = db.scalar(select(Provider).where(Provider.slug == slug))
     if provider is None:
-        provider = Provider(slug=slug, owner_user_id=uuid.uuid5(SEED_NAMESPACE, f"owner-{slug}"))
+        provider = Provider(slug=slug)
         db.add(provider)
+    provider.owner_user_id = None if is_community else uuid.uuid5(SEED_NAMESPACE, f"owner-{slug}")
+    provider.source = "suggestion" if is_community else "owner"
 
     provider.name = name
     provider.category_id = category.id
@@ -350,7 +406,7 @@ def seed_provider(
     provider.whatsapp = f"+9610000{5000 + number}" if number % 3 == 0 else None
     provider.location = point_for_storage(lat, lng)
     provider.area_name = area
-    if "no-photos" in flags:
+    if "no-photos" in flags or is_community:
         provider.photos = []
     else:
         provider.photos = [
@@ -358,8 +414,14 @@ def seed_provider(
             f"https://picsum.photos/seed/{slug}-2/800/600",
             f"https://picsum.photos/seed/{slug}-3/800/600",
         ]
-    provider.verification_doc_url = f"https://example.com/verification-docs/{slug}.pdf"
-    provider.status = "pending" if "pending" in flags else "verified"
+    # Only providers who sent proof have a document: not the unverified ones.
+    if "unverified" in flags:
+        provider.verification_doc_url = None
+        provider.status = "unverified"
+    else:
+        provider.verification_doc_url = f"https://example.com/verification-docs/{slug}.pdf"
+        provider.status = "pending" if "pending" in flags else "verified"
+    provider.sponsor_hook = SPONSOR_HOOKS.get(slug)
     provider.founding_member = "founding" in flags
     provider.featured_until = featured_until_for(flags, datetime.now(UTC).date())
     provider.opening_hours = opening_hours_for(slug, category, categories)
@@ -397,18 +459,63 @@ def seed_reviews(db: Session, provider: Provider, review_count: int, typical_rat
     recalculate_rating(db, provider)
 
 
+def seed_stories_and_banners(db: Session, providers: dict[str, Provider]) -> None:
+    """Fresh stories and banners on every run, so they are always active.
+
+    Stories live 24 hours: the seeded providers' old ones are deleted and
+    written again with times counted back from now.
+    """
+    now = datetime.now(UTC)
+    seeded_ids = [provider.id for provider in providers.values()]
+    db.execute(delete(Story).where(Story.provider_id.in_(seeded_ids)))
+    db.execute(delete(Banner).where(Banner.provider_id.in_(seeded_ids)))
+
+    for slug, stories in STORIES.items():
+        for index, (text, hours_ago, with_image) in enumerate(stories):
+            created_at = now - timedelta(hours=hours_ago)
+            image_url = f"https://picsum.photos/seed/{slug}-story-{index}/720/1280"
+            db.add(
+                Story(
+                    provider_id=providers[slug].id,
+                    text=text,
+                    image_url=image_url if with_image else None,
+                    created_at=created_at,
+                    expires_at=created_at + timedelta(hours=24),
+                )
+            )
+
+    for slug, (title, text, discount_percent, days) in BANNERS.items():
+        db.add(
+            Banner(
+                provider_id=providers[slug].id,
+                title=title,
+                text=text,
+                discount_percent=discount_percent,
+                starts_at=now,
+                expires_at=now + timedelta(days=days),
+            )
+        )
+
+
 def main() -> None:
     with SessionLocal() as db:
         categories = seed_categories(db)
+        providers: dict[str, Provider] = {}
         for number, row in enumerate(PROVIDERS, start=1):
             provider = seed_provider(db, row, number, categories)
             seed_reviews(db, provider, review_count=row[6], typical_rating=row[7])
+            providers[provider.slug] = provider
+        seed_stories_and_banners(db, providers)
         db.commit()  # one transaction: either everything is seeded or nothing
 
         pending = sum(1 for row in PROVIDERS if "pending" in row[9])
+        unverified = sum(1 for row in PROVIDERS if "unverified" in row[9])
+        verified = len(PROVIDERS) - pending - unverified
+        story_count = sum(len(stories) for stories in STORIES.values())
         print(
             f"Seeded {len(categories)} categories and {len(PROVIDERS)} providers "
-            f"({len(PROVIDERS) - pending} verified, {pending} pending) "
+            f"({verified} verified, {pending} pending, {unverified} unverified), "
+            f"{len(SPONSOR_HOOKS)} sponsored, {story_count} stories and {len(BANNERS)} banners "
             f"around {CENTER_LAT}, {CENTER_LNG}."
         )
 

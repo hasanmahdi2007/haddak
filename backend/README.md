@@ -118,7 +118,7 @@ app/
   config.py          Settings read from environment variables / .env.
   db.py              Database connection; get_db gives each request a session.
   models.py          One class per table (Category, Provider, Review, ContactEvent,
-                     ProviderSuggestion).
+                     ProviderSuggestion, ProviderReport, Story, Banner, Follow).
   schemas.py         JSON shapes in and out, with validation (phone format, 1-5 rating...).
   auth.py            Checks login tokens (user id from "sub") and the admin key.
   rate_limit.py      Per-IP limits on write routes and suggestions, contact-event de-duplication.
@@ -126,11 +126,15 @@ app/
   static/admin.html  The founder's admin page, served at /admin.
   routers/
     categories.py    GET /categories
-    providers.py     Public: search, detail, by-slug, contact events
+    providers.py     Public: search, detail, by-slug, contact events, reports
     reviews.py       List reviews; create/update/delete my review
     me.py            My own profile: create, read, update, monthly stats
     suggestions.py   Public: suggest a provider who is not on Haddak yet
-    admin.py         List by status; verify / reject / feature; list / delete suggestions
+    posts.py         Stories and banners: post / delete mine, a provider's stories,
+                     stories nearby
+    follows.py       Follow / unfollow a provider, my following list, my feed
+    admin.py         List by status; verify / reject / feature; suggestions; reports;
+                     delete any story or banner
   services/
     search.py        The radius search query and its ranking
     ratings.py       Recalculates avg_rating and review_count from the reviews
@@ -138,12 +142,19 @@ app/
     geo.py           Helpers for map points (PostGIS wants longitude first)
     opening_hours.py "Open now" from a provider's opening hours (Beirut time)
     contact_stats.py Start of the stats month; the optional public contact count
+    posts.py         Which stories and banners are active now (filtered by time)
+    follows.py       Follower count, "do I follow this provider"
+    story_feed.py    Stories grouped by provider, for "nearby" and "my feed"
 alembic/             Migrations, as SQL matching SCHEMA.md:
                      versions/0001_initial_schema.py (the first four tables),
                      versions/0002_contact_count_hours_suggestions.py (two provider
-                     columns and the provider_suggestions table).
+                     columns and the provider_suggestions table),
+                     versions/0003_unverified_listings_reports.py (the unverified
+                     status, listings without an owner, provider_reports),
+                     versions/0004_stories_banners_follows_sponsor_hook.py (stories,
+                     banners, follows, providers.sponsor_hook).
 scripts/
-  seed.py            Fake categories, providers and reviews for development
+  seed.py            Fake categories, providers, reviews, stories and banners
   dev_token.py       Prints a login token for testing
 tests/               pytest; conftest.py has the database setup and helpers
 (CI)                 GitHub Actions workflow lives at ../.github/workflows/backend.yml
@@ -157,16 +168,44 @@ Things worth knowing:
 - **Why `GEOGRAPHY`.** The `location` column stores a point on the globe, so
   PostGIS measures distances in real metres. `provider.lat` / `provider.lng`
   are computed from it on every load (see the comment in `models.py`).
-- **Who can see what.** Public routes only ever return `verified` providers;
-  pending and rejected ones answer 404, as if they did not exist. Private
-  fields (`status`, `verification_doc_url`, `featured_until`) exist only in
-  the `OwnProvider` schema, which only the owner and admin routes return.
-- **Ranking.** Featured first, then a weighted rating, then distance. The
-  weighted rating is explained at the top of `services/search.py`.
+- **Provider statuses.** A provider can be listed without being verified:
+
+  | Status | Public? | Meaning |
+  |---|---|---|
+  | `unverified` | listed, no badge | No proof sent, or the proof was not accepted. |
+  | `pending` | listed, no badge | Proof sent, waiting for the founder. |
+  | `verified` | listed, with the badge | The founder checked the proof. |
+  | `rejected` | hidden (404) | Fake, abusive or duplicate. |
+
+  Search returns verified providers only unless `include_unverified=true`.
+  The public never receives the raw status, only `verified: true/false`.
+  Private fields (`status`, `verification_doc_url`, `featured_until`) exist
+  only in the `OwnProvider` schema, which only the owner and admin routes return.
+- **Ranking.** Verified first, then featured (sponsored), then a weighted
+  rating, then distance. Explained at the top of `services/search.py`.
+- **Stories and banners.** Only the owner of a verified provider may post. A
+  story lives 24 hours (at most 5 active per provider); a banner is the
+  provider's one current offer and runs 1 to 7 days. Nothing deletes expired
+  rows: the queries in `services/posts.py` simply filter them out by time.
+- **Follows.** A signed-in user can follow any public provider.
+  `GET /me/feed` shows the active stories of the providers they follow.
+- **Sponsored.** "Featured" is shown to users as "Sponsored": `sponsored` is
+  true for a verified provider whose `featured_until` has not passed. The
+  owner writes a one-sentence `sponsor_hook`; the public only receives it
+  while the provider is sponsored. The admin sets `featured_until` by hand
+  (no payments in the app yet).
+- **No N+1 queries.** A list of providers loads the stories and banners of the
+  whole page with two queries (`to_summaries` in `services/provider_views.py`),
+  not two per provider.
 - **Ratings stay correct.** Writing a review and updating the provider's
   average happen in one transaction, with the provider row locked, so two
   simultaneous reviews cannot leave a wrong average.
 - **Dates are UTC.** "Featured until" and "this month" in stats use the UTC date.
 - **Seed data.** Providers sit at exact distances from Haret Hreik
   (33.8547, 35.5097): 8 within 500 m, 7 more within 1 km, 11 more within 5 km,
-  4 further out (5.6, 9, 17 and 36 km), plus 2 pending ones that must never show up.
+  4 further out (5.6, 9, 17 and 36 km). Those 30 are verified; 4 of them are
+  sponsored. Plus 2 pending and 6 unverified ones within 1 km (3 of the
+  unverified have no owner: "listed by the community"), which only show up in
+  search with `include_unverified=true`. A few verified providers have active
+  stories and 3 have a banner; running the seed again refreshes them. Every
+  phone number is `+9610000xxxx`, which cannot be dialled.

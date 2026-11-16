@@ -73,7 +73,8 @@ def migrated_database():
     with engine.begin() as connection:
         connection.execute(
             text(
-                "DROP TABLE IF EXISTS provider_reports, provider_suggestions, contact_events, "
+                "DROP TABLE IF EXISTS follows, banners, stories, "
+                "provider_reports, provider_suggestions, contact_events, "
                 "reviews, providers, categories, alembic_version CASCADE"
             )
         )
@@ -88,7 +89,8 @@ def empty_tables(migrated_database):
     with engine.begin() as connection:
         connection.execute(
             text(
-                "TRUNCATE provider_reports, provider_suggestions, contact_events, reviews, "
+                "TRUNCATE follows, banners, stories, "
+                "provider_reports, provider_suggestions, contact_events, reviews, "
                 "providers, categories RESTART IDENTITY CASCADE"
             )
         )
@@ -176,6 +178,7 @@ def make_provider(
     opening_hours: dict | None = None,
     claimed: bool = True,
     source: str = "owner",
+    sponsor_hook: str | None = None,
 ) -> Provider:
     """Insert a provider exactly `distance_m` metres from the test centre.
 
@@ -199,6 +202,7 @@ def make_provider(
         featured_until=featured_until,
         show_contact_count=show_contact_count,
         opening_hours=opening_hours,
+        sponsor_hook=sponsor_hook,
     )
     db.add(provider)
     db.commit()

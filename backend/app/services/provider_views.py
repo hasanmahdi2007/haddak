@@ -4,14 +4,17 @@ Three levels, each adding fields to the one before:
   ProviderSummary -> ProviderDetail -> OwnProvider (owner and admin only).
 """
 
+import uuid
 from datetime import UTC, date, datetime
 
 from sqlalchemy.orm import Session
 
-from app.models import Provider
-from app.schemas import CategoryBrief, OwnProvider, ProviderDetail, ProviderSummary
+from app.models import Banner, Provider
+from app.schemas import BannerOut, CategoryBrief, OwnProvider, ProviderDetail, ProviderSummary
 from app.services.contact_stats import public_contact_count
+from app.services.follows import follower_count, is_following
 from app.services.opening_hours import is_open_now
+from app.services.posts import PostInfo, load_post_info
 
 
 def current_date() -> date:
@@ -24,7 +27,20 @@ def current_time() -> datetime:
     return datetime.now(UTC)
 
 
-def summary_fields(provider: Provider, distance_m: float | None) -> dict:
+def visible_banner(provider: Provider, posts: PostInfo) -> Banner | None:
+    """The provider's active banner, or None.
+
+    Posts are only shown while the provider is verified: if the badge is
+    taken away, the banner and the stories disappear with it.
+    """
+    if provider.status != "verified":
+        return None
+    return posts.banners.get(provider.id)
+
+
+def summary_fields(provider: Provider, distance_m: float | None, posts: PostInfo) -> dict:
+    """`posts` holds the active stories and banners of (at least) this provider.
+    The caller loads it once per response, see to_summaries()."""
     is_verified = provider.status == "verified"
     # "Featured" only counts for verified providers, here and in the ranking.
     is_featured = (
@@ -32,6 +48,7 @@ def summary_fields(provider: Provider, distance_m: float | None) -> dict:
         and provider.featured_until is not None
         and provider.featured_until >= current_date()
     )
+    banner = visible_banner(provider, posts)
     return {
         "id": provider.id,
         "slug": provider.slug,
@@ -52,11 +69,24 @@ def summary_fields(provider: Provider, distance_m: float | None) -> dict:
         "distance_m": None if distance_m is None else round(distance_m),
         "cover_photo_url": provider.photos[0] if provider.photos else None,
         "open_now": is_open_now(provider.opening_hours, current_time()),
+        # "Sponsored" is the name users see for "featured".
+        "sponsored": is_featured,
+        "sponsor_hook": provider.sponsor_hook if is_featured else None,
+        "has_active_story": is_verified and provider.id in posts.story_provider_ids,
+        "banner_title": banner.title if banner else None,
     }
 
 
-def detail_fields(db: Session, provider: Provider, distance_m: float | None) -> dict:
-    fields = summary_fields(provider, distance_m)
+def detail_fields(
+    db: Session,
+    provider: Provider,
+    distance_m: float | None,
+    viewer_id: uuid.UUID | None = None,
+) -> dict:
+    """`viewer_id` is the logged-in caller, if any; only used for is_following."""
+    posts = load_post_info(db, [provider.id], current_time())
+    banner = visible_banner(provider, posts)
+    fields = summary_fields(provider, distance_m, posts)
     fields.update(
         description=provider.description,
         phone=provider.phone,
@@ -68,21 +98,43 @@ def detail_fields(db: Session, provider: Provider, distance_m: float | None) -> 
         opening_hours=provider.opening_hours,
         # One small extra query, and only for providers who show their count.
         contacts_this_month=public_contact_count(db, provider),
+        active_banner=BannerOut.model_validate(banner) if banner else None,
+        follower_count=follower_count(db, provider.id),
+        is_following=is_following(db, viewer_id, provider.id),
     )
     return fields
 
 
-def to_summary(provider: Provider, distance_m: float | None) -> ProviderSummary:
-    return ProviderSummary(**summary_fields(provider, distance_m))
+def to_summaries(db: Session, rows: list[tuple[Provider, float | None]]) -> list[ProviderSummary]:
+    """Convert a whole list of (provider, distance) rows.
+
+    The stories and banners of all of them are loaded together (two queries
+    in total), not one by one: a page of 30 results costs the same number of
+    queries as a page of 1.
+    """
+    provider_ids = [provider.id for provider, _ in rows]
+    posts = load_post_info(db, provider_ids, current_time())
+    return [
+        ProviderSummary(**summary_fields(provider, distance_m, posts))
+        for provider, distance_m in rows
+    ]
 
 
-def to_detail(db: Session, provider: Provider, distance_m: float | None = None) -> ProviderDetail:
-    return ProviderDetail(**detail_fields(db, provider, distance_m))
+def to_detail(
+    db: Session,
+    provider: Provider,
+    distance_m: float | None = None,
+    viewer_id: uuid.UUID | None = None,
+) -> ProviderDetail:
+    return ProviderDetail(**detail_fields(db, provider, distance_m, viewer_id))
 
 
 def to_own(db: Session, provider: Provider) -> OwnProvider:
+    fields = detail_fields(db, provider, None)
+    # The owner (and the admin) always see the stored hook, sponsored or not.
+    fields["sponsor_hook"] = provider.sponsor_hook
     return OwnProvider(
-        **detail_fields(db, provider, None),
+        **fields,
         status=provider.status,
         source=provider.source,
         featured_until=provider.featured_until,

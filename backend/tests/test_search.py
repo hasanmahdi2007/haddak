@@ -83,7 +83,8 @@ def test_summary_has_contract_fields_and_no_private_ones(client, db):
     assert set(item) == {
         "id", "slug", "name", "category", "area_name", "price_text", "avg_rating",
         "review_count", "verified", "claimed", "founding_member", "featured", "lat", "lng",
-        "distance_m", "cover_photo_url", "open_now",
+        "distance_m", "cover_photo_url", "open_now", "sponsored", "sponsor_hook",
+        "has_active_story", "banner_title",
     }  # fmt: skip
     assert set(item["category"]) == {"id", "slug", "name_en", "name_ar", "icon"}
     assert item["verified"] is True

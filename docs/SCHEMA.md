@@ -41,7 +41,8 @@ CREATE TABLE providers (
     show_contact_count    BOOLEAN NOT NULL DEFAULT FALSE,   -- owner's choice: show "contacts this month" publicly
     opening_hours         JSONB,                    -- null means hours not provided; shape below
     source                TEXT NOT NULL DEFAULT 'owner'     -- who created the listing
-                          CHECK (source IN ('owner', 'suggestion'))
+                          CHECK (source IN ('owner', 'suggestion')),
+    sponsor_hook          TEXT CHECK (char_length(sponsor_hook) <= 80)   -- one-sentence pitch, shown only while sponsored
 );
 CREATE INDEX providers_location_idx ON providers USING GIST (location);
 CREATE INDEX providers_category_status_idx ON providers (category_id, status);
@@ -92,9 +93,41 @@ CREATE TABLE provider_reports (
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX provider_reports_provider_idx ON provider_reports (provider_id);
+
+-- A short post by a verified provider. Shown for 24 hours, then simply
+-- filtered out by time (rows are not deleted by any background job).
+CREATE TABLE stories (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider_id  UUID NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+    text         TEXT NOT NULL CHECK (char_length(text) BETWEEN 1 AND 280),
+    image_url    TEXT,                               -- https only (checked by the API)
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at   TIMESTAMPTZ NOT NULL                -- created_at + 24 hours
+);
+CREATE INDEX stories_provider_expires_idx ON stories (provider_id, expires_at);
+
+-- A provider's current offer ("weekly banner", "discount"). At most one row
+-- per provider: the provider id is the primary key, a new banner replaces the old.
+CREATE TABLE banners (
+    provider_id       UUID PRIMARY KEY REFERENCES providers(id) ON DELETE CASCADE,
+    title             TEXT NOT NULL CHECK (char_length(title) BETWEEN 1 AND 60),
+    text              TEXT CHECK (char_length(text) <= 200),
+    discount_percent  SMALLINT CHECK (discount_percent BETWEEN 1 AND 90),
+    starts_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at        TIMESTAMPTZ NOT NULL           -- starts_at + 1 to 7 days
+);
+
+-- "This user follows this provider". user_id is the Supabase auth user id.
+CREATE TABLE follows (
+    user_id      UUID NOT NULL,
+    provider_id  UUID NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, provider_id)
+);
+CREATE INDEX follows_provider_idx ON follows (provider_id);   -- for follower counts
 ```
 
-Migrations: `0001` created the first four tables; `0002` added `providers.show_contact_count`, `providers.opening_hours` and the `provider_suggestions` table; `0003` added the `unverified` status, made `providers.owner_user_id` nullable, and added `providers.source`, `provider_suggestions.lat` / `lng` and the `provider_reports` table.
+Migrations: `0001` created the first four tables; `0002` added `providers.show_contact_count`, `providers.opening_hours` and the `provider_suggestions` table; `0003` added the `unverified` status, made `providers.owner_user_id` nullable, and added `providers.source`, `provider_suggestions.lat` / `lng` and the `provider_reports` table; `0004` added `providers.sponsor_hook` and the `stories`, `banners` and `follows` tables.
 
 ### `providers.status`
 
@@ -133,7 +166,10 @@ A missing day (or an empty list) means closed that day. `NULL` for the whole col
 - A provider cannot review their own profile.
 - `verification_doc_url`, `owner_user_id` and `status` of other people's profiles are never returned publicly.
 - Only the admin changes `status`, `founding_member` and `featured_until`.
-- "Featured" means `featured_until >= today`.
+- "Featured" means `featured_until >= today`. Users see it as "Sponsored": `sponsored` is true for a verified provider that is featured. There are no payments in the app yet; the admin sets the date by hand.
+- `sponsor_hook` is written by the owner, but the public only receives it while the provider is sponsored.
+- Stories and banners: only the owner of a `verified` provider may post. A story is active while `expires_at > now` (24 hours); at most 5 active stories per provider. A banner is active while `starts_at <= now < expires_at`; one per provider. Expired rows are filtered out by time, never deleted by a job. Posts of a provider that is no longer `verified` are hidden everywhere public.
+- Follows: any signed-in user may follow any public (not `rejected`) provider. Rejected providers are left out of the following list and the feed.
 - Contact events are always counted. The public sees a provider's monthly contact count (`whatsapp` + `call`, never views) only when that provider set `show_contact_count`.
 - "Open now" is computed from `opening_hours` in the `Asia/Beirut` timezone; it is not stored.
 - Suggestions and reports are anonymous: no user id and no IP address is stored with them.
@@ -154,4 +190,4 @@ Inputs: `lat`, `lng`, `radius_m`, optional `category_id` (matches the category o
 
 ## Seed data (development only)
 
-About 12 top-level categories with a few children each, and 30 fake verified providers around Haret Hreik (33.8547, 35.5097) and wider Beirut, at known distances so the radius tests are exact. Plus 6 non-verified ones within 1 km of the centre, so the "include unverified" switch visibly changes results: 4 `unverified` (2 of them `source = 'suggestion'` with no owner) and 2 `pending`.
+About 12 top-level categories with a few children each, and 30 fake verified providers around Haret Hreik (33.8547, 35.5097) and wider Beirut, at known distances so the radius tests are exact. Plus 8 non-verified ones within about 1 km of the centre, so the "include unverified" switch visibly changes results: 6 `unverified` (3 of them `source = 'suggestion'` with no owner) and 2 `pending`. 4 verified providers are sponsored (future `featured_until` and a `sponsor_hook`); a handful of verified providers have active stories and 3 have an active banner.

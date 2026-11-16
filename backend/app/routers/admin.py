@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import require_admin
 from app.db import get_db
-from app.models import Provider, ProviderReport, ProviderSuggestion
+from app.models import Banner, Provider, ProviderReport, ProviderSuggestion, Story
 from app.routers.me import generate_slug, require_category
 from app.schemas import (
     AdminProviderUpdate,
@@ -189,5 +189,28 @@ def delete_report(report_id: uuid.UUID, db: Session = Depends(get_db)):
     if report is None:
         raise HTTPException(status_code=404, detail="Report not found")
     db.delete(report)
+    db.commit()
+    return Response(status_code=204)
+
+
+@router.delete("/stories/{story_id}", status_code=204)
+def delete_story(story_id: uuid.UUID, db: Session = Depends(get_db)):
+    """Remove any story (e.g. an offensive one)."""
+    story = db.get(Story, story_id)
+    if story is None:
+        raise HTTPException(status_code=404, detail="Story not found")
+    db.delete(story)
+    db.commit()
+    return Response(status_code=204)
+
+
+@router.delete("/providers/{provider_id}/banner", status_code=204)
+def delete_banner(provider_id: uuid.UUID, db: Session = Depends(get_db)):
+    """Remove a provider's banner. A banner has no id of its own: there is at
+    most one per provider, so the provider id identifies it."""
+    banner = db.get(Banner, provider_id)
+    if banner is None:
+        raise HTTPException(status_code=404, detail="Banner not found")
+    db.delete(banner)
     db.commit()
     return Response(status_code=204)
