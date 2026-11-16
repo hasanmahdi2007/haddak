@@ -23,11 +23,13 @@
 - Every profile view, WhatsApp tap and call tap is counted per provider.
 - Approval, founding-member and featured status are set by the admin through a simple approval page served by the API at `/admin` (protected by the admin key).
 - Search by provider name (plain text match, no AI) alongside category and radius.
+- **Assistant (added 2026-11-16):** say or type the need in your own words; one AI request turns it into a search (category, place, radius, price limit, open now). Our code searches and shows the list; WhatsApp opens with a ready message. Full rules and cost limits in `AI_ASSISTANT.md`.
+- Structured prices (amount, per what, currency) so search can filter by price.
 - Protection for the numbers: rate limits on write routes, and a repeated tap from the same phone counts once per 10 minutes.
 
 ## Not in version 1
 
-- AI search or chatbot
+- Open AI chat (the assistant in version 1 only turns a sentence into a search; see `AI_ASSISTANT.md`)
 - In-app chat
 - Payments, subscriptions, commission
 - Third-party ads
@@ -39,7 +41,7 @@
 ## Roadmap after version 1
 
 1. **Publish on Google Play** once the first area has enough providers.
-2. **AI search.** A typed sentence in English, Arabic or mixed ("my laptop won't turn on, I'm in Haret Hreik") becomes the same category, location and radius filters. Added inside the FastAPI project.
+2. **Assistant, next steps:** hold-to-talk button in the store build, full GeoNames place list, chat about one provider, menus with item prices (see `AI_ASSISTANT.md` → Later).
 3. **Featured placement payments**, manual first, automated later.
 4. **Admin panel** for approvals and featured status.
 5. **Price menus** as structured items, more photos, provider statistics page.

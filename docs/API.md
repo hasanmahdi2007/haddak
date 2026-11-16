@@ -129,10 +129,67 @@ A provider can be listed without being verified.
 | `category_id` | int | optional; includes child categories |
 | `q` | string | optional, 2 to 60 characters; keeps providers whose name contains it (case-insensitive). Works together with `category_id`. |
 | `include_unverified` | bool | default `false`: verified providers only. `true`: also `unverified` and `pending` ones (never `rejected`). |
+| `max_price` | number | optional (> 0); keeps only providers with a structured price `price_amount <= max_price`. Needs `price_unit`; `price_currency` defaults to `USD`. Providers without a structured price are left out when this is set. |
+| `price_unit` | string | `hour`, `visit`, `job`, `item`, `month`; required with `max_price`, ignored without it |
+| `price_currency` | string | `USD` (default) or `LBP` |
+| `open_now` | bool | default `false`; `true` keeps providers whose opening hours say open now (Beirut time). Providers with no hours are left out. |
+| `sort` | string | `best` (default, the order below) or `distance` (nearest first; verified still before non-verified) or `price` (cheapest structured price first, then the default order) |
 | `limit` | int | default 30, max 100 |
 | `offset` | int | default 0 |
 
 Response: `{"items": [ProviderSummary], "total": n}`. Order: all verified providers before all non-verified ones; inside each group featured first, then weighted rating, then distance (see `SCHEMA.md`). Featured placement only counts for verified providers.
+
+### `POST /assist` (assistant, see `AI_ASSISTANT.md`)
+
+No login needed. Rate limit: `ASSIST_DAILY_LIMIT` (default 30) per IP per day, counted only for requests that reach the AI.
+
+Request, either a sentence:
+
+```json
+{ "text": "baddé sankari 2arib", "lat": 33.85, "lng": 35.52, "lang": "ar" }
+```
+
+or a chosen clarify option (no AI request is made; the settings are searched directly):
+
+```json
+{ "understood": { ...Understood... }, "lat": 33.85, "lng": 35.52, "lang": "ar" }
+```
+
+`text` 2–300 characters. `lang` (`ar` or `en`) picks the language of `summary`.
+
+`Understood` (what the AI returns, after the backend checks it):
+
+```json
+{
+  "category_slugs": ["plumber"],            // only slugs that exist; may be empty when q is set
+  "q": null,                                // optional name keyword
+  "place": null,                            // or {"slug","name_en","name_ar","lat","lng"} after the lookup
+  "radius_m": 1000,                         // 500, 1000, 5000 or 20000
+  "max_price": null, "price_unit": null, "price_currency": "USD",
+  "open_now": false,
+  "sort": "best"                            // best | distance | price
+}
+```
+
+Response:
+
+```json
+{
+  "kind": "results",        // results | clarify | emergency | off_topic | unavailable
+  "understood": { ... } | null,
+  "summary": "Plumber · near you · 1 km",   // built from a template, not by the AI
+  "results": { "items": [ProviderSummary], "total": 4 } | null,
+  "widened": false,         // true when nothing was found and the radius was widened once (1 km → 5 km → 20 km)
+  "question": null,         // clarify: {"text": "...", "options": [{"label": "...", "understood": {...}}]}
+  "place_options": null,    // two places share the name: [{"slug","name_en","name_ar","district"}]
+  "place_unknown": null,    // the place name we could not find; the search used the phone location
+  "whatsapp_draft": "مرحبا، لقيتك على حدّك. عندي تسريب مي…" | null
+}
+```
+
+- `unavailable`: no API key, monthly cap reached, or the AI failed. The app then runs a normal name search with the text.
+- `emergency`: the app shows its own built-in emergency numbers. `off_topic`: the app shows one fixed polite line.
+- The AI request is sent only the sentence and the category list. The phone location never leaves the backend.
 
 ### `POST /providers/{id}/reports`
 
