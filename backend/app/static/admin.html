@@ -111,6 +111,7 @@
       <button type="button" data-status="suggestions">Suggestions</button>
       <button type="button" data-status="reports">Reports</button>
       <button type="button" data-status="posts">Posts</button>
+      <button type="button" data-status="wanted">Wanted</button>
     </div>
     <div id="list"></div>
   </section>
@@ -121,7 +122,7 @@
 
 // The admin key. Memory only: never saved to browser storage or cookies.
 let adminKey = "";
-// Which tab is open: a profile status, "suggestions", "reports" or "posts".
+// Which tab is open: a profile status, "suggestions", "reports", "posts" or "wanted".
 let currentStatus = "pending";
 // The category list for the Publish form. Loaded once, the first time the
 // Suggestions tab is opened.
@@ -239,6 +240,15 @@ async function loadList() {
       data = await callApi("GET", "/reports?limit=100");
       renderItem = renderReport;
       doneText = countMessage(data, "reports");
+    } else if (currentStatus === "wanted") {
+      // What people asked the assistant for and did not find, plus AI spending.
+      const wanted = await callApi("GET", "/assist/wanted");
+      keyPanel.hidden = true;
+      listPanel.hidden = false;
+      lockButton.hidden = false;
+      renderWanted(wanted);
+      showMessage(wanted.items.length === 0 ? "Nothing unmatched in the last 30 days." : wanted.items.length + " unmatched requests in the last 30 days.", false);
+      return;
     } else if (currentStatus === "posts") {
       // Two read-only lists: active stories and active banners.
       const stories = await callApi("GET", "/stories");
@@ -596,6 +606,39 @@ function renderPosts(stories, banners) {
   list.appendChild(element("h3", "Active banners"));
   if (banners.length === 0) list.appendChild(element("p", "No active banners.", "muted"));
   banners.forEach(function (banner) { list.appendChild(renderBanner(banner)); });
+  tabButtons.forEach(function (button) {
+    button.setAttribute("aria-pressed", String(button.dataset.status === currentStatus));
+  });
+}
+
+// The Wanted tab. The texts were typed by anonymous visitors, so, like
+// everything else here, they only ever go in through element() (textContent).
+function renderWanted(data) {
+  list.replaceChildren();
+
+  const spend = element("div", null, "card");
+  spend.appendChild(element("h3", "Assistant spending, " + data.month));
+  const table = element("dl");
+  addRow(table, "Spent", element("span", "$" + Number(data.month_spend_usd).toFixed(4) + " of $" + Number(data.month_budget_usd).toFixed(2)));
+  addRow(table, "AI requests", element("span", data.month_ai_requests));
+  spend.appendChild(table);
+  list.appendChild(spend);
+
+  list.appendChild(element("h3", "Most wanted (no results, last 30 days)"));
+  if (data.items.length === 0) list.appendChild(element("p", "Nothing yet.", "muted"));
+  data.items.forEach(function (item) {
+    const card = element("div", null, "card");
+    card.appendChild(element("strong", item.text));
+    card.appendChild(element("p", "Asked " + item.count + (item.count === 1 ? " time" : " times") + ", last on " + formatDate(item.last_seen), "muted"));
+    list.appendChild(card);
+  });
+
+  list.appendChild(element("h3", "Places we could not find"));
+  if (data.unknown_places.length === 0) list.appendChild(element("p", "None.", "muted"));
+  data.unknown_places.forEach(function (place) {
+    list.appendChild(element("p", place.name + " (" + place.count + ")"));
+  });
+
   tabButtons.forEach(function (button) {
     button.setAttribute("aria-pressed", String(button.dataset.status === currentStatus));
   });

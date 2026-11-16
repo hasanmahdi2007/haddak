@@ -56,6 +56,9 @@ def summary_fields(provider: Provider, distance_m: float | None, posts: PostInfo
         "category": CategoryBrief.model_validate(provider.category),
         "area_name": provider.area_name,
         "price_text": provider.price_text,
+        "price_amount": None if provider.price_amount is None else float(provider.price_amount),
+        "price_unit": provider.price_unit,
+        "price_currency": provider.price_currency,
         "avg_rating": float(provider.avg_rating),
         "review_count": provider.review_count,
         # The public never gets the raw status: 'pending' and 'unverified'

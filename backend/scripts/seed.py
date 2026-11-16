@@ -203,8 +203,10 @@ PROVIDERS = [
     ("ghobeiry-laptops", "Ghobeiry Laptop Clinic", "laptop-repair", "Ghobeiry", 850, 350, 3, 3.7, "Diagnosis free", set()),
     ("dr-samer-dental", "Dr. Samer Fakih - Dentist", "dentist", "Bourj el Barajneh", 930, 215, 33, 4.5, "Check-up $20", set()),
     ("physics-with-omar", "Physics with Omar", "physics-tutoring", "Rouweiss", 980, 120, 9, 4.6, "$18 per hour", {"was-featured"}),
+    ("english-with-rana", "Rana's English Lessons", "english-tutoring", "Haret Hreik", 450, 280, 4, 4.6, "$30 per hour", set()),
     # --- 1 km to 5 km ---
-    ("chiyah-carpentry", "Chiyah Carpentry", "carpenter", "Chiyah", 1200, 45, 11, 4.4, None, set()),
+    ("chiyah-carpentry", "Chiyah Carpentry", "carpenter", "Chiyah", 1200, 45, 11, 4.4, "From 1,500,000 LL", set()),
+    ("math-with-georges", "Georges - Math and Physics Tutor", "math-tutoring", "Badaro", 2400, 20, 11, 4.7, "$25 per hour", set()),
     ("mreijeh-motors", "Mreijeh Motors", "mechanic", "Mreijeh", 1400, 155, 22, 4.1, "Oil change $20", set()),
     ("cool-air-ac", "Cool Air", "ac-repair", "Bir Hassan", 1600, 295, 17, 4.6, "Service from $20", {"founding"}),
     ("guitar-zone", "Guitar Zone", "guitar-lessons", "Laylaki", 2100, 150, 6, 4.8, "$15 per lesson", set()),
@@ -231,6 +233,46 @@ PROVIDERS = [
     ("unv-french-nadine", "French with Nadine", "french-tutoring", "Rouweiss", 810, 160, 1, 5.0, "$12 per hour", {"unverified"}),
     ("unv-shoe-repair", "Abu Mahmoud Shoe Repair", "shoe-repair", "Bourj el Barajneh", 950, 230, 0, 0, None, {"unverified", "community"}),
 ]  # fmt: skip
+
+# Structured prices (what search filters and sorts on): slug -> (amount,
+# unit, currency). price_text above stays the description shown on the
+# profile. Lessons and training per hour, doctors and home visits per visit,
+# repairs and services per job, products per item. Tutors on both sides of
+# $20/hour, so "a tutor under $20 an hour" has something to find and to skip.
+# Providers missing here have no structured price.
+STRUCTURED_PRICES = {
+    "ali-tech": (10, "job", "USD"),
+    "hadi-sax": (20, "hour", "USD"),
+    "dr-rima-skin": (30, "visit", "USD"),
+    "abu-hassan-plumbing": (15, "visit", "USD"),
+    "maya-math": (15, "hour", "USD"),
+    "fix-phone-hh": (25, "job", "USD"),
+    "studio-lina-art": (12, "hour", "USD"),
+    "karim-electric": (10, "visit", "USD"),
+    "piano-with-nour": (25, "hour", "USD"),
+    "salon-jad": (5, "item", "USD"),
+    "dr-samer-dental": (20, "visit", "USD"),
+    "physics-with-omar": (18, "hour", "USD"),
+    "english-with-rana": (30, "hour", "USD"),
+    "chiyah-carpentry": (1500000, "job", "LBP"),
+    "math-with-georges": (25, "hour", "USD"),
+    "mreijeh-motors": (20, "job", "USD"),
+    "cool-air-ac": (20, "job", "USD"),
+    "guitar-zone": (15, "hour", "USD"),
+    "cake-house-chebbak": (18, "item", "USD"),
+    "english-with-sara": (15, "hour", "USD"),
+    "hadath-fit": (12, "hour", "USD"),
+    "achrafieh-oud": (30, "hour", "USD"),
+    "baabda-lens": (50, "job", "USD"),
+    "verdun-derma": (40, "visit", "USD"),
+    "hamra-laptops": (15, "job", "USD"),
+    "khalde-car-wash": (5, "item", "USD"),
+    "jounieh-piano": (30, "hour", "USD"),
+    "pending-yoga": (10, "hour", "USD"),
+    "unv-mobile-fix": (20, "job", "USD"),
+    "unv-barber-rami": (4, "item", "USD"),
+    "unv-french-nadine": (12, "hour", "USD"),
+}
 
 # One-sentence pitch of the four sponsored ("featured") providers.
 SPONSOR_HOOKS = {
@@ -399,6 +441,10 @@ def seed_provider(
         "This is sample text for development; real providers write their own."
     )
     provider.price_text = price
+    amount, unit, currency = STRUCTURED_PRICES.get(slug, (None, None, "USD"))
+    provider.price_amount = amount
+    provider.price_unit = unit
+    provider.price_currency = currency
     # Sample numbers must never reach a real person. Lebanese numbers never
     # start with 0 after +961, so +9610000xxxx cannot be dialled or messaged.
     provider.phone = f"+9610000{1000 + number}"
@@ -512,9 +558,11 @@ def main() -> None:
         unverified = sum(1 for row in PROVIDERS if "unverified" in row[9])
         verified = len(PROVIDERS) - pending - unverified
         story_count = sum(len(stories) for stories in STORIES.values())
+        priced = sum(1 for row in PROVIDERS if row[0] in STRUCTURED_PRICES)
         print(
             f"Seeded {len(categories)} categories and {len(PROVIDERS)} providers "
-            f"({verified} verified, {pending} pending, {unverified} unverified), "
+            f"({verified} verified, {pending} pending, {unverified} unverified; "
+            f"{priced} with a structured price), "
             f"{len(SPONSOR_HOOKS)} sponsored, {story_count} stories and {len(BANNERS)} banners "
             f"around {CENTER_LAT}, {CENTER_LNG}."
         )

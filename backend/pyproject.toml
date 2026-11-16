@@ -16,6 +16,10 @@ ignore = ["B008"]
 [tool.ruff.lint.per-file-ignores]
 # The seed data is written as wide table rows; wrapping them hurts readability.
 "scripts/seed.py" = ["E501"]
+# The assistant's instructions are prose, one paragraph per line, and the
+# place list is wide table rows, like the seed data.
+"app/services/assist/prompt.py" = ["E501"]
+"alembic/versions/0006_places_and_assistant.py" = ["E501"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]

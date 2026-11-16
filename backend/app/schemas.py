@@ -57,6 +57,20 @@ def check_opening_hours(hours: dict | None) -> dict | None:
     return hours
 
 
+# ----- Structured prices -----
+# What a price is for, and its currency. Search filters on these.
+PriceUnit = Literal["hour", "visit", "job", "item", "month"]
+PriceCurrency = Literal["USD", "LBP"]
+# Upper bound only to catch typos (an extra zero or two); LBP prices are big.
+MAX_PRICE_AMOUNT = 100_000_000
+
+
+def check_price_pair(amount: float | None, unit: str | None) -> None:
+    """price_amount and price_unit go together: both set or both empty."""
+    if (amount is None) != (unit is None):
+        raise ValueError("price_amount and price_unit must be sent together")
+
+
 def blank_to_none(value: object) -> object:
     """Runs before the normal checks: "" or "   " is treated like null.
 
@@ -150,6 +164,10 @@ class ProviderSummary(BaseModel):
     category: CategoryBrief
     area_name: str
     price_text: str | None
+    # Structured price; amount and unit are both None when not given.
+    price_amount: float | None
+    price_unit: str | None
+    price_currency: str
     avg_rating: float
     review_count: int
     verified: bool  # True only for status 'verified': the founder checked proof
@@ -245,11 +263,19 @@ class ProviderCreate(BaseModel):
     show_contact_count: bool = False
     opening_hours: OpeningHours | None = None
     sponsor_hook: str | None = Field(default=None, max_length=80)
+    price_amount: float | None = Field(default=None, gt=0, le=MAX_PRICE_AMOUNT)
+    price_unit: PriceUnit | None = None
+    price_currency: PriceCurrency = "USD"
 
     _blank_hook = field_validator("sponsor_hook", mode="before")(blank_to_none)
     _phones = field_validator("phone", "whatsapp")(check_phone)
     _photos = field_validator("photos")(check_photo_urls)
     _hours = field_validator("opening_hours")(check_opening_hours)
+
+    @model_validator(mode="after")
+    def price_amount_and_unit_together(self) -> "ProviderCreate":
+        check_price_pair(self.price_amount, self.price_unit)
+        return self
 
 
 class ProviderUpdate(BaseModel):
@@ -271,6 +297,12 @@ class ProviderUpdate(BaseModel):
     show_contact_count: bool | None = None
     opening_hours: OpeningHours | None = None
     sponsor_hook: str | None = Field(default=None, max_length=80)
+    # price_amount and price_unit may be cleared with null (both together);
+    # whether the pair still matches after the update is checked in the
+    # router, because one of them may already be stored.
+    price_amount: float | None = Field(default=None, gt=0, le=MAX_PRICE_AMOUNT)
+    price_unit: PriceUnit | None = None
+    price_currency: PriceCurrency | None = None
 
     _blank_hook = field_validator("sponsor_hook", mode="before")(blank_to_none)
     _phones = field_validator("phone", "whatsapp")(check_phone)
@@ -279,8 +311,8 @@ class ProviderUpdate(BaseModel):
 
     @model_validator(mode="after")
     def required_fields_not_null(self) -> "ProviderUpdate":
-        # price_text, whatsapp, verification_doc_url, opening_hours and
-        # sponsor_hook may be cleared with null.
+        # price_text, whatsapp, verification_doc_url, opening_hours,
+        # sponsor_hook, price_amount and price_unit may be cleared with null.
         reject_nulls(
             self,
             {
@@ -293,6 +325,7 @@ class ProviderUpdate(BaseModel):
                 "area_name",
                 "photos",
                 "show_contact_count",
+                "price_currency",
             },
         )
         return self
@@ -306,10 +339,14 @@ class AdminProviderUpdate(BaseModel):
     status: ProviderStatus | None = None
     founding_member: bool | None = None
     featured_until: date | None = None  # null removes "featured"
+    # The admin can correct a structured price (same rules as the owner's).
+    price_amount: float | None = Field(default=None, gt=0, le=MAX_PRICE_AMOUNT)
+    price_unit: PriceUnit | None = None
+    price_currency: PriceCurrency | None = None
 
     @model_validator(mode="after")
     def required_fields_not_null(self) -> "AdminProviderUpdate":
-        reject_nulls(self, {"status", "founding_member"})
+        reject_nulls(self, {"status", "founding_member", "price_currency"})
         return self
 
 
@@ -510,3 +547,128 @@ class AdminBannerOut(BaseModel):
 
 class AdminBannerList(BaseModel):
     items: list[AdminBannerOut]
+
+
+# ---------- Assistant (POST /assist, see docs/AI_ASSISTANT.md) ----------
+
+SortChoice = Literal["best", "distance", "price"]
+AssistKind = Literal["results", "clarify", "emergency", "off_topic", "unavailable"]
+
+
+class PlaceOut(BaseModel):
+    """A place the search was centred on."""
+
+    slug: str
+    name_en: str
+    name_ar: str
+    lat: float
+    lng: float
+
+
+class PlaceOption(BaseModel):
+    """One of several places that share a name, for the user to choose."""
+
+    slug: str
+    name_en: str
+    name_ar: str
+    district: str
+
+
+class Understood(BaseModel):
+    """The search settings the assistant settled on (after the backend's checks)."""
+
+    category_slugs: list[str]
+    q: str | None
+    place: PlaceOut | None
+    radius_m: int  # 500, 1000, 5000 or 20000
+    max_price: float | None
+    price_unit: PriceUnit | None
+    price_currency: PriceCurrency
+    open_now: bool
+    sort: SortChoice
+
+
+class PlaceRefIn(BaseModel):
+    """A place sent back by the app: only the slug counts (other fields that
+    the app echoes back, like the coordinates, are ignored)."""
+
+    slug: str = Field(min_length=1, max_length=100)
+
+
+class UnderstoodIn(BaseModel):
+    """The `understood` request form: settings the app got from us earlier
+    (a clarify option, or a place button). Checked again like AI output."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    category_slugs: list[str] = Field(default_factory=list, max_length=10)
+    q: str | None = Field(default=None, max_length=60)
+    place: PlaceRefIn | None = None
+    radius_m: int = Field(default=1000, ge=100, le=50000)
+    max_price: float | None = Field(default=None, gt=0, le=MAX_PRICE_AMOUNT)
+    price_unit: PriceUnit | None = None
+    price_currency: PriceCurrency = "USD"
+    open_now: bool = False
+    sort: SortChoice = "best"
+
+
+class AssistIn(BaseModel):
+    """Either `text` (a sentence) or `understood` (settings), not both."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    text: str | None = Field(default=None, min_length=2, max_length=300)
+    understood: UnderstoodIn | None = None
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+    lang: Literal["ar", "en"] = "en"  # language of `summary`
+
+    @model_validator(mode="after")
+    def text_or_understood(self) -> "AssistIn":
+        if (self.text is None) == (self.understood is None):
+            raise ValueError("send either text or understood")
+        return self
+
+
+class ClarifyOptionOut(BaseModel):
+    label: str
+    understood: Understood
+
+
+class ClarifyQuestionOut(BaseModel):
+    text: str
+    options: list[ClarifyOptionOut]
+
+
+class AssistOut(BaseModel):
+    kind: AssistKind
+    understood: Understood | None
+    summary: str  # built by our own templates, never by the AI
+    results: ProviderSearchResult | None
+    widened: bool  # nothing was found, so the radius was made bigger
+    question: ClarifyQuestionOut | None
+    place_options: list[PlaceOption] | None
+    place_unknown: str | None
+    whatsapp_draft: str | None
+
+
+class WantedItem(BaseModel):
+    text: str
+    count: int
+    last_seen: datetime
+
+
+class UnknownPlaceItem(BaseModel):
+    name: str
+    count: int
+
+
+class AssistWanted(BaseModel):
+    """GET /admin/assist/wanted: what people asked for and did not find."""
+
+    month: str  # e.g. "2026-11"
+    month_spend_usd: float
+    month_budget_usd: float
+    month_ai_requests: int
+    items: list[WantedItem]
+    unknown_places: list[UnknownPlaceItem]

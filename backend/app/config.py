@@ -46,6 +46,19 @@ class Settings(BaseSettings):
     # further left can be faked by the client and are ignored.
     proxy_hops: int = 1
 
+    # ----- Assistant (POST /assist, see docs/AI_ASSISTANT.md) -----
+    # Read from the environment (or .env) only, never written to logs.
+    # Empty = the assistant answers "unavailable" and the app falls back to
+    # normal search.
+    anthropic_api_key: str = ""
+    # The cheapest model on purpose (the founder's choice). Switch to
+    # "claude-sonnet-5-5" only if the phrase test shows Haiku misses too much.
+    assist_model: str = "claude-haiku-5-5"
+    # AI requests per IP per day. Requests answered without the AI do not count.
+    assist_daily_limit: int = 30
+    # Spending cap per calendar month (UTC), in US dollars.
+    assist_monthly_budget_usd: float = 10.0
+
     @field_validator("database_url")
     @classmethod
     def use_psycopg3_driver(cls, value: str) -> str:

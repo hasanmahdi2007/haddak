@@ -81,7 +81,8 @@ def test_summary_has_contract_fields_and_no_private_ones(client, db):
     item = search(client)["items"][0]
 
     assert set(item) == {
-        "id", "slug", "name", "category", "area_name", "price_text", "avg_rating",
+        "id", "slug", "name", "category", "area_name", "price_text", "price_amount",
+        "price_unit", "price_currency", "avg_rating",
         "review_count", "verified", "claimed", "founding_member", "featured", "lat", "lng",
         "distance_m", "cover_photo_url", "open_now", "sponsored", "sponsor_hook",
         "has_active_story", "banner_title",

@@ -31,6 +31,10 @@ Status: `todo`, `doing`, `done`, `blocked`. Update the status when a task change
 | B13 | Request logging | done | One line per request, no secrets |
 | B14 | Dockerfile and deploy notes | done | Image builds and answers `/health` |
 | B15 | Refuse to start in production with placeholder secrets | done | Test |
+| B16 | Structured prices (migration 0005) and search filters `max_price`, `open_now`, `sort` | done | Tests in `test_prices.py` |
+| B17 | `places` table with ~80 hand-placed towns and neighbourhoods, fuzzy lookup (migration 0006) | done (coordinates approximate; GeoNames import later) | Tests: recentre, two Jdeideh, unknown place |
+| B18 | `POST /assist` with cache, daily limit, monthly budget, `assist_log`; admin `GET /admin/assist/wanted` and Wanted tab | done (real model untested) | Tests in `test_assist.py`, AI client mocked |
+| B19 | Assistant phrase test: `evals/assist_phrases.jsonl` (102 phrases) and `scripts/eval_assist.py` | built, not run (needs a key, costs money) | Founder runs it once a key exists |
 
 ## Mobile (mobile subagent) — works in `mobile/` only
 
@@ -57,3 +61,4 @@ Design comes first and uses the installed design plugins (`impeccable`, `design:
 | F2 | Create a free Supabase project; share the project URL, anon key and JWT settings | todo |
 | F3 | Install Expo Go on an Android phone for testing | done |
 | F4 | Pick the first area and 3–4 starting categories; list the first 20 providers to approach | todo |
+| F5 | Create a Claude API key (console.anthropic.com) with a spending limit; put it in `backend/.env` as `ANTHROPIC_API_KEY`; then run `python scripts/eval_assist.py` once (well under $1) | todo |

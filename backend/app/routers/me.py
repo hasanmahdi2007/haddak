@@ -50,6 +50,19 @@ def require_category(db: Session, category_id: int) -> None:
         raise HTTPException(status_code=400, detail="Unknown category_id")
 
 
+def require_price_pair(provider: Provider) -> None:
+    """After an update: price_amount and price_unit are both set or both empty.
+
+    Checked on the provider (not only on the body) because a PATCH may send
+    one of them while the other is already stored. The database has the same
+    rule; checking here gives a readable 422 instead of a server error.
+    """
+    if (provider.price_amount is None) != (provider.price_unit is None):
+        raise HTTPException(
+            status_code=422, detail="price_amount and price_unit must be set together"
+        )
+
+
 @router.get("/me/provider", response_model=OwnProvider)
 def get_my_provider(
     db: Session = Depends(get_db), user_id: uuid.UUID = Depends(get_current_user_id)
@@ -95,6 +108,9 @@ def create_my_provider(
         show_contact_count=body.show_contact_count,
         opening_hours=body.opening_hours,
         sponsor_hook=body.sponsor_hook,
+        price_amount=body.price_amount,
+        price_unit=body.price_unit,
+        price_currency=body.price_currency,
     )
     db.add(provider)
     try:
@@ -144,6 +160,7 @@ def update_my_provider(
 
     for field_name, value in changes.items():
         setattr(provider, field_name, value)
+    require_price_pair(provider)
 
     db.commit()
     db.refresh(provider)

@@ -98,6 +98,11 @@ class Provider(Base):
     # One-sentence pitch written by the owner. The public only receives it
     # while the provider is sponsored (verified + featured_until not passed).
     sponsor_hook: Mapped[str | None] = mapped_column(Text)
+    # Structured price, so search can filter and sort by it. Amount and unit
+    # are set together or both None; price_text stays the description.
+    price_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    price_unit: Mapped[str | None] = mapped_column(Text)  # hour, visit, job, item, month
+    price_currency: Mapped[str] = mapped_column(Text, server_default=text("'USD'"))
 
     # Not real columns: whenever a provider is loaded, the database also
     # computes latitude and longitude from `location`, so Python code can
@@ -230,3 +235,68 @@ class Follow(Base):
         ForeignKey("providers.id", ondelete="CASCADE"), primary_key=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Place(Base):
+    """A town or neighbourhood the assistant can centre a search on.
+
+    The first rows were typed by hand (approximate centres); a GeoNames
+    import replaces them later. See migration 0006.
+    """
+
+    __tablename__ = "places"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    slug: Mapped[str] = mapped_column(Text, unique=True)
+    name_en: Mapped[str] = mapped_column(Text)
+    name_ar: Mapped[str] = mapped_column(Text)
+    # Other spellings people type: Arabizi, French, Arabic variants.
+    aliases: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default=text("'{}'"))
+    kind: Mapped[str] = mapped_column(Text)  # 'city', 'town' or 'neighbourhood'
+    district: Mapped[str] = mapped_column(Text)
+    location = mapped_column(
+        Geography(geometry_type="POINT", srid=4326, spatial_index=False), nullable=False
+    )
+    radius_m: Mapped[int] = mapped_column(Integer)  # roughly how wide the place is
+
+    lat: Mapped[float] = column_property(func.ST_Y(cast(location, Geometry)))
+    lng: Mapped[float] = column_property(func.ST_X(cast(location, Geometry)))
+
+
+class AssistCache(Base):
+    """A remembered AI answer. Keyed by a hash of the normalised sentence, so
+    the sentence itself is not stored here."""
+
+    __tablename__ = "assist_cache"
+
+    text_hash: Mapped[str] = mapped_column(Text, primary_key=True)
+    result: Mapped[dict] = mapped_column(JSONB)  # the checked AI answer
+    model: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class AssistLog(Base):
+    """One row per assistant request. No user id and no IP address.
+
+    source: 'ai' (the AI was asked), 'cache' (remembered answer) or 'direct'
+    (the text was exactly a category or provider name, no AI needed).
+    Only 'ai' rows have tokens and a cost.
+    """
+
+    __tablename__ = "assist_log"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    source: Mapped[str] = mapped_column(Text)
+    model: Mapped[str | None] = mapped_column(Text)
+    input_tokens: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    output_tokens: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    cache_read_tokens: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    cache_write_tokens: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    cost_usd: Mapped[Decimal] = mapped_column(Numeric(10, 6), server_default=text("0"))
+    kind: Mapped[str] = mapped_column(Text)  # the response kind
+    text_hash: Mapped[str] = mapped_column(Text)
+    # The normalised sentence, stored only when the search found nothing:
+    # the founder's "most wanted" list.
+    wanted_text: Mapped[str | None] = mapped_column(Text)
+    place_unknown: Mapped[str | None] = mapped_column(Text)  # a place name we could not find

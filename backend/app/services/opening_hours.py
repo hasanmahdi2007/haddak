@@ -19,6 +19,16 @@ BEIRUT = ZoneInfo("Asia/Beirut")
 DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 
 
+def beirut_day_and_time(now: datetime) -> tuple[str, str]:
+    """("mon", "09:30"): the day key and the "HH:MM" clock time in Beirut.
+
+    Shared by is_open_now below and by the open_now search filter, so both
+    always agree on what "open now" means.
+    """
+    local = now.astimezone(BEIRUT)
+    return DAY_KEYS[local.weekday()], local.strftime("%H:%M")
+
+
 def is_open_now(opening_hours: dict | None, now: datetime) -> bool | None:
     """True if `now` falls inside one of today's ranges, in Beirut time.
 
@@ -32,10 +42,8 @@ def is_open_now(opening_hours: dict | None, now: datetime) -> bool | None:
     if opening_hours is None:
         return None
 
-    local = now.astimezone(BEIRUT)
-    today = DAY_KEYS[local.weekday()]
+    today, time_text = beirut_day_and_time(now)
     # "HH:MM" texts compare correctly as plain strings ("09:05" < "13:00").
-    time_text = local.strftime("%H:%M")
 
     for open_time, close_time in opening_hours.get(today, []):
         if open_time <= time_text < close_time:

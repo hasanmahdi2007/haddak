@@ -1,6 +1,7 @@
 """Public provider endpoints: search, detail, share-code lookup, contact events, reports."""
 
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import select
@@ -12,11 +13,14 @@ from app.models import PUBLIC_STATUSES, ContactEvent, Provider, ProviderReport
 from app.rate_limit import is_repeated_contact_event, limit_contact_events, limit_reports
 from app.schemas import (
     ContactEventIn,
+    PriceCurrency,
+    PriceUnit,
     ProviderDetail,
     ProviderSearchResult,
     ReportCreated,
     ReportIn,
 )
+from app.services import provider_views
 from app.services.provider_views import current_date, to_detail, to_summaries
 from app.services.search import distance_to_provider, search_providers
 
@@ -65,10 +69,20 @@ def search(
     q: str | None = Query(default=None, min_length=2, max_length=60),
     # False (the default): verified providers only. True: also unverified ones.
     include_unverified: bool = False,
+    # Price filter: structured price <= max_price in this unit and currency.
+    max_price: float | None = Query(default=None, gt=0),
+    price_unit: PriceUnit | None = None,
+    price_currency: PriceCurrency = "USD",
+    # True: only providers whose opening hours say open now (Beirut time).
+    open_now: bool = False,
+    sort: Literal["best", "distance", "price"] = "best",
     limit: int = Query(default=30, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ):
+    if max_price is not None and price_unit is None:
+        # "Under $20" means nothing without "per hour" / "per visit" / ...
+        raise HTTPException(status_code=422, detail="price_unit is required with max_price")
     rows, total = search_providers(
         db,
         lat=lat,
@@ -78,6 +92,13 @@ def search(
         category_id=category_id,
         name_contains=q,
         include_unverified=include_unverified,
+        max_price=max_price,
+        price_unit=price_unit,
+        price_currency=price_currency,
+        open_now=open_now,
+        # Read through the module so tests can replace the clock.
+        now=provider_views.current_time(),
+        sort=sort,
         limit=limit,
         offset=offset,
     )

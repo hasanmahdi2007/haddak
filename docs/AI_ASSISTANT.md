@@ -10,7 +10,7 @@ The AI does one job: turn a sentence into search settings. Searching, ranking, p
 "baddé 2ostez riyadiyat la ebné, 2arib, a2al men 20$ bel se3a"
         │
         ▼  1. Understand  (one AI request; skipped when the same sentence was seen before)
-{ categories: ["tutor-math"], radius_m: 500, max_price: 20, price_unit: "hour",
+{ categories: ["math-tutoring"], radius_m: 1000, max_price: 20, price_unit: "hour",
   currency: "USD", sort: "distance", place: null, whatsapp_draft: "..." }
         │
         ▼  2. Find        (existing PostGIS search, free)
@@ -64,6 +64,24 @@ If the sentence describes an emergency, the app shows emergency numbers built in
 ## Measuring before trusting
 
 `backend/evals/assist_phrases.jsonl` holds about 100 real-style phrases (Lebanese Arabic, Arabizi, English, French, mixed) with the expected settings. `scripts/eval_assist.py` runs them against the real model and prints the score and the cost. It spends real money (well under $1 a run), so it only runs when the founder agrees.
+
+## How the backend does it (settled in the build, 2026-11-16)
+
+Code: `backend/app/services/assist/` (`normalize.py`, `prompt.py`, `ai_client.py`, `cache.py`, `budget.py`, `places.py`, `summary.py`, `service.py`) and `backend/app/routers/assist.py`.
+
+- **Order of checks for a sentence:** exact category name (English, Arabic or slug) or exact provider name → search, no AI; then `assist_cache` (SHA-256 of the normalised sentence, answers kept 30 days); then key set → monthly budget → daily per-IP allowance (counted only when the request is about to reach the AI); then one AI request. Any failure on the way → `unavailable`.
+- **Normalising:** lower case, accents and Arabic marks removed (hamza forms → plain letter, ة → ه, ى → ي), punctuation → space, spaces collapsed. The SQL function `normalize_name()` does the same letter rules for place lookup.
+- **The request:** official `anthropic` Python SDK (2.8.0), `messages.parse()` with the Pydantic class `AIResult` as the output schema (structured output). `effort: low`; thinking `disabled` on Haiku 5.5 (Sonnet and Opus 5.5 refuse that, so they get low effort only); `max_tokens` 1024; 8 s timeout, 1 retry. The system prompt (rules, four short examples, the category list from the database in a fixed order) carries a prompt-cache marker and contains no dates or ids.
+- **Checking the answer:** unknown slugs dropped (max 3), radius snapped to 500/1000/5000/20000, a price limit needs an amount and a unit (currency defaults to USD), `q` 2–60 characters, clarify needs a question and 2–4 options that each search for something (one good option becomes a normal search), emergency and off_topic lose all settings. A `refusal` or cut-off answer counts as an AI failure.
+- **Cost:** tokens × a small price table in `ai_client.py` (Haiku 5.5: $0.10 in, $0.50 out, $0.01 cache read, $0.125 cache write per million tokens; an unknown model is costed high on purpose). Every request is logged in `assist_log` with `source` = `ai`, `cache` or `direct` (only `ai` rows cost money).
+- **Places:** about 80 hand-placed cities, towns and Beirut neighbourhoods (approximate centres) inserted by migration 0006. Exact match on name or alias first, then pg_trgm similarity ≥ 0.35. A found place centres the search and sets the radius to at least its size. Two rows with the same English name (Jdeideh, Matn and Marjayoun) → `place_options`.
+- **Search:** the normal search service, unverified providers included after the verified ones, up to 20 results, widening 1 → 5 → 20 km when nothing is found. Nothing to search for (no category, no name) → empty results, logged as wanted.
+- **Most wanted:** `GET /admin/assist/wanted` and the admin page's Wanted tab list the normalised sentences that found nothing (last 30 days), unknown place names, and this month's spend.
+- **Tests** mock the client; nothing reaches the network (`tests/conftest.py` blocks the real client in every test).
+
+### Running the phrase test
+
+`backend/evals/assist_phrases.jsonl` has 102 phrases (Lebanese Arabic, Arabizi, English, French, mixed) using only seed category slugs. `python scripts/eval_assist.py --check` checks the file for free. `python scripts/eval_assist.py` (optionally `--limit N`, `--model claude-sonnet-5-5`) calls the real model, prints the score per field, the misses, total tokens and cost. It refuses to run without `ANTHROPIC_API_KEY`. Not run yet.
 
 ## Later (not version 1)
 

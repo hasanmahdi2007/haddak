@@ -18,7 +18,17 @@ from sqlalchemy.orm import Session
 from app.config import check_startup_settings, settings
 from app.db import get_db
 from app.request_logging import configure_logging, log_requests
-from app.routers import admin, categories, follows, me, posts, providers, reviews, suggestions
+from app.routers import (
+    admin,
+    assist,
+    categories,
+    follows,
+    me,
+    posts,
+    providers,
+    reviews,
+    suggestions,
+)
 
 # Stops here with a clear error if production is misconfigured.
 check_startup_settings(settings)
@@ -103,6 +113,7 @@ api.include_router(me.router)
 api.include_router(suggestions.router)
 api.include_router(posts.router)
 api.include_router(follows.router)
+api.include_router(assist.router)
 api.include_router(admin.router)
 
 app.include_router(api)

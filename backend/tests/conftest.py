@@ -29,6 +29,9 @@ os.environ["SUPABASE_JWKS_URL"] = ""
 os.environ["ADMIN_API_KEY"] = TEST_ADMIN_KEY
 os.environ["ENVIRONMENT"] = "development"
 os.environ["TRUST_PROXY"] = "false"
+# Tests never talk to the real Claude API: no key here, whatever .env says.
+# Assistant tests that need "a key is set" replace the client with a fake.
+os.environ["ANTHROPIC_API_KEY"] = ""
 
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
@@ -73,7 +76,8 @@ def migrated_database():
     with engine.begin() as connection:
         connection.execute(
             text(
-                "DROP TABLE IF EXISTS follows, banners, stories, "
+                "DROP TABLE IF EXISTS assist_log, assist_cache, places, "
+                "follows, banners, stories, "
                 "provider_reports, provider_suggestions, contact_events, "
                 "reviews, providers, categories, alembic_version CASCADE"
             )
@@ -85,11 +89,15 @@ def migrated_database():
 
 @pytest.fixture(autouse=True)
 def empty_tables(migrated_database):
-    """Before every test: delete all rows so tests cannot affect each other."""
+    """Before every test: delete all rows so tests cannot affect each other.
+
+    `places` is left alone: its rows come from the migration (reference data,
+    like a list of towns), and the assistant tests use them.
+    """
     with engine.begin() as connection:
         connection.execute(
             text(
-                "TRUNCATE follows, banners, stories, "
+                "TRUNCATE assist_log, assist_cache, follows, banners, stories, "
                 "provider_reports, provider_suggestions, contact_events, reviews, "
                 "providers, categories RESTART IDENTITY CASCADE"
             )
@@ -121,6 +129,20 @@ def clock():
     limiter.reset()
     limiter.clock = fake_clock
     return fake_clock
+
+
+def no_network_client():
+    raise AssertionError(
+        "A test tried to reach the real Claude API. Use the fake_ai fixture "
+        "(tests/test_assist.py) instead."
+    )
+
+
+@pytest.fixture(autouse=True)
+def block_real_ai(monkeypatch):
+    """Every test: the Claude API client cannot be created. Tests that need
+    the AI replace get_client with a fake; nothing ever reaches the network."""
+    monkeypatch.setattr("app.services.assist.ai_client.get_client", no_network_client)
 
 
 @pytest.fixture
@@ -179,12 +201,20 @@ def make_provider(
     claimed: bool = True,
     source: str = "owner",
     sponsor_hook: str | None = None,
+    price_amount: float | None = None,
+    price_unit: str | None = None,
+    price_currency: str = "USD",
+    lat_lng: tuple[float, float] | None = None,
 ) -> Provider:
     """Insert a provider exactly `distance_m` metres from the test centre.
 
     claimed=False makes a listing with no owner, as published from a suggestion.
+    lat_lng places it at an exact point instead (e.g. in another town).
     """
-    lat, lng = project_point(db, CENTER_LAT, CENTER_LNG, distance_m, bearing_deg)
+    if lat_lng is not None:
+        lat, lng = lat_lng
+    else:
+        lat, lng = project_point(db, CENTER_LAT, CENTER_LNG, distance_m, bearing_deg)
     provider = Provider(
         owner_user_id=(owner_user_id or uuid.uuid4()) if claimed else None,
         source=source,
@@ -203,6 +233,9 @@ def make_provider(
         show_contact_count=show_contact_count,
         opening_hours=opening_hours,
         sponsor_hook=sponsor_hook,
+        price_amount=price_amount,
+        price_unit=price_unit,
+        price_currency=price_currency,
     )
     db.add(provider)
     db.commit()

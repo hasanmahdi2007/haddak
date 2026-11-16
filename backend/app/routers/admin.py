@@ -1,20 +1,22 @@
 """Admin endpoints. Every route here needs the X-Admin-Key header."""
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth import require_admin
+from app.config import settings
 from app.db import get_db
-from app.models import Banner, Provider, ProviderReport, ProviderSuggestion, Story
-from app.routers.me import generate_slug, require_category
+from app.models import AssistLog, Banner, Provider, ProviderReport, ProviderSuggestion, Story
+from app.routers.me import generate_slug, require_category, require_price_pair
 from app.schemas import (
     AdminBannerList,
     AdminProviderUpdate,
     AdminStoryList,
+    AssistWanted,
     OwnProvider,
     OwnProviderList,
     ProviderStatus,
@@ -22,6 +24,7 @@ from app.schemas import (
     SuggestionList,
     SuggestionPublish,
 )
+from app.services.assist.budget import month_spend_usd, month_start
 from app.services.geo import point_for_storage
 from app.services.provider_views import to_own
 
@@ -77,6 +80,7 @@ def update_provider(
     changes = body.model_dump(exclude_unset=True)
     for field_name, value in changes.items():
         setattr(provider, field_name, value)
+    require_price_pair(provider)
 
     db.commit()
     db.refresh(provider)
@@ -266,3 +270,55 @@ def delete_banner(provider_id: uuid.UUID, db: Session = Depends(get_db)):
     db.delete(banner)
     db.commit()
     return Response(status_code=204)
+
+
+# How far back the "most wanted" list looks, and how many entries it shows.
+WANTED_DAYS = 30
+WANTED_LIMIT = 50
+
+
+@router.get("/assist/wanted", response_model=AssistWanted)
+def assist_wanted(db: Session = Depends(get_db)):
+    """What people asked the assistant for and did not find (last 30 days),
+    most asked first, plus this month's AI spending.
+
+    `wanted_text` is the normalised sentence, stored only for requests whose
+    search found nothing. Same sentences are counted together.
+    """
+    since = datetime.now(UTC) - timedelta(days=WANTED_DAYS)
+
+    wanted_query = (
+        select(AssistLog.wanted_text, func.count(), func.max(AssistLog.created_at))
+        .where(AssistLog.wanted_text.is_not(None), AssistLog.created_at >= since)
+        .group_by(AssistLog.wanted_text)
+        .order_by(func.count().desc(), func.max(AssistLog.created_at).desc())
+        .limit(WANTED_LIMIT)
+    )
+    items = [
+        {"text": text, "count": count, "last_seen": last_seen}
+        for text, count, last_seen in db.execute(wanted_query)
+    ]
+
+    places_query = (
+        select(AssistLog.place_unknown, func.count())
+        .where(AssistLog.place_unknown.is_not(None), AssistLog.created_at >= since)
+        .group_by(AssistLog.place_unknown)
+        .order_by(func.count().desc(), AssistLog.place_unknown)
+        .limit(WANTED_LIMIT)
+    )
+    unknown_places = [{"name": name, "count": count} for name, count in db.execute(places_query)]
+
+    start = month_start()
+    ai_requests = db.scalar(
+        select(func.count())
+        .select_from(AssistLog)
+        .where(AssistLog.source == "ai", AssistLog.created_at >= start)
+    )
+    return {
+        "month": start.strftime("%Y-%m"),
+        "month_spend_usd": float(month_spend_usd(db)),
+        "month_budget_usd": settings.assist_monthly_budget_usd,
+        "month_ai_requests": ai_requests or 0,
+        "items": items,
+        "unknown_places": unknown_places,
+    }

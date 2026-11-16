@@ -26,6 +26,8 @@ Admin routes use the header `X-Admin-Key: <ADMIN_API_KEY>` instead.
 { "id": "uuid", "slug": "k7m2xq", "name": "Ali Tech",
   "category": { "id": 3, "slug": "laptop-repair", "name_en": "Laptop repair", "name_ar": "تصليح لابتوب", "icon": "laptop" },
   "area_name": "Haret Hreik", "price_text": "From $10",
+  "price_amount": 10, "price_unit": "job",     // structured price; both null when not given
+  "price_currency": "USD",                     // "USD" (default) or "LBP"; always set
   "avg_rating": 4.7, "review_count": 23,
   "verified": true,                            // true only when the founder checked proof
   "claimed": true,                             // false = listed by the community, no owner yet
@@ -130,14 +132,14 @@ A provider can be listed without being verified.
 | `q` | string | optional, 2 to 60 characters; keeps providers whose name contains it (case-insensitive). Works together with `category_id`. |
 | `include_unverified` | bool | default `false`: verified providers only. `true`: also `unverified` and `pending` ones (never `rejected`). |
 | `max_price` | number | optional (> 0); keeps only providers with a structured price `price_amount <= max_price`. Needs `price_unit`; `price_currency` defaults to `USD`. Providers without a structured price are left out when this is set. |
-| `price_unit` | string | `hour`, `visit`, `job`, `item`, `month`; required with `max_price`, ignored without it |
+| `price_unit` | string | `hour`, `visit`, `job`, `item`, `month`; required with `max_price` (422 without it), ignored without it |
 | `price_currency` | string | `USD` (default) or `LBP` |
 | `open_now` | bool | default `false`; `true` keeps providers whose opening hours say open now (Beirut time). Providers with no hours are left out. |
 | `sort` | string | `best` (default, the order below) or `distance` (nearest first; verified still before non-verified) or `price` (cheapest structured price first, then the default order) |
 | `limit` | int | default 30, max 100 |
 | `offset` | int | default 0 |
 
-Response: `{"items": [ProviderSummary], "total": n}`. Order: all verified providers before all non-verified ones; inside each group featured first, then weighted rating, then distance (see `SCHEMA.md`). Featured placement only counts for verified providers.
+Response: `{"items": [ProviderSummary], "total": n}`. Order (`sort=best`): all verified providers before all non-verified ones; inside each group featured first, then weighted rating, then distance (see `SCHEMA.md`). Featured placement only counts for verified providers. `sort=price` compares the amount only (providers without a structured price last), so it is most useful together with `max_price`, which fixes the unit and currency.
 
 ### `POST /assist` (assistant, see `AI_ASSISTANT.md`)
 
@@ -155,7 +157,9 @@ or a chosen clarify option (no AI request is made; the settings are searched dir
 { "understood": { ...Understood... }, "lat": 33.85, "lng": 35.52, "lang": "ar" }
 ```
 
-`text` 2–300 characters. `lang` (`ar` or `en`) picks the language of `summary`.
+`text` 2–300 characters. `lang` (`ar` or `en`, default `en`) picks the language of `summary`. Send exactly one of `text` and `understood` (both or neither is 422). `lat` and `lng` are required.
+
+In the `understood` form every field is optional (defaults: no categories, `radius_m` 1000, `price_currency` `USD`, `open_now` false, `sort` `best`) and is checked again like the AI's answer. `place` is read by its slug only: `{"slug": "jdeideh-metn"}` is enough, and anything else in it (names, coordinates) is ignored. This is what the app sends after the user taps one of `place_options`. A known slug centres the search on that place; an unknown slug is answered like a place we could not find (`place_unknown` = the slug, search near the phone).
 
 `Understood` (what the AI returns, after the backend checks it):
 
@@ -187,9 +191,20 @@ Response:
 }
 ```
 
-- `unavailable`: no API key, monthly cap reached, or the AI failed. The app then runs a normal name search with the text.
+- `unavailable`: no API key, monthly cap reached, this IP's daily AI allowance used up, or the AI failed. The app then runs a normal name search with the text.
 - `emergency`: the app shows its own built-in emergency numbers. `off_topic`: the app shows one fixed polite line.
 - The AI request is sent only the sentence and the category list. The phone location never leaves the backend.
+
+Details settled in the backend build:
+
+- `summary` is always a string. For `results` it is the template (category, or the name keyword in quotes · `near you` or `in <place>` · radius · price limit · `open now` · `nearest first` / `cheapest first`, in English or Arabic); for the other kinds a fixed sentence.
+- `results`: up to 20 items; `total` counts all. Unverified providers are included, always after every verified one. `distance_m` is measured from the search centre (the place when one was found, otherwise the phone).
+- `understood.radius_m` is the radius finally searched. A found place sets it to at least the place's size (Jounieh: 5 km, Hamra: 1 km). Widening: when nothing is found, the next bigger radius is tried (500 → 1000 → 5000 → 20000) until something is found or 20 km was tried; `widened` is then true.
+- When no category fits and no name keyword was given, `results` is `{"items": [], "total": 0}` without searching (and the request goes on the founder's "wanted" list).
+- `clarify`: `understood` and `results` are `null`; `question.options` has 2 to 4 options, each with a full `understood` whose place (if any) is already looked up. `whatsapp_draft` may be set. The app sends the chosen option's `understood` back.
+- `place_options` comes with kind `results`: the search ran near the phone, `understood.place` is `null`, and each option is `{"slug","name_en","name_ar","district"}`. Tapping one sends the `understood` form with `place: {"slug": ...}` (see above).
+- `emergency`, `off_topic` and `unavailable`: only `kind` and `summary` are set; everything else is `null` (`widened` false).
+- Unknown category slugs from the AI are dropped; at most 3 are kept. `radius_m` is snapped to the nearest of 500, 1000, 5000, 20000. A price limit without a unit is dropped; the currency defaults to `USD`.
 
 ### `POST /providers/{id}/reports`
 
@@ -235,6 +250,7 @@ Create body:
 
 ```jsonc
 { "name": "Ali Tech", "category_id": 3, "description": "…", "price_text": "From $10",
+  "price_amount": 10, "price_unit": "job", "price_currency": "USD",
   "phone": "+96170123456", "whatsapp": null,
   "lat": 33.8551, "lng": 35.5102, "area_name": "Haret Hreik",
   "photos": ["https://..."], "verification_doc_url": "…" }
@@ -252,6 +268,8 @@ Two optional fields can also be sent on create and on update:
 
 - `show_contact_count` (boolean, default `false`): when `true`, the public profile shows `contacts_this_month`.
 - `opening_hours` (object or `null`, default `null`): see below. `PATCH` with `null` clears the hours.
+
+- `price_amount` (number > 0, up to 100,000,000, or `null`), `price_unit` (`hour`, `visit`, `job`, `item`, `month`, or `null`) and `price_currency` (`USD` or `LBP`, default `USD`): the structured price that search filters and sorts on. `price_text` stays the free-text description. Amount and unit are set together or both `null`; one without the other is 422, also on `PATCH`, where the check is made against the stored values (sending only a new `price_amount` keeps the stored unit; clearing needs both set to `null`). `price_currency` cannot be `null`.
 
 - `sponsor_hook` (string or `null`, default `null`): a one-sentence pitch, 1 to 80 characters. `null` (or an empty string) clears it. The owner may set it at any time, but the public only receives it while the profile is sponsored (see "Sponsored" below).
 
@@ -292,7 +310,7 @@ Expired stories and banners are simply no longer returned; nothing deletes them 
 | Method and path | Purpose |
 |---|---|
 | `GET /admin/providers?status=pending` | List `OwnProvider` items by status: `unverified`, `pending`, `verified` or `rejected`. |
-| `PATCH /admin/providers/{id}` | Body: any of `status`, `founding_member`, `featured_until`. |
+| `PATCH /admin/providers/{id}` | Body: any of `status`, `founding_member`, `featured_until`, `price_amount`, `price_unit`, `price_currency` (same price rules as `PATCH /me/provider`). |
 | `GET /admin/suggestions` | `{"items": [Suggestion], "total": n}`, newest first. Query: `limit` (default 50, max 100), `offset`. |
 | `DELETE /admin/suggestions/{id}` | Remove a suggestion once it is dealt with. 204; 404 if there is no such suggestion. |
 | `POST /admin/suggestions/{id}/publish` | Turn a suggestion into a public, unverified listing. Body below. Returns 201 `OwnProvider`. |
@@ -302,6 +320,7 @@ Expired stories and banners are simply no longer returned; nothing deletes them 
 | `GET /admin/banners` | `{"items": [AdminBanner]}`: active banners, soonest expiry first, max 200. `AdminBanner` = `provider_id`, `provider_name`, `title`, `text`, `discount_percent`, `starts_at`, `expires_at`. A banner has no id: `provider_id` is what `DELETE /admin/providers/{id}/banner` takes. |
 | `DELETE /admin/stories/{story_id}` | Remove any story. 204; 404 if there is no such story. |
 | `DELETE /admin/providers/{id}/banner` | Remove a provider's banner. 204; 404 if the provider has no banner. |
+| `GET /admin/assist/wanted` | What people asked the assistant for and did not find. `{"month": "2026-11", "month_spend_usd": 0.42, "month_budget_usd": 10, "month_ai_requests": 812, "items": [{"text": "badde 7akim 7ayawanet", "count": 6, "last_seen": "…"}], "unknown_places": [{"name": "Atlantis", "count": 2}]}`. `items`: normalised sentences whose search found nothing in the last 30 days, most asked first, max 50. `unknown_places`: place names the lookup could not find, same window, max 50. Spend and AI requests: current UTC month. |
 
 Both provider routes return `OwnProvider` items; the list is `{"items": [...], "total": n}`, oldest first, `status` defaulting to `pending`.
 
@@ -359,12 +378,13 @@ Write routes are limited per client IP, in the API process's memory (no extra se
 - `PUT /providers/{id}/reviews/mine`, `POST` and `PATCH /me/provider`, `POST /me/provider/stories`, `DELETE /me/provider/stories/{story_id}`, `PUT` and `DELETE /me/provider/banner`, `PUT` and `DELETE /providers/{id}/follow`: 20 per minute per IP. One shared allowance across these routes.
 - `POST /suggestions`: 5 per hour per IP (its own allowance). Requests refused for a validation error count too.
 - `POST /providers/{id}/reports`: 10 per hour per IP (its own allowance). Requests refused for a validation error or an unknown provider count too.
+- `POST /assist`: `ASSIST_DAILY_LIMIT` (default 30) requests per IP per 24 hours that reach the AI. Exact name matches, remembered sentences and the `understood` form do not count. Over the limit the answer is HTTP 200 with kind `unavailable`, not 429, so the app simply falls back to a normal search.
 
 Requests are counted before the login token is checked, so failed attempts use the allowance too. Behind a hosting proxy the client IP is read from `X-Forwarded-For`, counting `PROXY_HOPS` entries from the right so a client cannot fake it.
 
 ## Admin page
 
-`GET /admin` (outside `/api/v1`) serves one static HTML page for the founder: enter the admin key, see profiles by status (Pending, Unverified, Verified, Rejected) with their proof link, approve, decline the proof, reject or restore, set founding member and featured-until. A "Suggestions" tab lists suggested providers with Publish (a small form for the fields that are still missing) and Delete. A "Reports" tab lists reported listings with Dismiss and Reject listing. A "Posts" tab lists active stories and banners with Delete (confirmed in the page, not with `window.confirm`). Each verified profile has Sponsor 7 / 30 / 90 days buttons (sets `featured_until` to today + N) and End sponsorship (sends `featured_until: null`); other statuses show a hint that only verified profiles count as sponsored. It only calls the admin endpoints above and the public `GET /categories`; the key is kept in the browser tab's memory, never stored.
+`GET /admin` (outside `/api/v1`) serves one static HTML page for the founder: enter the admin key, see profiles by status (Pending, Unverified, Verified, Rejected) with their proof link, approve, decline the proof, reject or restore, set founding member and featured-until. A "Suggestions" tab lists suggested providers with Publish (a small form for the fields that are still missing) and Delete. A "Reports" tab lists reported listings with Dismiss and Reject listing. A "Posts" tab lists active stories and banners with Delete (confirmed in the page, not with `window.confirm`). A "Wanted" tab shows `GET /admin/assist/wanted`: this month's assistant spending against the budget, the most asked unmatched requests and the place names that were not found. Each verified profile has Sponsor 7 / 30 / 90 days buttons (sets `featured_until` to today + N) and End sponsorship (sends `featured_until: null`); other statuses show a hint that only verified profiles count as sponsored. It only calls the admin endpoints above and the public `GET /categories`; the key is kept in the browser tab's memory, never stored.
 
 ## Photos and proof documents
 
