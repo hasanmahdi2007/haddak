@@ -73,10 +73,10 @@ export interface ColorTokens {
 
 /** Light theme: near-white ground, soft grey blocks, ink for text and actions, mint for trust, lavender as the accent. */
 export const lightColors: ColorTokens = {
-  background: '#FAFEFF',
-  surface: '#FFFFFF',
-  surfaceTint: '#EFF1EE',
-  surfaceTintStrong: '#D0D2CF',
+  background: '#F1F2EE',
+  surface: '#FBFBF8',
+  surfaceTint: '#E6E8E3',
+  surfaceTintStrong: '#CBCEC8',
 
   primary: '#6F5BD6',
   primaryPressed: '#5B48BF',
@@ -190,6 +190,8 @@ export interface TypeStyle {
 export const type = {
   /** The question on Home. */
   display: { fontFamily: fonts.title, fontSize: 30, lineHeight: 40 },
+  /** The biggest words: a short update in the story viewer, the discount figure of an offer. */
+  poster: { fontFamily: fonts.title, fontSize: 38, lineHeight: 48 },
   /** Screen titles, provider name. */
   headline: { fontFamily: fonts.title, fontSize: 24, lineHeight: 34 },
   /** Card names, section titles. */
@@ -305,6 +307,19 @@ export const size = {
   mapMin: 280,
   /** Photo on the card docked over the map. */
   dockThumb: 64,
+  /** A provider in the "Updates nearby" row: the ringed photo, and the width its name may take. */
+  storyBubble: 68,
+  storyBubbleSlot: 80,
+  /** The ring that says "this provider posted an update", and the gap between it and the photo. */
+  ringLine: 2.5,
+  ringGap: 3,
+  /** The small photo beside a name: the story viewer's header, the ringed photo on a profile. */
+  avatar: 44,
+  avatarLarge: 60,
+  /** Progress segments at the top of the story viewer. */
+  storyBar: 4,
+  /** The lavender block that carries an offer's discount figure. */
+  offerFigure: 92,
   /** Widest the content column grows on tablets and web. */
   maxContent: 560,
 } as const;
@@ -314,6 +329,10 @@ export const motion = {
   fast: 120,
   base: 200,
   skeleton: 900,
+  /** How long one update stays up in the story viewer before the next one. */
+  story: 6000,
+  /** How long the small notice at the bottom stays. */
+  notice: 2600,
 } as const;
 
 /** Opacity steps. */

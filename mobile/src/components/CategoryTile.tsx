@@ -11,9 +11,11 @@ import { Txt } from './Txt';
 export type TileTone = 'accent' | 'mint' | 'plain';
 
 const TONES: Record<TileTone, { bg: keyof ColorTokens; fg: 'onAccent' | 'onMint' | 'text' }> = {
-  accent: { bg: 'accent', fg: 'onAccent' },
-  mint: { bg: 'mint', fg: 'onMint' },
-  plain: { bg: 'surfaceTint', fg: 'text' },
+  // The founder asked for every category tile in one calm colour (2026-11-16):
+  // white tiles, with lavender only on the icon. The tone names are kept so callers need no change.
+  accent: { bg: 'surface', fg: 'text' },
+  mint: { bg: 'surface', fg: 'text' },
+  plain: { bg: 'surface', fg: 'text' },
 };
 
 interface Props {
@@ -52,8 +54,8 @@ export function CategoryTile({ icon, label, tone, grow = 1, hasChildren, onPress
       ]}
     >
       <View style={[styles.top, { flexDirection: row }]}>
-        <CategoryIcon icon={icon} color={colors[fg]} size={size.tileIcon} />
-        <Arrow color={colors[fg]} size={size.icon} strokeWidth={size.stroke} />
+        <CategoryIcon icon={icon} color={colors.primary} size={size.tileIcon} />
+        <Arrow color={colors.textSubtle} size={size.icon} strokeWidth={size.stroke} />
       </View>
       {/* A long single word (Dermatologist) shrinks a little instead of breaking in the middle. */}
       <Txt role="action" color={fg} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.85}>
