@@ -1,5 +1,10 @@
 import type { Session } from '@supabase/supabase-js';
-import { isAuthApiError, isAuthRetryableFetchError } from '@supabase/supabase-js';
+import {
+  isAuthApiError,
+  isAuthPKCECodeVerifierMissingError,
+  isAuthRetryableFetchError,
+} from '@supabase/supabase-js';
+import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import { type ReactNode, useEffect, useSyncExternalStore } from 'react';
 
@@ -8,7 +13,9 @@ import { supabase } from './supabase';
 /**
  * Who is signed in, and the one gate every account-only action goes through.
  *
- * Signing in is Supabase Auth with an email and a 6-digit code (no passwords).
+ * Signing in is Supabase Auth by email, no passwords. The email holds a link that
+ * opens the app on the auth-callback screen (src/app/auth-callback.tsx), or, once
+ * custom email templates are set up, a 6-digit code typed on the sign-in screen.
  * The state lives in this module (not in a React context) so the API client,
  * which is not a component, can read the token too. Screens read it with
  * `useAuth()`. `<AuthProvider>` in the root layout starts it.
@@ -38,7 +45,7 @@ export const signInConfigured = supabase !== null;
 
 // ---------------------------------------------------------------------------
 // Development token. `backend/scripts/dev_token.py` prints a token the local
-// backend accepts (while SUPABASE_JWKS_URL is empty). Put it in
+// backend accepts when ALLOW_DEV_TOKENS=true. Put it in
 // EXPO_PUBLIC_DEV_TOKEN to be signed in without an email. `__DEV__` is false in
 // store builds, so there this is always empty, whatever the environment says.
 const DEV_TOKEN = __DEV__ ? (process.env.EXPO_PUBLIC_DEV_TOKEN ?? '').trim() : '';
@@ -191,6 +198,10 @@ export type AuthFailure =
   | 'expired'
   | 'rateLimited'
   | 'offline'
+  /** The emailed link was used already, or is too old. */
+  | 'linkExpired'
+  /** The link was opened on another phone (or app) than the one that asked for it. */
+  | 'otherDevice'
   | 'other';
 
 export type AuthResult = { ok: true } | { ok: false; failure: AuthFailure; retryAfterS: number | null };
@@ -227,11 +238,26 @@ function toFailure(error: unknown, step: 'send' | 'verify'): AuthResult {
   return fail('other');
 }
 
-/** Step 1: email the user a 6-digit code. A new email address gets an account. */
+/**
+ * Where the link in the email sends the user back to: `exp://<computer>:8081/--/auth-callback`
+ * in Expo Go, `haddak://auth-callback` in a real build. Supabase only follows it if it
+ * matches the project's allowed redirect URLs (Auth -> URL Configuration).
+ */
+export function signInRedirectUrl(): string {
+  return Linking.createURL('auth-callback');
+}
+
+/**
+ * Step 1: email the user a sign-in link (and a 6-digit code, if the email template
+ * shows one). A new email address gets an account.
+ */
 export async function sendCode(email: string): Promise<AuthResult> {
   if (!supabase) return fail('notConfigured');
   try {
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: true, emailRedirectTo: signInRedirectUrl() },
+    });
     if (error) return toFailure(error, 'send');
     codeSentAt = Date.now();
     return { ok: true };
@@ -250,4 +276,72 @@ export async function verifyCode(email: string, code: string): Promise<AuthResul
   } catch (error) {
     return toFailure(error, 'verify');
   }
+}
+
+// ---------------------------------------------------------------------------
+// Coming back from the link in the email.
+
+/** What the link brought back, read from its query (`?code=`) or its `#fragment`. */
+export interface SignInLink {
+  code?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  errorCode?: string;
+  errorDescription?: string;
+}
+
+// React may run the callback screen's effect twice; a code works only once.
+const codesTried = new Map<string, Promise<AuthResult>>();
+
+/** Turns the link into a session. On success the store turns "signed in". */
+export function signInWithLink(link: SignInLink): Promise<AuthResult> {
+  const key = link.code ?? link.accessToken ?? link.errorCode ?? link.errorDescription ?? '';
+  const earlier = codesTried.get(key);
+  if (earlier) return earlier;
+  const attempt = exchangeLink(link);
+  codesTried.set(key, attempt);
+  // Offline, the code was never used, so a later try may still work.
+  void attempt.then((result) => {
+    if (!result.ok && result.failure === 'offline') codesTried.delete(key);
+  });
+  return attempt;
+}
+
+async function exchangeLink(link: SignInLink): Promise<AuthResult> {
+  if (!supabase) return fail('notConfigured');
+  // Supabase sends the user back with an error instead of a code when the link
+  // was already used or is too old ("otp_expired": "Email link is invalid or has expired").
+  if (link.errorCode || link.errorDescription) {
+    const expired = link.errorCode === 'otp_expired' || /expired|invalid/i.test(link.errorDescription ?? '');
+    return fail(expired ? 'linkExpired' : 'other');
+  }
+  try {
+    if (link.code) {
+      const { error } = await supabase.auth.exchangeCodeForSession(link.code);
+      if (error) return linkFailure(error);
+      return { ok: true };
+    }
+    // Older "implicit" links carry the tokens themselves in the #fragment.
+    if (link.accessToken && link.refreshToken) {
+      const { error } = await supabase.auth.setSession({
+        access_token: link.accessToken,
+        refresh_token: link.refreshToken,
+      });
+      if (error) return linkFailure(error);
+      return { ok: true };
+    }
+    return fail('linkExpired');
+  } catch (error) {
+    return linkFailure(error);
+  }
+}
+
+function linkFailure(error: unknown): AuthResult {
+  // The secret half of the code is kept only on the phone that asked for the email.
+  if (isAuthPKCECodeVerifierMissingError(error)) return fail('otherDevice');
+  if (isAuthRetryableFetchError(error) || error instanceof TypeError) return fail('offline');
+  if (isAuthApiError(error) && (error.status === 400 || error.status === 403 || error.status === 404)) {
+    return fail('linkExpired');
+  }
+  return fail('other');
 }

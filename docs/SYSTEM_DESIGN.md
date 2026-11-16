@@ -91,7 +91,7 @@ Full definitions are in `SCHEMA.md`. In short:
 
 | Concern | How it is handled |
 |---|---|
-| Who is calling | Supabase issues a signed login token. The backend checks the signature (public keys from Supabase's JWKS endpoint, or a shared secret in development), the expiry and the audience, then reads the user id. No call to Supabase per request. |
+| Who is calling | Supabase issues a signed login token. The backend checks the signature (ES256 public keys from Supabase's JWKS endpoint; HS256 development tokens only when `ALLOW_DEV_TOKENS=true`, which production refuses; unsigned `alg: none` tokens never), the expiry and the audience, then reads the user id. No call to Supabase per request. |
 | Editing someone else's profile | The API only has "my profile" routes (`/me/provider`). The user id comes from the token, never from the request body. |
 | Unapproved profiles | Not returned by search, detail, reviews or contact routes until `status = verified`. |
 | Admin actions | Separate routes that need the `X-Admin-Key` header. Compared in constant time. With no key configured, every admin call is refused. |

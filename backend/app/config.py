@@ -21,10 +21,15 @@ class Settings(BaseSettings):
     # Default points at the local Docker database from docker-compose.yml.
     database_url: str = "postgresql+psycopg://haddak:haddak@localhost:5433/haddak"
 
-    # Token verification. If SUPABASE_JWKS_URL is set we verify tokens with
-    # Supabase's public keys; otherwise we use the shared HS256 secret.
-    supabase_jwt_secret: str = ""
+    # Token verification (see app/auth.py).
+    # Real sign-ins: Supabase signs tokens with a private key (ES256/RS256) and
+    # publishes the public keys at this URL.
     supabase_jwks_url: str = ""
+    # Development tokens (scripts/dev_token.py) are HS256, signed with this
+    # secret. They are accepted only when allow_dev_tokens is also true, which
+    # must never be the case in production (the app refuses to start).
+    supabase_jwt_secret: str = ""
+    allow_dev_tokens: bool = False
 
     # Secret sent in the X-Admin-Key header for /admin routes.
     admin_api_key: str = ""
@@ -91,9 +96,10 @@ def production_problems(settings: Settings) -> list[str]:
     problems = []
     if not is_real_secret(settings.admin_api_key):
         problems.append("ADMIN_API_KEY is empty or still a placeholder")
-    has_jwks = settings.supabase_jwks_url.strip() != ""
-    if not has_jwks and not is_real_secret(settings.supabase_jwt_secret):
-        problems.append("set SUPABASE_JWKS_URL or a real SUPABASE_JWT_SECRET")
+    if settings.supabase_jwks_url.strip() == "":
+        problems.append("SUPABASE_JWKS_URL is empty, so no real sign-in would work")
+    if settings.allow_dev_tokens:
+        problems.append("ALLOW_DEV_TOKENS must be false")
     return problems
 
 

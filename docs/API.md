@@ -9,7 +9,9 @@ The contract between the mobile app and the FastAPI backend. Both sides are buil
 
 ## Authentication
 
-Supabase Auth issues the login token. The app sends it as `Authorization: Bearer <access_token>`. The backend verifies the token's signature and reads the user id from the `sub` claim. It supports both HS256 with `SUPABASE_JWT_SECRET` and Supabase's JWKS endpoint, chosen by configuration.
+Supabase Auth issues the login token. The app sends it as `Authorization: Bearer <access_token>`. The backend verifies the token's signature and reads the user id from the `sub` claim. The token header's `alg` picks the check: ES256/RS256 tokens (real Supabase sign-ins) are verified with the public keys from `SUPABASE_JWKS_URL`, with audience `authenticated` and `exp` required. HS256 development tokens (`scripts/dev_token.py`, signed with `SUPABASE_JWT_SECRET`) are accepted only when `ALLOW_DEV_TOKENS=true`, which is never allowed in production. `alg: none` and any other algorithm get 401.
+
+The app signs in with Supabase's email sign-in (PKCE flow). The email carries a link back to the app (`haddak://auth-callback`, or `exp://<ip>:8081/--/auth-callback` in Expo Go; both are in the project's allowed redirect URLs); the app's `auth-callback` route exchanges the `code` for a session. If the email shows a 6-digit code instead (custom email templates, later), the user types it on the sign-in screen.
 
 "Auth" below means the header is required; a missing or invalid token gives 401.
 

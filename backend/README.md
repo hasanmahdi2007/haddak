@@ -82,7 +82,7 @@ Set these environment variables on the hosting platform (never in the image):
 |---|---|
 | `ENVIRONMENT` | `production`. Turns on the startup safety check below. |
 | `DATABASE_URL` | The Postgres connection string. The database must allow the PostGIS extension (Supabase does). `postgresql://...` is fine; the driver is added automatically. |
-| `SUPABASE_JWKS_URL` **or** `SUPABASE_JWT_SECRET` | How login tokens are verified. Prefer the JWKS URL (`https://<project>.supabase.co/auth/v1/.well-known/jwks.json`); if it is set, the secret is ignored. |
+| `SUPABASE_JWKS_URL` | How real login tokens are verified (`https://<project>.supabase.co/auth/v1/.well-known/jwks.json`). Required. Leave `ALLOW_DEV_TOKENS` unset (false): the server refuses to start in production when it is true. |
 | `ADMIN_API_KEY` | A long random value: `python -c "import secrets; print(secrets.token_urlsafe(32))"`. |
 | `CORS_ORIGINS` | Empty, unless a website on another domain must call the API (then list it, e.g. `https://haddak.app`). Never `*`. The phone app and `/admin` do not need CORS. |
 | `TRUST_PROXY` | `true` when the platform puts a proxy in front of the app (Render, Railway, Fly.io and similar do). Rate limits then use the real client IP from `X-Forwarded-For`. `false` if the server is reached directly. |

@@ -364,7 +364,12 @@ JWKS_URL = "https://example.supabase.co/auth/v1/.well-known/jwks.json"
 
 def make_settings(**values) -> Settings:
     # _env_file=None: ignore the developer's local .env file.
-    defaults = {"supabase_jwt_secret": "", "supabase_jwks_url": "", "admin_api_key": ""}
+    defaults = {
+        "supabase_jwt_secret": "",
+        "supabase_jwks_url": "",
+        "admin_api_key": "",
+        "allow_dev_tokens": False,
+    }
     return Settings(_env_file=None, **{**defaults, **values})
 
 
@@ -375,7 +380,9 @@ def make_settings(**values) -> Settings:
         {"admin_api_key": "change-me-too", "supabase_jwt_secret": GOOD_SECRET},
         {"admin_api_key": "CHANGE-ME", "supabase_jwks_url": JWKS_URL},
         {"admin_api_key": GOOD_KEY},  # neither JWT setting
-        {"admin_api_key": GOOD_KEY, "supabase_jwt_secret": "change-me-to-a-long-random-string"},
+        {"admin_api_key": GOOD_KEY, "supabase_jwt_secret": GOOD_SECRET},  # no JWKS URL
+        # Development tokens must be off in production.
+        {"admin_api_key": GOOD_KEY, "supabase_jwks_url": JWKS_URL, "allow_dev_tokens": True},
     ],
 )
 def test_production_refuses_to_start_with_unsafe_settings(values):
@@ -388,8 +395,12 @@ def test_production_refuses_to_start_with_unsafe_settings(values):
 @pytest.mark.parametrize(
     "values",
     [
-        {"admin_api_key": GOOD_KEY, "supabase_jwt_secret": GOOD_SECRET},
         {"admin_api_key": GOOD_KEY, "supabase_jwks_url": JWKS_URL},
+        {
+            "admin_api_key": GOOD_KEY,
+            "supabase_jwks_url": JWKS_URL,
+            "supabase_jwt_secret": GOOD_SECRET,
+        },
     ],
 )
 def test_production_starts_with_real_settings(values):

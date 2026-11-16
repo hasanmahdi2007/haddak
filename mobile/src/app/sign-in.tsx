@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useIsFocused, useRouter } from 'expo-router';
 import { KeyRound, LockKeyhole, MailCheck, X } from 'lucide-react-native';
 import { type ComponentRef, useEffect, useRef, useState } from 'react';
 import {
@@ -39,9 +39,11 @@ type Step = 'email' | 'code';
 
 /**
  * Sign-in, opened as a modal by `requireSignIn()` (src/lib/auth.ts).
- * Step 1 asks for an email and has Supabase send a 6-digit code to it.
- * Step 2 takes the code. Once Supabase accepts it, the modal closes by itself
- * and the user is back on the screen that asked, with their action finished.
+ * Step 1 asks for an email and has Supabase send a sign-in link to it.
+ * Step 2 waits: the link opens the auth-callback screen over this one, which
+ * signs in and closes. A 6-digit code, if the email shows one, can be typed here
+ * instead. Once signed in, the modal closes by itself and the user is back on
+ * the screen that asked, with their action finished.
  */
 export default function SignInScreen() {
   const router = useRouter();
@@ -51,11 +53,13 @@ export default function SignInScreen() {
   const styles = useStyles();
   const inputStyle = useInputStyle();
   const auth = useAuth();
+  // False while the auth-callback screen (opened by the email link) sits on top.
+  const focused = useIsFocused();
 
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
-  const [focused, setFocused] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showEmailError, setShowEmailError] = useState(false);
   const [failure, setFailure] = useState<{ kind: AuthFailure; retryAfterS: number | null } | null>(null);
@@ -68,12 +72,13 @@ export default function SignInScreen() {
   const finished = useRef(false);
 
   // Signed in (just now, or already when the screen opened): close and carry on.
+  // Waits until this screen is on top again, so the link's screen closes first.
   useEffect(() => {
-    if (auth.status !== 'signedIn' || finished.current) return;
+    if (auth.status !== 'signedIn' || !focused || finished.current) return;
     finished.current = true;
     AccessibilityInfo.announceForAccessibility(s.auth.signedIn);
     finishSignIn();
-  }, [auth.status, s.auth.signedIn]);
+  }, [auth.status, focused, s.auth.signedIn]);
 
   // Closed any other way (back gesture, swipe down): drop the action that was waiting.
   useEffect(
@@ -173,6 +178,10 @@ export default function SignInScreen() {
         return s.auth.wrongCode;
       case 'expired':
         return s.auth.expired;
+      case 'linkExpired':
+        return s.auth.linkExpired;
+      case 'otherDevice':
+        return s.auth.otherDevice;
       case 'rateLimited':
         return retryAfterS ? f(s.auth.rateLimitedFor, { n: retryAfterS }) : s.auth.rateLimited;
       case 'offline':
@@ -242,8 +251,8 @@ export default function SignInScreen() {
                       setEmail(text);
                       if (failure) setFailure(null);
                     }}
-                    onFocus={() => setFocused(true)}
-                    onBlur={() => setFocused(false)}
+                    onFocus={() => setInputFocused(true)}
+                    onBlur={() => setInputFocused(false)}
                     placeholder={s.auth.emailPlaceholder}
                     placeholderTextColor={colors.textSubtle}
                     accessibilityLabel={s.auth.email}
@@ -260,7 +269,7 @@ export default function SignInScreen() {
                     maxLength={254}
                     selectionColor={colors.primary}
                     // An address reads left to right in Arabic too.
-                    style={[inputStyle(focused, emailError), styles.ltr]}
+                    style={[inputStyle(inputFocused, emailError), styles.ltr]}
                   />
                 </Field>
                 <View style={[styles.privacy, { flexDirection: row }]}>
@@ -273,7 +282,7 @@ export default function SignInScreen() {
             ) : (
               <View style={styles.codeBlock}>
                 <Txt role="bodyStrong" style={styles.inset}>
-                  {s.auth.code}
+                  {s.auth.codeHint}
                 </Txt>
                 {/* Six boxes drawn over one invisible field, so typing, pasting and the
                     keyboard's "fill code" suggestion all work. Digits always run left to right. */}
@@ -283,7 +292,7 @@ export default function SignInScreen() {
                   style={styles.codeRow}
                 >
                   {Array.from({ length: CODE_LENGTH }, (_, i) => {
-                    const active = focused && (i === code.length || (i === CODE_LENGTH - 1 && code.length === CODE_LENGTH));
+                    const active = inputFocused && (i === code.length || (i === CODE_LENGTH - 1 && code.length === CODE_LENGTH));
                     const wrong = failure?.kind === 'wrongCode' || failure?.kind === 'expired';
                     return (
                       <View
@@ -300,8 +309,8 @@ export default function SignInScreen() {
                     ref={codeRef}
                     value={code}
                     onChangeText={onCodeChange}
-                    onFocus={() => setFocused(true)}
-                    onBlur={() => setFocused(false)}
+                    onFocus={() => setInputFocused(true)}
+                    onBlur={() => setInputFocused(false)}
                     accessibilityLabel={s.auth.code}
                     accessibilityHint={failure ? failureText(failure.kind, failure.retryAfterS) : undefined}
                     keyboardType="number-pad"

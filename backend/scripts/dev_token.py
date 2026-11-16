@@ -6,7 +6,7 @@
 
 The token is signed with SUPABASE_JWT_SECRET (HS256) and looks like the ones
 Supabase issues, so the API accepts it as:  Authorization: Bearer <token>
-It only works while SUPABASE_JWKS_URL is empty.
+The backend accepts it only with ALLOW_DEV_TOKENS=true (never in production).
 """
 
 import argparse

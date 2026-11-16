@@ -3,12 +3,12 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
 
 /**
- * The Supabase client, used only for signing in (email + 6-digit code).
+ * The Supabase client, used only for signing in (an emailed link, or a 6-digit code).
  * Everything else goes through the FastAPI backend (src/api).
  *
  * Both values come from mobile/.env (EXPO_PUBLIC_SUPABASE_URL and
  * EXPO_PUBLIC_SUPABASE_ANON_KEY). The anon key is meant to be public: it only
- * lets the app ask Supabase Auth for a code. When either is missing, `supabase`
+ * lets the app ask Supabase Auth for a sign-in email. When either is missing, `supabase`
  * is null and the sign-in screen says sign-in is not set up.
  *
  * No URL polyfill: current Supabase docs for Expo create the client without one.
@@ -31,7 +31,11 @@ function create(): SupabaseClient | null {
         storage: AsyncStorage,
         autoRefreshToken: true,
         persistSession: true,
-        // Codes are typed in; no magic link ever comes back into the app.
+        // PKCE: the emailed link brings back a one-time `code`, and only this phone
+        // can trade it for a session (the secret half, the "code verifier", waits
+        // in AsyncStorage above). The auth-callback screen does the trade.
+        flowType: 'pkce',
+        // That screen reads the link itself, so the client must not (it would on the web).
         detectSessionInUrl: false,
       },
       global: { fetch: lazyFetch },

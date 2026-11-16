@@ -28,27 +28,49 @@ def get_jwks_client() -> jwt.PyJWKClient:
     return jwt.PyJWKClient(settings.supabase_jwks_url)
 
 
-def decode_user_id(token: str) -> uuid.UUID:
-    """Return the user id inside a valid token. Raises on any problem."""
-    required_claims = {"require": ["sub", "exp"]}
+# Real Supabase tokens are signed with a private key; we check them with the
+# matching public key from SUPABASE_JWKS_URL.
+JWKS_ALGORITHMS = ["ES256", "RS256"]
+# Development tokens (scripts/dev_token.py) are signed with a shared secret.
+DEV_ALGORITHM = "HS256"
 
-    if settings.supabase_jwks_url:
+
+def decode_user_id(token: str) -> uuid.UUID:
+    """Return the user id inside a valid token. Raises on any problem.
+
+    The token's header names the algorithm it was signed with. We use that
+    only to pick WHICH of our checks to run; each check then accepts only its
+    own algorithms, so a token cannot talk us into a weaker one. "none"
+    (an unsigned token) matches no check and is always refused.
+    """
+    algorithm = jwt.get_unverified_header(token).get("alg")
+
+    if algorithm in JWKS_ALGORITHMS and settings.supabase_jwks_url:
         signing_key = get_jwks_client().get_signing_key_from_jwt(token).key
-        algorithms = ["ES256", "RS256"]
-    else:
-        if not settings.supabase_jwt_secret:
-            raise ValueError("SUPABASE_JWT_SECRET is not configured")
+        algorithms = JWKS_ALGORITHMS
+    elif algorithm == DEV_ALGORITHM and dev_tokens_allowed():
         signing_key = settings.supabase_jwt_secret
-        algorithms = ["HS256"]
+        algorithms = [DEV_ALGORITHM]
+    else:
+        raise ValueError(f"Token algorithm {algorithm!r} is not accepted here")
 
     claims = jwt.decode(
         token,
         signing_key,
         algorithms=algorithms,
         audience=TOKEN_AUDIENCE,
-        options=required_claims,
+        options={"require": ["sub", "exp"]},
     )
     return uuid.UUID(claims["sub"])
+
+
+def dev_tokens_allowed() -> bool:
+    """HS256 tokens signed with SUPABASE_JWT_SECRET (scripts/dev_token.py).
+
+    Off unless ALLOW_DEV_TOKENS=true. Must stay off in production: anyone
+    holding the secret could sign in as any user.
+    """
+    return settings.allow_dev_tokens and bool(settings.supabase_jwt_secret)
 
 
 def unauthorized(message: str) -> HTTPException:

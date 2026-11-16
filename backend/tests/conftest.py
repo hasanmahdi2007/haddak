@@ -26,6 +26,8 @@ TEST_ADMIN_KEY = "test-admin-key"
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 os.environ["SUPABASE_JWT_SECRET"] = TEST_JWT_SECRET
 os.environ["SUPABASE_JWKS_URL"] = ""
+# The tests sign in with HS256 tokens made by make_token below.
+os.environ["ALLOW_DEV_TOKENS"] = "true"
 os.environ["ADMIN_API_KEY"] = TEST_ADMIN_KEY
 os.environ["ENVIRONMENT"] = "development"
 os.environ["TRUST_PROXY"] = "false"
