@@ -73,10 +73,10 @@ export interface ColorTokens {
 
 /** Light theme: near-white ground, soft grey blocks, ink for text and actions, mint for trust, lavender as the accent. */
 export const lightColors: ColorTokens = {
-  background: '#F1F2EE',
-  surface: '#FBFBF8',
-  surfaceTint: '#E6E8E3',
-  surfaceTintStrong: '#CBCEC8',
+  background: '#E5E1F5',
+  surface: '#FAF9FE',
+  surfaceTint: '#D7D2EE',
+  surfaceTintStrong: '#C2BCE0',
 
   primary: '#6F5BD6',
   primaryPressed: '#5B48BF',
@@ -92,16 +92,16 @@ export const lightColors: ColorTokens = {
   accentStrong: '#6F5BD6',
   accentWash: 'rgba(178, 161, 255, 0.24)',
 
-  hero: '#ECE8FF',
+  hero: '#B2A1FF',
   onHero: '#1B1C2F',
-  onHeroMuted: '#55576A',
+  onHeroMuted: '#2F3046',
 
   text: '#1B1C2F',
-  textMuted: '#55576A',
-  textSubtle: '#666879',
+  textMuted: '#4A4C60',
+  textSubtle: '#585A6E',
 
-  border: '#D0D2CF',
-  outline: '#85878F',
+  border: '#C2BCE0',
+  outline: '#77738F',
 
   rating: '#B97A00',
 
