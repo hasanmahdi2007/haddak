@@ -1,13 +1,12 @@
 import { useMemo } from 'react';
 import {
   StyleSheet,
-  useColorScheme,
   type ImageStyle,
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
 
-import { darkColors, lightColors, type ColorTokens } from './tokens';
+import { lightColors, type ColorTokens } from './tokens';
 
 export * from './tokens';
 
@@ -18,11 +17,14 @@ export interface Theme {
 
 // Two fixed objects, so anything that depends on the theme only changes when the theme does.
 const LIGHT: Theme = { dark: false, colors: lightColors };
-const DARK: Theme = { dark: true, colors: darkColors };
 
-/** Current theme. It follows the phone's light / dark setting. */
+/**
+ * Current theme. The founder asked for a light-only app (2026-11-16), so the dark
+ * palette is kept in tokens.ts but not used. To follow the phone again, use
+ * useColorScheme() and return a dark Theme built from darkColors.
+ */
 export function useTheme(): Theme {
-  return useColorScheme() === 'dark' ? DARK : LIGHT;
+  return LIGHT;
 }
 
 type NamedStyles<T> = { [K in keyof T]: ViewStyle | TextStyle | ImageStyle };

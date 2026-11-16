@@ -78,8 +78,8 @@ export const lightColors: ColorTokens = {
   surfaceTint: '#EFF1EE',
   surfaceTintStrong: '#D0D2CF',
 
-  primary: '#1B1C2F',
-  primaryPressed: '#34364F',
+  primary: '#6F5BD6',
+  primaryPressed: '#5B48BF',
   onPrimary: '#FFFFFF',
   onPrimarySoft: '#1B1C2F',
 
@@ -92,9 +92,9 @@ export const lightColors: ColorTokens = {
   accentStrong: '#6F5BD6',
   accentWash: 'rgba(178, 161, 255, 0.24)',
 
-  hero: '#1B1C2F',
-  onHero: '#FFFFFF',
-  onHeroMuted: '#C9CBDA',
+  hero: '#ECE8FF',
+  onHero: '#1B1C2F',
+  onHeroMuted: '#55576A',
 
   text: '#1B1C2F',
   textMuted: '#55576A',

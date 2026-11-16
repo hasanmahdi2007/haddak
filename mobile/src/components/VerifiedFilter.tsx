@@ -98,6 +98,6 @@ const useStyles = makeStyles((c) => ({
     alignItems: 'center',
     justifyContent: 'center',
     // White in both themes: it sits on a dark or mid-grey track either way.
-    backgroundColor: c.onHero,
+    backgroundColor: c.surface,
   },
 }));
