@@ -543,15 +543,15 @@ def test_daily_limit_per_ip_counts_only_ai_requests(client, db, fake_ai, monkeyp
 
 def test_no_key_fridge_sentence_finds_results_with_keywords(client, db):
     # No fake_ai: the AI is never tried.
-    cooling = make_category(db, "ac-repair")
+    cooling = make_category(db, "appliance-repair")
     make_provider(db, cooling, "Cool Tech", distance_m=300)
 
     body = ask(client, "my fridge stopped working")
 
     assert body["kind"] == "results"
-    assert body["understood"]["category_slugs"] == ["ac-repair"]
+    assert body["understood"]["category_slugs"] == ["appliance-repair"]
     assert names(body) == ["Cool Tech"]
-    assert body["summary"] == "Ac Repair · near you · 1 km"
+    assert body["summary"] == "Appliance Repair · near you · 1 km"
     assert body["whatsapp_draft"] is None
     [row] = logs(db)
     assert (row.source, row.kind, row.cost_usd) == ("direct", "results", 0)
@@ -575,7 +575,7 @@ def test_no_key_arabizi_plumber_near_me_is_500_m(client, db):
     [
         ("بدي سنكري قريب", {"category_slugs": ["plumber"], "radius_m": 500}),
         ("plombier", {"category_slugs": ["plumber"]}),
-        ("البراد خربان", {"category_slugs": ["ac-repair"]}),
+        ("البراد خربان", {"category_slugs": ["appliance-repair"]}),
         ("laptob msakkar", {"category_slugs": ["laptop-repair"]}),
         ("2ostez riyadiyat a2al men 20$", {"category_slugs": ["math-tutoring"],
          "max_price": 20, "price_unit": "hour", "price_currency": "USD"}),
@@ -590,7 +590,7 @@ def test_no_key_arabizi_plumber_near_me_is_500_m(client, db):
 def test_keyword_fallback_understands(client, db, text, expected):
     tutoring = make_category(db, "tutoring")
     make_category(db, "math-tutoring", parent=tutoring)
-    for slug in ("plumber", "ac-repair", "laptop-repair"):
+    for slug in ("plumber", "appliance-repair", "laptop-repair"):
         category = make_category(db, slug)
         # Something close by, so the circle is not widened.
         make_provider(db, category, f"Near {slug}", distance_m=100)

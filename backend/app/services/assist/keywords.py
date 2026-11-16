@@ -170,10 +170,7 @@ CATEGORY_WORDS: dict[str, list[str]] = {
     ],
     # --- Home repair ---
     "home-repair": [
-        "handyman", "bricoleur", "maintenance", "siyane", "washing machine",
-        "machine a laver", "ghassele", "ghassale", "dishwasher", "jallaye", "jalaye",
-        "lave vaisselle", "oven", "four", "microwave", "micro onde", "appliance", "appliances",
-        "electromenager", "غسالة", "جلاية", "صيانة منزلية", "صيانة", "ميكروويف",
+        "handyman", "bricoleur", "maintenance", "siyane", "صيانة منزلية", "صيانة",
     ],
     "plumber": [
         "plumber", "plumbing", "plombier", "plomberie", "sankari", "sankary", "snkari",
@@ -184,7 +181,9 @@ CATEGORY_WORDS: dict[str, list[str]] = {
         "majarir", "majrour", "majrura", "egout", "drain", "tasrib", "tasreeb", "water heater",
         "chauffe eau", "sakhan", "sa5an", "boiler", "khazzan", "5azzan", "trumba", "tromba",
         "pompe", "may tnazzel", "may ynazzel", "tnazzel may", "ynazzel may", "sakf ynazzel",
-        "sakf tnazzel", "سنكري", "سمكري", "حنفية", "مجاري", "مجرور", "نش", "تسريب", "سخان",
+        "sakf tnazzel", "maghsale", "maghsali", "may ytla3", "ytla3 may", "may tetla3",
+        "may tla3", "ma3ajim", "ma3jim", "ma3ajem", "سنكري", "سمكري", "حنفية", "مجاري",
+        "مجرور", "نش", "تسريب", "سخان",
         "مواسير", "قساطل", "قسطل", "تواليت", "مغسلة", "طرمبة", "خزان",
     ],
     "electrician": [
@@ -192,11 +191,45 @@ CATEGORY_WORDS: dict[str, list[str]] = {
         "electrique", "elektrik", "kahraba", "kahrabe", "ka7raba", "kahrba", "kahrabji",
         "kahrabje", "kahrabaji", "kahrabaje", "2at3a", "2at3et kahraba", "wiring", "wires",
         "cable", "cables", "socket", "plug", "priz", "prize", "fuse", "breaker",
-        "disjoncteur", "disjonctor", "jonctor", "ishtirak", "eshtirak", "abonnement",
-        "generator", "generateur", "mwalled", "mowalled", "solar", "solaire", "solar panel",
-        "panel", "panels", "panneau", "panneaux", "inverter", "inverteur", "onduleur",
-        "unduler", "ups", "lamba", "lampa", "كهربجي", "كهربائي", "كهربا", "كهرباء", "بريز",
-        "اشتراك", "مولد", "طاقة شمسية", "سولار", "انفرتر", "لمبة",
+        "disjoncteur", "disjonctor", "jonctor", "lamba", "lampa", "كهربجي", "كهربائي",
+        "كهربا", "كهرباء", "بريز", "لمبة",
+    ],
+    # --- Power & energy (generator, inverter and solar words are NOT electrician) ---
+    "power": [
+        "power", "power cut", "energy", "energie", "taqa", "ta2a", "طاقة",
+    ],
+    "solar": [
+        "solar", "solaire", "solar panel", "solar panels", "solar system", "solar energy",
+        "solar installation", "solar installer", "energie solaire", "installation solaire",
+        "panel", "panels", "panneau", "panneaux", "panneau solaire", "photovoltaic",
+        "photovoltaique", "pv panels", "pv", "taqa shamsiye", "ta2a shamsiye", "taa2a shamsiye",
+        "shamsiye", "shamsi", "sola", "الواح", "ألواح", "ألواح شمسية", "طاقة شمسية", "طاقه شمسيه",
+        "سولار", "شمسية",
+    ],
+    "batteries-inverters": [
+        "inverter", "inverters", "inverteur", "invertor", "enverter", "invirter", "onduleur",
+        "unduler", "undulaire", "onduler", "anduler", "ups", "lithium", "lithium battery",
+        "gel battery", "deep cycle", "lead acid", "charge controller", "mppt", "batterie solaire",
+        "solar battery", "battery bank", "batteries bank", "انفرتر", "إنفرتر", "انفيرتر",
+        "اندولير", "اونديلير", "ليثيوم",
+    ],
+    "generator": [
+        "generator", "generators", "generateur", "genrator", "generatrice", "genset",
+        "groupe electrogene", "mwalled", "mowalled", "mwalid", "muwallid", "mwalide", "mwalet",
+        "mwalled kahraba", "ishtirak", "eshtirak", "ishtrak", "ishterak", "abonnement",
+        "abonnement moteur", "amper", "ampere", "amperes", "ambir", "ambirat", "diesel",
+        "mazout", "mazot", "مولد", "مولدة", "مولدات", "موتير", "اشتراك", "امبير", "أمبير",
+        "مازوت", "ديزل",
+    ],
+    "solar-cleaning": [
+        # verb + noun, written out so "baddi 7ada yna22e el solar panels" finds it
+        *[f"{verb} {noun}" for verb in (
+            "clean", "cleaning", "nettoyage", "tanzif", "ynazzef", "yna22e", "ynadef", "nazzef",
+        ) for noun in ("solar", "solar panels", "panels")],
+        "solar cleaning", "solar panel cleaning", "solar panels cleaning", "panels cleaning",
+        "solar panels need cleaning", "panels need cleaning", "dirty solar panels",
+        "dusty solar panels", "dirty panels", "dusty panels",
+        "تنظيف ألواح", "تنظيف الواح", "تنظيف سولار", "تنظيف طاقة شمسية",
     ],
     "carpenter": [
         "carpenter", "carpentry", "menuisier", "menuiserie", "najjar", "nejjar", "najar",
@@ -205,16 +238,20 @@ CATEGORY_WORDS: dict[str, list[str]] = {
         "cabinets", "mobilia", "نجار", "نجارة", "خشب", "خزانة", "مفروشات", "موبيليا",
     ],
     "ac-repair": [
-        # The appliance words (fridge, freezer) are here on purpose: there is no
-        # appliance category yet, and in Lebanon fridges are fixed by the same
-        # cooling technicians ("تبريد وتكييف") who fix air conditioners.
+        # Fridges and freezers are in "appliance-repair".
         "ac", "air conditioner", "air conditioning", "air condition", "aircon",
         "conditioner", "climatiseur", "clim", "climatisation", "split", "mkayyef", "mkayef",
         "mukayyef", "mekayef", "mokayyaf", "mokayaf", "mkayfet", "mkayyefet", "takyif",
-        "tabrid", "fridge", "refrigerator", "frigo", "frigidaire", "brad", "brrad", "barrad",
-        "tallaje", "talleje", "tallaja", "freezer", "frizer", "congelateur", "ybarred",
-        "tbarred", "bybarred", "مكيف", "مكيفات", "تكييف", "تبريد", "براد", "برادات", "ثلاجة",
-        "فريزر", "يبرد",
+        "tabrid", "مكيف", "مكيفات", "تكييف", "تبريد",
+    ],
+    "appliance-repair": [
+        "fridge", "refrigerator", "refrigerateur", "frigo", "frigidaire", "brad", "brrad",
+        "barrad", "tallaje", "talleje", "tallaja", "freezer", "frizer", "congelateur",
+        "washing machine", "washer", "machine a laver",
+        "lave linge", "ghassele", "ghassale", "ghasalet", "dishwasher", "jallaye", "jalaye",
+        "lave vaisselle", "dryer", "nashefe", "oven", "four", "microwave", "micro onde",
+        "appliance", "appliances", "electromenager", "براد", "برادات", "ثلاجة", "فريزر",
+        "يبرد", "غسالة", "جلاية", "نشافة", "ميكروويف",
     ],
     "painter": [
         "painter", "house painter", "paint", "paint walls", "wall paint", "house painting",
@@ -398,16 +435,23 @@ GENERAL_WORDS: dict[str, list[str]] = {
     ],
     "music-lessons": ["instrument", "instruments"],
 }
+CATEGORY_WORDS["pharmacy"] = [
+    "pharmacy", "pharmacie", "pharmacies", "pharmacist", "pharmacien", "saydalie", "saydaliye",
+    "saydaliyye", "saydaleye", "saydalye", "saidalie", "saidaliye", "saydaliyeh", "saydale",
+    "sidaliye", "saydalyeh", "chemist", "drugstore", "medicine", "medicines", "medicament",
+    "medicaments", "dawa", "dawe", "adwiye", "adwye", "prescription", "ordonnance", "panadol",
+    "doliprane", "صيدلية", "صيدلي", "دوا", "دواء", "ادوية", "أدوية", "روشتة",
+]
 
 # Words that mean one thing at home and another when a car is mentioned:
 # (slug without a car, slug with a car) -> words. "" = nothing without a car.
 HOME_OR_CAR_WORDS: dict[tuple[str, str], list[str]] = {
     # "moteur": the neighbourhood generator, unless it is the car's engine.
-    ("electrician", "mechanic"): ["moteur", "motor", "mator", "موتور"],
+    ("generator", "mechanic"): ["moteur", "motor", "mator", "moter", "moteure", "موتور"],
     # A battery: the house's (solar, UPS) or the car's.
-    ("electrician", "car-electrician"): [
-        "battery", "batterie", "batarie", "batariye", "batariyet", "batteries", "بطارية",
-        "بطاريات",
+    ("batteries-inverters", "car-electrician"): [
+        "battery", "batterie", "batarie", "batariye", "batariyet", "batteries", "batery",
+        "batri", "batrie", "batrye", "batre", "بطارية", "بطاريات",
     ],
     # Only about a car: "my car won't start", "ghayyer zeit el sayyara", "wash".
     ("", "mechanic"): ["start", "tdawwer", "btdawwer", "zeit", "oil", "ydakhen", "tdakhen",

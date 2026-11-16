@@ -81,6 +81,7 @@ CATEGORIES = [
             ("dentist", "Dentist", "طبيب أسنان", "tooth"),
             ("pediatrician", "Pediatrician", "طبيب أطفال", "baby"),
             ("general-practitioner", "General practitioner", "طبيب صحة عامة", "stethoscope"),
+            ("pharmacy", "Pharmacy", "صيدلية", "stethoscope"),
         ],
     ),
     (
@@ -93,7 +94,20 @@ CATEGORIES = [
             ("electrician", "Electrician", "كهربجي", "bolt"),
             ("carpenter", "Carpenter", "نجار", "hammer"),
             ("ac-repair", "AC repair", "تصليح مكيفات", "snowflake"),
+            ("appliance-repair", "Fridge & appliance repair", "تصليح براد وغسالة", "appliance"),
             ("painter", "House painter", "دهّان", "paint-roller"),
+        ],
+    ),
+    (
+        "power",
+        "Power & energy",
+        "كهربا وطاقة",
+        "bolt",
+        [
+            ("solar", "Solar panels", "طاقة شمسية", "bolt"),
+            ("batteries-inverters", "Batteries & inverters", "بطاريات وإنفرتر", "car-battery"),
+            ("generator", "Generators", "موتير / مولّد", "bolt"),
+            ("solar-cleaning", "Solar panel cleaning", "تنظيف ألواح", "water"),
         ],
     ),
     (
@@ -222,6 +236,24 @@ PROVIDERS = [
     ("khalde-car-wash", "Khalde Car Wash", "car-wash", "Khalde", 9000, 204, 20, 4.0, "Wash $5", set()),
     ("jounieh-piano", "Jounieh Piano Academy", "piano-lessons", "Jounieh", 17000, 35, 18, 4.7, "$30 per lesson", set()),
     ("saida-sweets", "Saida Sweets", "arabic-sweets", "Saida", 36000, 202, 60, 4.8, None, {"founding"}),
+    # --- power and energy, appliances, pharmacies ---
+    ("sunrise-solar", "Sunrise Solar", "solar", "Bir el Abed", 700, 80, 14, 4.6, "Survey free", {"featured", "founding"}),
+    ("shams-energy", "Shams Energy", "solar", "Ghobeiry", 1800, 320, 9, 4.2, "Quote free", set()),
+    ("south-solar-pro", "South Solar Pro", "solar", "Chiyah", 2600, 210, 6, 4.4, "Survey free", set()),
+    ("volt-batteries", "Volt Batteries", "batteries-inverters", "Haret Hreik", 400, 150, 21, 4.5, "Check free", {"founding"}),
+    ("inverter-doctor", "Inverter Doctor", "batteries-inverters", "Rouweiss", 900, 25, 12, 4.7, "Visit from $15", set()),
+    ("ups-center", "UPS Center", "batteries-inverters", "Mreijeh", 1500, 190, 5, 4.0, "Diagnosis $10", set()),
+    ("abu-nabil-moteur", "Abu Nabil Generators", "generator", "Ghobeiry", 800, 340, 18, 4.3, "Service from $25", set()),
+    ("mwalled-masri", "Masri Generator Repair", "generator", "Bourj el Barajneh", 1700, 235, 10, 4.5, "Visit from $20", {"featured"}),
+    ("moteur-express", "Moteur Express", "generator", "Hadath", 3100, 140, 4, 3.9, "Visit from $20", set()),
+    ("clean-panels-lb", "Clean Panels", "solar-cleaning", "Haret Hreik", 650, 270, 13, 4.6, "From $15", set()),
+    ("sun-wash", "SunWash", "solar-cleaning", "Mazraa", 3000, 330, 7, 4.4, "From $20", set()),
+    ("fridge-fix-hh", "Fridge Fix", "appliance-repair", "Haret Hreik", 500, 100, 24, 4.5, "Visit from $10", {"founding"}),
+    ("washing-doctor", "Washing Machine Doctor", "appliance-repair", "Bir Hassan", 1900, 290, 15, 4.3, "Visit from $12", set()),
+    ("brad-ghobeiry", "Brad & Ghassale Ghobeiry", "appliance-repair", "Ghobeiry", 1100, 305, 8, 4.1, "Visit from $10", set()),
+    ("pharmacy-hayat", "Hayat Pharmacy", "pharmacy", "Haret Hreik", 280, 60, 17, 4.6, None, {"founding"}),
+    ("pharmacy-night-bb", "Night Pharmacy", "pharmacy", "Bourj el Barajneh", 1300, 250, 26, 4.4, None, {"featured"}),
+    ("pharmacy-chiyah", "Chiyah Pharmacy", "pharmacy", "Chiyah", 1600, 20, 11, 4.2, None, set()),
     # --- pending (listed without the badge; proof waits for the founder) ---
     ("pending-painter", "Hussein Painting", "painter", "Haret Hreik", 200, 90, 0, 0, None, {"pending"}),
     ("pending-yoga", "Zen Yoga Studio", "yoga", "Bir el Abed", 650, 20, 0, 0, "$10 per class", {"pending"}),
@@ -269,6 +301,20 @@ STRUCTURED_PRICES = {
     "khalde-car-wash": (5, "item", "USD"),
     "jounieh-piano": (30, "hour", "USD"),
     "pending-yoga": (10, "hour", "USD"),
+    "sunrise-solar": (150, "job", "USD"),
+    "shams-energy": (200, "job", "USD"),
+    "south-solar-pro": (180, "job", "USD"),
+    "volt-batteries": (10, "job", "USD"),
+    "inverter-doctor": (15, "visit", "USD"),
+    "ups-center": (10, "job", "USD"),
+    "abu-nabil-moteur": (25, "job", "USD"),
+    "mwalled-masri": (20, "visit", "USD"),
+    "moteur-express": (20, "visit", "USD"),
+    "clean-panels-lb": (15, "job", "USD"),
+    "sun-wash": (20, "job", "USD"),
+    "fridge-fix-hh": (10, "visit", "USD"),
+    "washing-doctor": (12, "visit", "USD"),
+    "brad-ghobeiry": (10, "visit", "USD"),
     "unv-mobile-fix": (20, "job", "USD"),
     "unv-barber-rami": (4, "item", "USD"),
     "unv-french-nadine": (12, "hour", "USD"),
@@ -339,6 +385,9 @@ HOURS_BY_TOP_CATEGORY = {
     "fitness": HOURS_LESSONS,
     "sweets-shops": HOURS_EVERY_DAY,
 }  # every other category: HOURS_SHOP
+# A child category can have its own hours, before its parent's:
+# pharmacies are open every day, not on clinic hours.
+HOURS_BY_CATEGORY = {"pharmacy": HOURS_EVERY_DAY}
 
 # These providers have not given hours (opening_hours = null, open_now = null).
 NO_HOURS_SLUGS = {
@@ -412,6 +461,8 @@ def opening_hours_for(
 ) -> dict | None:
     if slug in NO_HOURS_SLUGS:
         return None
+    if category.slug in HOURS_BY_CATEGORY:
+        return HOURS_BY_CATEGORY[category.slug]
     # Providers sit in a child category; the hours depend on its parent.
     top_slug = next(c.slug for c in categories.values() if c.id == category.parent_id)
     return HOURS_BY_TOP_CATEGORY.get(top_slug, HOURS_SHOP)
