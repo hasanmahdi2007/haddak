@@ -10,6 +10,8 @@ import {
   type FollowingParams,
   type HaddakApi,
   type HealthResponse,
+  type HireAnswer,
+  type HireCheck,
   type NearbyStoriesParams,
   type OwnProvider,
   type Page,
@@ -183,5 +185,13 @@ export function createHttpApi(
     getMyFollowing: (params?: FollowingParams) =>
       request<Page<ProviderSummary>>('/me/following', { query: { ...params }, auth: true }),
     getMyFeed: () => request<{ items: StoryGroup[] }>('/me/feed', { auth: true }),
+    getPendingHireChecks: () =>
+      request<{ items: HireCheck[] }>('/me/hire-checks/pending', { auth: true }),
+    answerHireCheck: (checkId: string, answer: HireAnswer) =>
+      request<void>(`/me/hire-checks/${id(checkId)}`, {
+        method: 'POST',
+        body: { answer },
+        auth: true,
+      }),
   };
 }

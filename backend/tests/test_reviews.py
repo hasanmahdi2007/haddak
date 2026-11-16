@@ -146,6 +146,7 @@ def test_list_is_newest_first_with_paging_and_is_mine(client, db):
     assert page["total"] == 3
     assert set(anonymous["items"][0]) == {
         "id", "author_name", "rating", "comment", "created_at", "is_mine",
+        "hired_through_haddak",
     }  # fmt: skip
 
 

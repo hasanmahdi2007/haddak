@@ -717,6 +717,9 @@ const CONTACT_COUNTS: Record<number, number> = { 0: 12, 1: 31, 3: 2, 6: 1, 10: 1
 
 const FOLLOWER_COUNTS: Record<number, number> = { 0: 48, 1: 132, 4: 17, 9: 64, 20: 211, 22: 9 };
 
+/** "Yes, I hired them" answers in the last 90 days, by provider index. Others have none. */
+const CONFIRMED_HIRES: Record<number, number> = { 0: 7, 1: 12, 2: 3, 4: 5, 5: 2, 9: 4 };
+
 /**
  * Structured prices (amount in USD, unit), by slug, for the price filter. They match
  * each `price_text`; "$3 per m²" has no unit in the list, so it stays text only,
@@ -796,6 +799,7 @@ export const MOCK_PROVIDERS: ProviderDetail[] = SEEDS.map((seed, index) => {
     active_banner: null,
     follower_count: FOLLOWER_COUNTS[index] ?? (index * 7) % 23,
     is_following: false,
+    confirmed_hires: CONFIRMED_HIRES[index] ?? 0,
   };
 });
 

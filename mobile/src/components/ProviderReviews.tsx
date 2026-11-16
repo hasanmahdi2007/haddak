@@ -7,6 +7,7 @@ import { useI18n } from '@/i18n';
 import { requireSignIn, useAuth } from '@/lib/auth';
 import { makeStyles, opacity, radius, size, space, useTheme } from '@/theme';
 
+import { HiredBadge } from './Badges';
 import { Button } from './Button';
 import { Notice } from './Field';
 import { Stars } from './Rating';
@@ -36,8 +37,9 @@ function ReviewItem({ review }: { review: Review }) {
           {date}
         </Txt>
       </View>
-      <View style={{ flexDirection: row }}>
+      <View style={[styles.reviewMeta, { flexDirection: row }]}>
         <Stars value={review.rating} />
+        {review.hired_through_haddak ? <HiredBadge /> : null}
       </View>
       {review.comment ? (
         <Txt color="textMuted" content="block">
@@ -366,6 +368,11 @@ const useStyles = makeStyles((c) => ({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: space.md,
+  },
+  reviewMeta: {
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: space.sm,
   },
   divider: {
     borderTopWidth: size.hairline,

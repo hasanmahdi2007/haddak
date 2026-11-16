@@ -352,10 +352,11 @@ function StatsSection({ own, version }: { own: OwnProvider; version: number }) {
     [s.join.statsWhatsapp, stats && stats !== 'error' ? stats.whatsapp : null],
     [s.join.statsCalls, stats && stats !== 'error' ? stats.calls : null],
     [s.join.statsFollowers, own.follower_count],
+    [s.join.statsHires, stats && stats !== 'error' ? stats.confirmed_hires : null],
   ];
 
   return (
-    <Section title={s.join.statsTitle} aside={month} note={s.join.statsNote}>
+    <Section title={s.join.statsTitle} aside={month} note={`${s.join.statsNote} ${s.join.statsHiresNote}`}>
       {stats === 'error' ? (
         <>
           <Notice tone="error">{s.join.statsError}</Notice>

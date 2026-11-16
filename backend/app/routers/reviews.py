@@ -12,12 +12,14 @@ from app.models import PUBLIC_STATUSES, Provider, Review
 from app.rate_limit import limit_writes
 from app.routers.providers import get_public_provider
 from app.schemas import ReviewIn, ReviewList, ReviewOut
+from app.services.hire_checks import hired_user_ids
 from app.services.ratings import recalculate_rating
 
 router = APIRouter(tags=["reviews"])
 
 
-def to_review_out(review: Review, current_user_id: uuid.UUID | None) -> ReviewOut:
+def to_review_out(review: Review, current_user_id: uuid.UUID | None, hired: bool) -> ReviewOut:
+    """`hired`: the author said "Yes, I hired them" (see services/hire_checks.py)."""
     return ReviewOut(
         id=review.id,
         author_name=review.author_name,
@@ -25,7 +27,14 @@ def to_review_out(review: Review, current_user_id: uuid.UUID | None) -> ReviewOu
         comment=review.comment,
         created_at=review.created_at,
         is_mine=current_user_id is not None and review.user_id == current_user_id,
+        hired_through_haddak=hired,
     )
+
+
+def review_out_for_one(db: Session, review: Review, current_user_id: uuid.UUID | None) -> ReviewOut:
+    """to_review_out() for a single review: looks up its hired mark first."""
+    hired = review.user_id in hired_user_ids(db, review.provider_id, [review.user_id])
+    return to_review_out(review, current_user_id, hired)
 
 
 def lock_reviewable_provider(db: Session, provider_id: uuid.UUID, user_id: uuid.UUID) -> Provider:
@@ -69,7 +78,10 @@ def list_reviews(
         .limit(limit)
         .offset(offset)
     )
-    items = [to_review_out(review, current_user_id) for review in db.scalars(query)]
+    reviews = list(db.scalars(query))
+    # One query finds which of these authors confirmed a hire.
+    hired = hired_user_ids(db, provider.id, [review.user_id for review in reviews])
+    items = [to_review_out(review, current_user_id, review.user_id in hired) for review in reviews]
     total = db.scalar(
         select(func.count()).select_from(Review).where(Review.provider_id == provider.id)
     )
@@ -89,7 +101,7 @@ def get_my_review(
     """
     provider = get_public_provider(db, provider_id)
     review = find_my_review(db, provider.id, user_id)
-    return None if review is None else to_review_out(review, user_id)
+    return None if review is None else review_out_for_one(db, review, user_id)
 
 
 @router.put(
@@ -118,7 +130,7 @@ def upsert_my_review(
     recalculate_rating(db, provider)
     db.commit()
     db.refresh(review)
-    return to_review_out(review, user_id)
+    return review_out_for_one(db, review, user_id)
 
 
 @router.delete("/providers/{provider_id}/reviews/mine", status_code=204)

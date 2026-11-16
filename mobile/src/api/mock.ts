@@ -18,6 +18,8 @@ import {
   type ContactEventType,
   type Coordinates,
   type HaddakApi,
+  type HireAnswer,
+  type HireCheck,
   type OwnProvider,
   type ProviderDetail,
   type ProviderSummary,
@@ -130,7 +132,11 @@ function buildReviews(provider: ProviderDetail, index: number): Review[] {
   const random = seeded(index * 7919 + 17);
   const reviews: Review[] = [];
   let time = Date.parse('2026-11-12T16:00:00Z');
+  // Every third review comes from a confirmed hire, up to the provider's count.
+  let hired = 0;
   for (let i = 0; i < provider.review_count; i += 1) {
+    const fromHire = i % 3 === 0 && hired < provider.confirmed_hires;
+    if (fromHire) hired += 1;
     // Each review is one to four days older than the one before it.
     if (i > 0) time -= (1 + Math.floor(random() * 4)) * 86_400_000;
     // Ratings scatter around the provider's average.
@@ -143,6 +149,7 @@ function buildReviews(provider: ProviderDetail, index: number): Review[] {
       comment: comments[Math.floor(random() * comments.length)],
       created_at: new Date(time).toISOString(),
       is_mine: false,
+      hired_through_haddak: fromHire,
     });
   }
   return reviews; // already newest first
@@ -164,6 +171,16 @@ export interface MockControls {
 const OWN_ID = MOCK_PROVIDERS[0].id;
 const STORY_MAX = 5;
 const HOUR_MS = 3_600_000;
+const DAY_MS = 24 * HOUR_MS;
+
+/** A "Did you hire them?" question as the mock keeps it (the backend's hire_checks row). */
+interface MockHireCheck {
+  id: string;
+  provider_id: string;
+  contact_type: 'whatsapp' | 'call';
+  contacted_at: number;
+  answer: HireAnswer | null;
+}
 
 /**
  * In-memory implementation of the API contract, used when EXPO_PUBLIC_API_URL is unset.
@@ -193,6 +210,19 @@ export function createMockApi(
   const myReviews = new Map<string, Review>();
   // Times of the reports sent in this session, for the 10-per-hour limit.
   let reportTimes: number[] = [];
+  // "Did you hire them?" questions. One starts ready to ask (a call to the
+  // plumber yesterday), so the sheet can be seen without waiting 12 hours.
+  const hireChecks: MockHireCheck[] = [
+    {
+      id: '00000000-0000-4000-c000-000000000001',
+      provider_id: MOCK_PROVIDERS[4].id,
+      contact_type: 'call',
+      contacted_at: Date.now() - 26 * HOUR_MS,
+      answer: null,
+    },
+  ];
+  // Providers the user said they hired: their review gets the mark and the count goes up.
+  const hiredProviderIds = new Set<string>();
 
   const isOwn = (providerId: string) => providerId === OWN_ID && ownKind !== 'none';
   // While the profile is not verified, its stories and banner are hidden everywhere public.
@@ -228,7 +258,7 @@ export function createMockApi(
   function reviewsOf(provider: ProviderDetail, signedIn: boolean): Review[] {
     const mine = myReviews.get(provider.id);
     const seeds = seedReviews(provider);
-    return mine ? [{ ...mine, is_mine: signedIn }, ...seeds] : seeds;
+    return mine ? [{ ...mine, is_mine: signedIn, hired_through_haddak: hiredProviderIds.has(provider.id) }, ...seeds] : seeds;
   }
   /** Like the backend, the average follows every write; untouched providers keep their seed numbers. */
   function ratingOf(provider: ProviderDetail): { avg_rating: number; review_count: number } {
@@ -394,6 +424,7 @@ export function createMockApi(
       follower_count: provider.follower_count + (following.includes(provider.id) ? 1 : 0),
       // Always false while signed out, as on the backend.
       is_following: signedIn && following.includes(provider.id),
+      confirmed_hires: provider.confirmed_hires + (hiredProviderIds.has(provider.id) ? 1 : 0),
     };
   }
 
@@ -542,13 +573,24 @@ export function createMockApi(
         return { items: items.slice(0, 30) };
       }),
 
-    logContactEvent: (providerId, type) =>
-      respond(() => {
+    logContactEvent: async (providerId, type) => {
+      const signedIn = (await getToken()) !== null;
+      return respond(() => {
         find((p) => p.id === providerId);
         const counts = (events[providerId] ??= { view: 0, whatsapp: 0, call: 0 });
         counts[type] += 1;
         if (__DEV__) console.log(`[mock] contact event: ${type} for ${providerId}`);
-      }),
+        // As on the backend: a signed-in WhatsApp or Call tap stores a hire check,
+        // at most one per provider in 7 days, never on my own listing.
+        if (!signedIn || type === 'view' || isOwn(providerId)) return;
+        const now = Date.now();
+        const recent = hireChecks.some((c) => c.provider_id === providerId && now - c.contacted_at < 7 * DAY_MS);
+        if (!recent) {
+          const id = `00000000-0000-4000-c000-${String(now).slice(-12).padStart(12, '0')}`;
+          hireChecks.push({ id, provider_id: providerId, contact_type: type, contacted_at: now, answer: null });
+        }
+      });
+    },
 
     submitSuggestion: (input) =>
       respond(() => {
@@ -596,7 +638,7 @@ export function createMockApi(
       respondAuth(() => {
         find((p) => p.id === providerId);
         const mine = myReviews.get(providerId);
-        return mine ? { ...mine, is_mine: true } : null;
+        return mine ? { ...mine, is_mine: true, hired_through_haddak: hiredProviderIds.has(providerId) } : null;
       }),
 
     upsertMyReview: (providerId, { rating, comment, author_name }) =>
@@ -616,6 +658,7 @@ export function createMockApi(
           comment: comment.trim(),
           created_at: before?.created_at ?? new Date().toISOString(),
           is_mine: true,
+          hired_through_haddak: hiredProviderIds.has(providerId),
         };
         myReviews.set(providerId, review);
         return review;
@@ -751,6 +794,31 @@ export function createMockApi(
           // The provider with the newest story comes first.
           .sort((a, b) => Date.parse(b.stories[0].created_at) - Date.parse(a.stories[0].created_at));
         return { items: items.slice(0, 30) };
+      }),
+
+    getPendingHireChecks: () =>
+      respondAuth(() => {
+        const now = Date.now();
+        const items: HireCheck[] = hireChecks
+          .filter((c) => c.answer === null && now - c.contacted_at >= 12 * HOUR_MS && now - c.contacted_at < 14 * DAY_MS)
+          .sort((a, b) => b.contacted_at - a.contacted_at)
+          .slice(0, 3)
+          .map((c) => ({
+            id: c.id,
+            contact_type: c.contact_type,
+            contacted_at: new Date(c.contacted_at).toISOString(),
+            provider: summary(find((p) => p.id === c.provider_id), null),
+          }));
+        return { items };
+      }),
+
+    answerHireCheck: (checkId, answer) =>
+      respondAuth(() => {
+        const check = hireChecks.find((c) => c.id === checkId);
+        if (!check) throw new ApiError(404, 'Hire check not found');
+        if (check.answer !== null) throw new ApiError(409, 'This hire check was already answered');
+        check.answer = answer;
+        if (answer === 'hired') hiredProviderIds.add(check.provider_id);
       }),
 
     controls: {

@@ -11,6 +11,7 @@ import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { HireCheckPrompt } from '@/components/HireCheckSheet';
 import { I18nProvider } from '@/i18n';
 import { AuthProvider } from '@/lib/auth';
 import { CategoriesProvider } from '@/lib/categories';
@@ -64,6 +65,8 @@ export default function RootLayout() {
                   {/* Sign-in slides up over the screen that asked for it, and closes back to it. */}
                   <Stack.Screen name="sign-in" options={{ presentation: 'modal' }} />
                 </Stack>
+                {/* "Did you hire them?": asks at most once per app open, only when signed in. */}
+                <HireCheckPrompt />
               </FavouritesProvider>
             </CategoriesProvider>
           </LocationProvider>

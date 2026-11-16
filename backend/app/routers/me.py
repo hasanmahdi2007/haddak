@@ -15,6 +15,7 @@ from app.rate_limit import limit_writes
 from app.schemas import OwnProvider, ProviderCreate, ProviderStats, ProviderUpdate
 from app.services.contact_stats import current_month_start
 from app.services.geo import point_for_storage
+from app.services.hire_checks import confirmed_hires
 from app.services.provider_views import to_own
 
 router = APIRouter(tags=["me"])
@@ -169,7 +170,8 @@ def update_my_provider(
 
 @router.get("/me/provider/stats", response_model=ProviderStats)
 def get_my_stats(db: Session = Depends(get_db), user_id: uuid.UUID = Depends(get_current_user_id)):
-    """How many views, WhatsApp taps and call taps my profile got this month."""
+    """How many views, WhatsApp taps and call taps my profile got this month,
+    and how many confirmed hires it had in the last 90 days."""
     provider = get_my_provider_or_404(db, user_id)
 
     month_start = current_month_start()
@@ -186,4 +188,5 @@ def get_my_stats(db: Session = Depends(get_db), user_id: uuid.UUID = Depends(get
         views=counts.get("view", 0),
         whatsapp=counts.get("whatsapp", 0),
         calls=counts.get("call", 0),
+        confirmed_hires=confirmed_hires(db, provider.id),
     )

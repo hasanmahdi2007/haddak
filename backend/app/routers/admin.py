@@ -14,11 +14,12 @@ from app.models import AssistLog, Banner, Provider, ProviderReport, ProviderSugg
 from app.routers.me import generate_slug, require_category, require_price_pair
 from app.schemas import (
     AdminBannerList,
+    AdminProvider,
+    AdminProviderList,
     AdminProviderUpdate,
     AdminStoryList,
     AssistWanted,
     OwnProvider,
-    OwnProviderList,
     ProviderStatus,
     ReportList,
     SuggestionList,
@@ -26,6 +27,7 @@ from app.schemas import (
 )
 from app.services.assist.budget import month_spend_usd, month_start
 from app.services.geo import point_for_storage
+from app.services.hire_checks import no_answer_counts
 from app.services.provider_views import to_own
 
 # dependencies=[...] applies the admin-key check to all routes in this file.
@@ -47,7 +49,7 @@ BANNER_FIELDS = [
 ]
 
 
-@router.get("/providers", response_model=OwnProviderList)
+@router.get("/providers", response_model=AdminProviderList)
 def list_providers_by_status(
     status: ProviderStatus = "pending",
     db: Session = Depends(get_db),
@@ -56,9 +58,18 @@ def list_providers_by_status(
     query = (
         select(Provider).where(Provider.status == status).order_by(Provider.created_at, Provider.id)
     )
-    items = [to_own(db, provider) for provider in db.scalars(query)]
+    providers = list(db.scalars(query))
+    # "They didn't answer" counts for the whole list in one query (founder only).
+    no_answers = no_answer_counts(db, [provider.id for provider in providers])
+    items = [
+        AdminProvider(
+            **to_own(db, provider).model_dump(),
+            no_answer_count_90d=no_answers.get(provider.id, 0),
+        )
+        for provider in providers
+    ]
     total = db.scalar(select(func.count()).select_from(Provider).where(Provider.status == status))
-    return OwnProviderList(items=items, total=total or 0)
+    return AdminProviderList(items=items, total=total or 0)
 
 
 @router.patch("/providers/{provider_id}", response_model=OwnProvider)

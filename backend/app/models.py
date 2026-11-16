@@ -237,6 +237,28 @@ class Follow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class HireCheck(Base):
+    """Hire check ("Did you hire them?"): created when a signed-in user taps WhatsApp or
+    Call. answer stays None until the user replies in the app.
+
+    answer is 'hired', 'not_yet' or 'no_answer' (they did not pick up).
+    """
+
+    __tablename__ = "hire_checks"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    provider_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("providers.id", ondelete="CASCADE"))
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    contact_type: Mapped[str] = mapped_column(Text)  # 'whatsapp' or 'call'
+    contacted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    answer: Mapped[str | None] = mapped_column(Text)
+    answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class Place(Base):
     """A town or neighbourhood the assistant can centre a search on.
 

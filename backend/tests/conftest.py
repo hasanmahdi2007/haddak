@@ -78,7 +78,7 @@ def migrated_database():
     with engine.begin() as connection:
         connection.execute(
             text(
-                "DROP TABLE IF EXISTS assist_log, assist_cache, places, "
+                "DROP TABLE IF EXISTS hire_checks, assist_log, assist_cache, places, "
                 "follows, banners, stories, "
                 "provider_reports, provider_suggestions, contact_events, "
                 "reviews, providers, categories, alembic_version CASCADE"
@@ -99,7 +99,7 @@ def empty_tables(migrated_database):
     with engine.begin() as connection:
         connection.execute(
             text(
-                "TRUNCATE assist_log, assist_cache, follows, banners, stories, "
+                "TRUNCATE assist_log, assist_cache, hire_checks, follows, banners, stories, "
                 "provider_reports, provider_suggestions, contact_events, reviews, "
                 "providers, categories RESTART IDENTITY CASCADE"
             )

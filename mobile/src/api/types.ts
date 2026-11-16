@@ -124,6 +124,8 @@ export interface ProviderDetail extends ProviderSummary {
   follower_count: number;
   /** Always false while signed out. */
   is_following: boolean;
+  /** "Yes, I hired them" answers in the last 90 days. */
+  confirmed_hires: number;
 }
 
 /** `unverified`: no proof sent yet; `pending`: proof waiting for the founder. */
@@ -144,6 +146,19 @@ export interface Review {
   comment: string;
   created_at: string;
   is_mine: boolean;
+  /** The author told Haddak they hired this provider. */
+  hired_through_haddak: boolean;
+}
+
+/** "Did you hire them?" answers. `no_answer`: the provider did not pick up. */
+export type HireAnswer = 'hired' | 'not_yet' | 'no_answer';
+
+/** A question the app asks some hours after a WhatsApp or Call tap. */
+export interface HireCheck {
+  id: string;
+  contact_type: 'whatsapp' | 'call';
+  contacted_at: string;
+  provider: ProviderSummary;
 }
 
 export interface Page<T> {
@@ -330,6 +345,8 @@ export interface ProviderStats {
   views: number;
   whatsapp: number;
   calls: number;
+  /** Last 90 days, not just this month. */
+  confirmed_hires: number;
 }
 
 export interface AdminProviderPatch {
@@ -416,4 +433,8 @@ export interface HaddakApi {
   getMyFollowing(params?: FollowingParams): Promise<Page<ProviderSummary>>;
   /** Active stories of the verified providers I follow (at most 30 providers). */
   getMyFeed(): Promise<{ items: StoryGroup[] }>;
+  /** My unanswered "Did you hire them?" questions (12 hours to 14 days old), newest first, at most 3. */
+  getPendingHireChecks(): Promise<{ items: HireCheck[] }>;
+  /** Answer once. 404 if not mine, 409 if already answered. */
+  answerHireCheck(checkId: string, answer: HireAnswer): Promise<void>;
 }

@@ -365,6 +365,10 @@ function renderProvider(provider) {
   }
   if (provider.price_text) addRow(table, "Price", element("span", provider.price_text));
   addRow(table, "Created", element("span", formatDate(provider.created_at)));
+  // "Did you hire them?" answers. "Didn't answer" is for the founder only:
+  // a high number means people cannot reach this provider.
+  addRow(table, "Confirmed hires (90 days)", element("span", Number(provider.confirmed_hires) || 0));
+  addRow(table, "Didn't answer (90 days)", element("span", Number(provider.no_answer_count_90d) || 0));
   card.appendChild(table);
 
   if (provider.description) card.appendChild(element("p", provider.description, "description"));

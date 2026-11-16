@@ -199,6 +199,8 @@ class ProviderDetail(ProviderSummary):
     active_banner: BannerOut | None
     follower_count: int
     is_following: bool  # False for anonymous callers
+    # "Yes, I hired them" answers in the last 90 days (see services/hire_checks.py).
+    confirmed_hires: int
 
 
 class OwnProvider(ProviderDetail):
@@ -220,8 +222,16 @@ class ProviderSearchResult(BaseModel):
     total: int
 
 
-class OwnProviderList(BaseModel):
-    items: list[OwnProvider]
+class AdminProvider(OwnProvider):
+    """What the admin list shows: OwnProvider plus founder-only numbers."""
+
+    # "They didn't answer" replies in the last 90 days. Never shown to the
+    # provider or the public.
+    no_answer_count_90d: int
+
+
+class AdminProviderList(BaseModel):
+    items: list[AdminProvider]
     total: int
 
 
@@ -241,6 +251,7 @@ class ProviderStats(BaseModel):
     views: int
     whatsapp: int
     calls: int
+    confirmed_hires: int  # last 90 days, not just this month
 
 
 # ---------- Providers (requests) ----------
@@ -397,11 +408,33 @@ class ReviewOut(BaseModel):
     comment: str
     created_at: datetime
     is_mine: bool
+    # True when the author answered "Yes, I hired them" for this provider.
+    hired_through_haddak: bool
 
 
 class ReviewList(BaseModel):
     items: list[ReviewOut]
     total: int
+
+
+# ---------- "Did you hire them?" ----------
+
+HireAnswer = Literal["hired", "not_yet", "no_answer"]
+
+
+class HireAnswerIn(BaseModel):
+    answer: HireAnswer
+
+
+class HireCheckOut(BaseModel):
+    id: uuid.UUID
+    contact_type: str  # 'whatsapp' or 'call'
+    contacted_at: datetime
+    provider: ProviderSummary
+
+
+class HireCheckList(BaseModel):
+    items: list[HireCheckOut]
 
 
 # ---------- Suggestions ----------

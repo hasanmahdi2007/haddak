@@ -229,6 +229,7 @@ def test_contact_events_show_up_in_stats(client, db, clock):
         "views": 3,
         "whatsapp": 2,
         "calls": 1,
+        "confirmed_hires": 0,
     }
 
 

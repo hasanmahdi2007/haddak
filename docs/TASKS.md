@@ -35,6 +35,7 @@ Status: `todo`, `doing`, `done`, `blocked`. Update the status when a task change
 | B17 | `places` table with ~80 hand-placed towns and neighbourhoods, fuzzy lookup (migration 0006) | done (coordinates approximate; GeoNames import later) | Tests: recentre, two Jdeideh, unknown place |
 | B18 | `POST /assist` with cache, daily limit, monthly budget, `assist_log`; admin `GET /admin/assist/wanted` and Wanted tab | done (real model untested) | Tests in `test_assist.py`, AI client mocked |
 | B19 | Assistant phrase test: `evals/assist_phrases.jsonl` (102 phrases) and `scripts/eval_assist.py` | built, not run (needs a key, costs money) | Founder runs it once a key exists |
+| B20 | "Did you hire them?": `hire_checks` table (migration 0007), checks on signed-in WhatsApp/Call taps, `GET /me/hire-checks/pending`, `POST /me/hire-checks/{id}`, `hired_through_haddak` on reviews, `confirmed_hires` on profile and stats, admin `no_answer_count_90d` | done | Tests in `test_hire_checks.py` |
 
 ## Mobile (mobile subagent) — works in `mobile/` only
 
@@ -50,6 +51,7 @@ Design comes first and uses the installed design plugins (`impeccable`, `design:
 | M5b | Name search, Get directions, favourites, opening hours and open-now, optional contact count, Suggest a provider | built, awaiting phone test | Each works on a phone against the backend |
 | M6 | Sign-in, provider sign-up with pin drop and proof upload, edit, stats | built, awaiting phone and storage test (run `supabase/storage_setup.sql` first) | Works against the backend |
 | M7 | Reviews, contact-event logging, share link and QR code | built, awaiting phone test | Events appear in provider stats |
+| M7b | "Did you hire them?" sheet on app open/foreground, "Hired through Haddak" mark on reviews, confirmed hires on profile and in My business | built, awaiting phone test | Sheet shows once per open; answers reach the backend |
 | M8 | English and Arabic strings, right-to-left layout, UX copy pass (`design:ux-copy`) | todo | Switching language flips layout correctly |
 | M9 | Design critique, accessibility review, polish pass | todo | Findings fixed or listed |
 

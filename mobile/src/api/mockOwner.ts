@@ -101,6 +101,7 @@ export function buildOwnProvider(input: ProviderCreateInput): OwnProvider {
     active_banner: null,
     follower_count: 0,
     is_following: false,
+    confirmed_hires: 0,
     status: proof ? 'pending' : 'unverified',
     featured_until: null,
     verification_doc_url: proof,
@@ -149,5 +150,7 @@ export function applyOwnEdits(own: OwnProvider, input: ProviderUpdateInput): Own
 export function mockStats(fresh: boolean): ProviderStats {
   const now = new Date();
   const month = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
-  return fresh ? { month, views: 0, whatsapp: 0, calls: 0 } : { month, views: 148, whatsapp: 23, calls: 9 };
+  return fresh
+    ? { month, views: 0, whatsapp: 0, calls: 0, confirmed_hires: 0 }
+    : { month, views: 148, whatsapp: 23, calls: 9, confirmed_hires: 7 };
 }

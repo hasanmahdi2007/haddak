@@ -142,6 +142,22 @@ CREATE TABLE follows (
 );
 CREATE INDEX follows_provider_idx ON follows (provider_id);   -- for follower counts
 
+-- "Did you hire them?": one row when a signed-in user taps WhatsApp or Call.
+-- The app asks the user later (12 hours to 14 days after the tap); answer stays
+-- NULL until they reply. At most one row per user and provider in 7 days.
+CREATE TABLE hire_checks (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider_id   UUID NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+    user_id       UUID NOT NULL,                     -- Supabase auth user id
+    contact_type  TEXT NOT NULL CHECK (contact_type IN ('whatsapp', 'call')),
+    contacted_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    answer        TEXT CHECK (answer IN ('hired', 'not_yet', 'no_answer')),
+    answered_at   TIMESTAMPTZ,
+    CONSTRAINT hire_checks_answer_time_together CHECK ((answer IS NULL) = (answered_at IS NULL))
+);
+CREATE INDEX hire_checks_user_contacted_idx ON hire_checks (user_id, contacted_at);
+CREATE INDEX hire_checks_provider_answer_idx ON hire_checks (provider_id, answer, answered_at);
+
 -- Towns and neighbourhoods the assistant can centre a search on. Reference
 -- data, inserted by migration 0006 (about 80 rows, APPROXIMATE hand-placed
 -- centres), to be replaced by a GeoNames import.
@@ -186,7 +202,7 @@ CREATE TABLE assist_log (
 CREATE INDEX assist_log_created_idx ON assist_log (created_at);
 ```
 
-Migrations: `0001` created the first four tables; `0002` added `providers.show_contact_count`, `providers.opening_hours` and the `provider_suggestions` table; `0003` added the `unverified` status, made `providers.owner_user_id` nullable, and added `providers.source`, `provider_suggestions.lat` / `lng` and the `provider_reports` table; `0004` added `providers.sponsor_hook` and the `stories`, `banners` and `follows` tables; `0005` added `providers.price_amount`, `price_unit` and `price_currency`; `0006` added `pg_trgm`, `normalize_name()`, the `places` table with its first rows, and the `assist_cache` and `assist_log` tables.
+Migrations: `0001` created the first four tables; `0002` added `providers.show_contact_count`, `providers.opening_hours` and the `provider_suggestions` table; `0003` added the `unverified` status, made `providers.owner_user_id` nullable, and added `providers.source`, `provider_suggestions.lat` / `lng` and the `provider_reports` table; `0004` added `providers.sponsor_hook` and the `stories`, `banners` and `follows` tables; `0005` added `providers.price_amount`, `price_unit` and `price_currency`; `0006` added `pg_trgm`, `normalize_name()`, the `places` table with its first rows, and the `assist_cache` and `assist_log` tables; `0007` added the `hire_checks` table.
 
 ### `providers.status`
 
@@ -236,6 +252,7 @@ A missing day (or an empty list) means closed that day. `NULL` for the whole col
 - Assistant: `assist_log` and `assist_cache` hold no user id, no IP and no location. The sentence is stored (normalised) only in `assist_log.wanted_text`, and only when its search found nothing. The monthly budget is the sum of `assist_log.cost_usd` in the current UTC month.
 - Place lookup: exact match on `normalize_name()` of `name_en`, `name_ar` or an alias first; otherwise the best `similarity()` of 0.35 or more. Several rows are returned only when they share the English name (same name, different districts).
 - Publishing a suggestion creates the provider and deletes the suggestion in one transaction.
+- Hire checks ("Did you hire them?"): a `whatsapp` or `call` contact event sent with a valid login token creates a `hire_checks` row, unless the same user already has one for that provider with `contacted_at` in the last 7 days (answered or not), or the user owns the provider. Only that user may answer, and only once. A review is "hired through Haddak" when its author has a `hired` answer for that provider (computed when read, so a review written later also counts). `confirmed_hires` = `hired` answers with `answered_at` in the last 90 days. `no_answer` answers are shown to the admin only. Search ranking does not use hire checks yet.
 
 ## Search query
 

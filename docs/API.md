@@ -50,7 +50,8 @@ Admin routes use the header `X-Admin-Key: <ADMIN_API_KEY>` instead.
   "contacts_this_month": 12,                   // null unless the provider chose to show it
   "active_banner": null,                       // Banner (below) or null
   "follower_count": 14,
-  "is_following": false }                      // true only when a valid token is sent and that user follows
+  "is_following": false,                       // true only when a valid token is sent and that user follows
+  "confirmed_hires": 3 }                       // "hired" answers to "Did you hire them?" in the last 90 days
 // distance_m is null in ProviderDetail unless lat and lng are passed.
 
 // OwnProvider (what the owner and the admin see) = ProviderDetail plus:
@@ -88,7 +89,13 @@ Admin routes use the header `X-Admin-Key: <ADMIN_API_KEY>` instead.
 
 // Review
 { "id": "uuid", "author_name": "Rana", "rating": 5, "comment": "Fixed it in an hour.",
-  "created_at": "2026-11-15T10:00:00Z", "is_mine": false }
+  "created_at": "2026-11-15T10:00:00Z", "is_mine": false,
+  "hired_through_haddak": true }               // the author answered "hired" for this provider
+
+// HireCheck ("Did you hire them?", only for its own user)
+{ "id": "uuid", "contact_type": "whatsapp",    // "whatsapp" | "call"
+  "contacted_at": "2026-11-15T10:00:00Z",
+  "provider": ProviderSummary }                // distance_m is null
 ```
 
 ## Provider statuses and who sees what
@@ -116,7 +123,7 @@ A provider can be listed without being verified.
 | `GET /providers/{id}` | `ProviderDetail`. Optional `lat`, `lng` to get `distance_m`. 404 if unknown or rejected. |
 | `GET /providers/by-slug/{slug}` | Same as above, by share code. |
 | `GET /providers/{id}/reviews` | `{"items": [Review], "total": n}`. Query: `limit` (default 20, max 50), `offset`. Newest first. `is_mine` is set when a token is sent. |
-| `POST /providers/{id}/contact-events` | Body `{"type": "view" \| "whatsapp" \| "call"}`. Returns 204. No login. |
+| `POST /providers/{id}/contact-events` | Body `{"type": "view" \| "whatsapp" \| "call"}`. Returns 204. No login needed; when a valid token is sent with `whatsapp` or `call`, a hire check is also created (see "Did you hire them?"). A bad token is treated as anonymous. |
 | `POST /providers/{id}/reports` | Flag a bad listing. Body below. Returns 201 `{"id": "uuid"}`. No login. 404 if unknown or rejected. |
 | `POST /suggestions` | Suggest a provider who is not on Haddak yet. Body below. Returns 201 `{"id": "uuid"}`. No login. |
 | `GET /providers/{id}/stories` | `{"items": [Story]}`: the provider's active stories, newest first. 404 if unknown or rejected. |
@@ -238,7 +245,7 @@ Limits: `name` 1 to 100 characters, `area_name` up to 100, `note` up to 500; `ph
 | `GET /me/provider` | `OwnProvider`, or 404 if the user has no profile. |
 | `POST /me/provider` | Create my profile. Body below. Returns 201 `OwnProvider`. `status` is `"pending"` if a `verification_doc_url` was sent, otherwise `"unverified"`; the profile is listed publicly either way. 409 if one exists. |
 | `PATCH /me/provider` | Update any of the create fields. Returns `OwnProvider`. Status rules below. |
-| `GET /me/provider/stats` | `{"month": "2026-11", "views": 40, "whatsapp": 9, "calls": 3}` for the current month. |
+| `GET /me/provider/stats` | `{"month": "2026-11", "views": 40, "whatsapp": 9, "calls": 3, "confirmed_hires": 2}`. Views, WhatsApp and calls are for the current month; `confirmed_hires` covers the last 90 days, like the profile. |
 | `POST /me/provider/stories` | Post a story. Body `{"text": "…", "image_url": "https://…"}` (`image_url` optional). Returns 201 `Story`. Rules below. |
 | `DELETE /me/provider/stories/{story_id}` | Delete one of my stories. 204; 404 if it is not mine or does not exist. |
 | `PUT /me/provider/banner` | Set my banner, replacing the one I had. Body below. Returns `Banner`. |
@@ -247,6 +254,8 @@ Limits: `name` 1 to 100 characters, `area_name` up to 100, `note` up to 500; `ph
 | `DELETE /providers/{id}/follow` | Unfollow. 204, also when not following. 404 if unknown or rejected. |
 | `GET /me/following` | `{"items": [ProviderSummary], "total": n}`: providers I follow, most recently followed first. Query: `limit` (default 50, max 100), `offset`. Rejected providers are left out. `distance_m` is null. |
 | `GET /me/feed` | `{"items": [StoryGroup]}`: active stories of the verified providers I follow, grouped by provider; newest story first; at most 30 providers. `distance_m` is null. |
+| `GET /me/hire-checks/pending` | `{"items": [HireCheck]}`: my unanswered hire checks made 12 hours to 14 days ago, newest first, at most 3. Rejected providers are left out. |
+| `POST /me/hire-checks/{id}` | Answer one. Body `{"answer": "hired" \| "not_yet" \| "no_answer"}`. 204. 404 if it is not mine or does not exist; 409 if already answered. |
 
 Create body:
 
@@ -274,6 +283,16 @@ Two optional fields can also be sent on create and on update:
 - `price_amount` (number > 0, up to 100,000,000, or `null`), `price_unit` (`hour`, `visit`, `job`, `item`, `month`, or `null`) and `price_currency` (`USD` or `LBP`, default `USD`): the structured price that search filters and sorts on. `price_text` stays the free-text description. Amount and unit are set together or both `null`; one without the other is 422, also on `PATCH`, where the check is made against the stored values (sending only a new `price_amount` keeps the stored unit; clearing needs both set to `null`). `price_currency` cannot be `null`.
 
 - `sponsor_hook` (string or `null`, default `null`): a one-sentence pitch, 1 to 80 characters. `null` (or an empty string) clears it. The owner may set it at any time, but the public only receives it while the profile is sponsored (see "Sponsored" below).
+
+### "Did you hire them?"
+
+When a signed-in user taps WhatsApp or Call, the app sends the contact event with the login token and the backend stores a hire check. From 12 hours later the app asks once: "Did you hire them?" (Yes / Not yet / They didn't answer). Rules:
+
+- At most one check per user and provider in 7 days: a new tap within 7 days of the last check (answered or not) creates nothing. A tap on your own profile creates nothing. The 10-minute contact-event de-duplication does not affect checks.
+- After 14 days an unanswered check is no longer offered. It stays in the table.
+- `hired` marks that user's review of the provider (now or written later) with `hired_through_haddak: true`, and counts in the provider's `confirmed_hires` for 90 days.
+- `not_yet` is just recorded. `no_answer` is counted for the founder only (`no_answer_count_90d` in the admin provider list); the public and the owner never see it.
+- Search ranking does not use any of this yet.
 
 ### Stories and banners
 
@@ -311,7 +330,7 @@ Expired stories and banners are simply no longer returned; nothing deletes them 
 
 | Method and path | Purpose |
 |---|---|
-| `GET /admin/providers?status=pending` | List `OwnProvider` items by status: `unverified`, `pending`, `verified` or `rejected`. |
+| `GET /admin/providers?status=pending` | List `AdminProvider` items by status: `unverified`, `pending`, `verified` or `rejected`. `AdminProvider` = `OwnProvider` plus `no_answer_count_90d`: "They didn't answer" replies in the last 90 days. |
 | `PATCH /admin/providers/{id}` | Body: any of `status`, `founding_member`, `featured_until`, `price_amount`, `price_unit`, `price_currency` (same price rules as `PATCH /me/provider`). |
 | `GET /admin/suggestions` | `{"items": [Suggestion], "total": n}`, newest first. Query: `limit` (default 50, max 100), `offset`. |
 | `DELETE /admin/suggestions/{id}` | Remove a suggestion once it is dealt with. 204; 404 if there is no such suggestion. |
@@ -324,7 +343,7 @@ Expired stories and banners are simply no longer returned; nothing deletes them 
 | `DELETE /admin/providers/{id}/banner` | Remove a provider's banner. 204; 404 if the provider has no banner. |
 | `GET /admin/assist/wanted` | What people asked the assistant for and did not find. `{"month": "2026-11", "month_spend_usd": 0.42, "month_budget_usd": 10, "month_ai_requests": 812, "items": [{"text": "badde 7akim 7ayawanet", "count": 6, "last_seen": "…"}], "unknown_places": [{"name": "Atlantis", "count": 2}]}`. `items`: normalised sentences whose search found nothing in the last 30 days, most asked first, max 50. `unknown_places`: place names the lookup could not find, same window, max 50. Spend and AI requests: current UTC month. |
 
-Both provider routes return `OwnProvider` items; the list is `{"items": [...], "total": n}`, oldest first, `status` defaulting to `pending`.
+The list is `{"items": [AdminProvider], "total": n}`, oldest first, `status` defaulting to `pending`; `PATCH` returns `OwnProvider`.
 
 ### Status changes (`PATCH /admin/providers/{id}`)
 
@@ -377,7 +396,7 @@ The body is optional. Any field in it overrides the suggestion's value; a field 
 Write routes are limited per client IP, in the API process's memory (no extra service). Over the limit returns 429 with `{"detail": "..."}` and a `Retry-After` header.
 
 - `POST /providers/{id}/contact-events`: 30 per minute per IP. In addition, the same IP, provider and type is counted at most once per 10 minutes; repeats still return 204 but are not stored. This keeps provider stats honest.
-- `PUT /providers/{id}/reviews/mine`, `POST` and `PATCH /me/provider`, `POST /me/provider/stories`, `DELETE /me/provider/stories/{story_id}`, `PUT` and `DELETE /me/provider/banner`, `PUT` and `DELETE /providers/{id}/follow`: 20 per minute per IP. One shared allowance across these routes.
+- `PUT /providers/{id}/reviews/mine`, `POST` and `PATCH /me/provider`, `POST /me/provider/stories`, `DELETE /me/provider/stories/{story_id}`, `PUT` and `DELETE /me/provider/banner`, `PUT` and `DELETE /providers/{id}/follow`, `POST /me/hire-checks/{id}`: 20 per minute per IP. One shared allowance across these routes.
 - `POST /suggestions`: 5 per hour per IP (its own allowance). Requests refused for a validation error count too.
 - `POST /providers/{id}/reports`: 10 per hour per IP (its own allowance). Requests refused for a validation error or an unknown provider count too.
 - `POST /assist`: `ASSIST_DAILY_LIMIT` (default 30) requests per IP per 24 hours that reach the AI. Exact name matches, remembered sentences and the `understood` form do not count. Over the limit the free keyword fallback answers instead (HTTP 200, kind `results`, or `unavailable` when it finds no category), never 429.
@@ -386,7 +405,7 @@ Requests are counted before the login token is checked, so failed attempts use t
 
 ## Admin page
 
-`GET /admin` (outside `/api/v1`) serves one static HTML page for the founder: enter the admin key, see profiles by status (Pending, Unverified, Verified, Rejected) with their proof link, approve, decline the proof, reject or restore, set founding member and featured-until. A "Suggestions" tab lists suggested providers with Publish (a small form for the fields that are still missing) and Delete. A "Reports" tab lists reported listings with Dismiss and Reject listing. A "Posts" tab lists active stories and banners with Delete (confirmed in the page, not with `window.confirm`). A "Wanted" tab shows `GET /admin/assist/wanted`: this month's assistant spending against the budget, the most asked unmatched requests and the place names that were not found. Each verified profile has Sponsor 7 / 30 / 90 days buttons (sets `featured_until` to today + N) and End sponsorship (sends `featured_until: null`); other statuses show a hint that only verified profiles count as sponsored. It only calls the admin endpoints above and the public `GET /categories`; the key is kept in the browser tab's memory, never stored.
+`GET /admin` (outside `/api/v1`) serves one static HTML page for the founder: enter the admin key, see profiles by status (Pending, Unverified, Verified, Rejected) with their proof link and their "didn't answer" count for the last 90 days, approve, decline the proof, reject or restore, set founding member and featured-until. A "Suggestions" tab lists suggested providers with Publish (a small form for the fields that are still missing) and Delete. A "Reports" tab lists reported listings with Dismiss and Reject listing. A "Posts" tab lists active stories and banners with Delete (confirmed in the page, not with `window.confirm`). A "Wanted" tab shows `GET /admin/assist/wanted`: this month's assistant spending against the budget, the most asked unmatched requests and the place names that were not found. Each verified profile has Sponsor 7 / 30 / 90 days buttons (sets `featured_until` to today + N) and End sponsorship (sends `featured_until: null`); other statuses show a hint that only verified profiles count as sponsored. It only calls the admin endpoints above and the public `GET /categories`; the key is kept in the browser tab's memory, never stored.
 
 ## Photos and proof documents
 

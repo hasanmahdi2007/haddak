@@ -458,6 +458,8 @@ export const en = {
     statsFollowers: 'Followers',
     statsNote: 'Counted since the 1st of the month. Repeat taps from the same person within 10 minutes count once.',
     statsError: "Couldn't load your numbers.",
+    statsHires: 'Confirmed hires',
+    statsHiresNote: 'Confirmed hires are customers who told Haddak they hired you, over the last 90 days.',
   },
 
   business: {
@@ -600,6 +602,31 @@ export const en = {
       invalid: "Something here isn't accepted. Check the name and the length of your review.",
       gone: 'This profile is no longer available.',
       failed: 'That did not work. Try again.',
+    },
+  },
+
+  /** "Did you hire them?": asked once, some hours after a WhatsApp or Call tap. */
+  hire: {
+    title: 'Did you hire {name}?',
+    body: 'You contacted them through Haddak. Your answer helps people nearby choose well.',
+    yes: 'Yes, I hired them',
+    notYet: 'Not yet',
+    noAnswer: "They didn't answer",
+    close: 'Close',
+    thanksTitle: 'Thanks! Want to rate {name}?',
+    thanksBody: 'Your review will show "Hired through Haddak".',
+    rate: 'Rate them',
+    later: 'Later',
+    thanks: 'Thanks for letting us know.',
+    error: "Couldn't send your answer. Check your connection and try again.",
+    mark: 'Hired through Haddak',
+    confirmed: {
+      zero: '',
+      one: '1 confirmed hire',
+      two: '2 confirmed hires',
+      few: '{n} confirmed hires',
+      many: '{n} confirmed hires',
+      other: '{n} confirmed hires',
     },
   },
 

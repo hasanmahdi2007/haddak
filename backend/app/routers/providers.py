@@ -21,6 +21,7 @@ from app.schemas import (
     ReportIn,
 )
 from app.services import provider_views
+from app.services.hire_checks import maybe_create_check
 from app.services.provider_views import current_date, to_detail, to_summaries
 from app.services.search import distance_to_provider, search_providers
 
@@ -140,15 +141,26 @@ def record_contact_event(
     body: ContactEventIn,
     request: Request,
     db: Session = Depends(get_db),
+    user_id: uuid.UUID | None = Depends(get_optional_user_id),
 ):
-    """Count a profile view, a WhatsApp tap or a call tap. No login needed."""
+    """Count a profile view, a WhatsApp tap or a call tap. No login needed.
+
+    When a signed-in user taps WhatsApp or Call, a "Did you hire them?"
+    check is also stored, so the app can ask them later.
+    """
     provider = get_public_provider(db, provider_id)
 
     # The same person tapping again within 10 minutes gets the same 204
     # answer, but is not counted twice. This keeps provider stats honest.
     if not is_repeated_contact_event(request, provider.id, body.type):
         db.add(ContactEvent(provider_id=provider.id, type=body.type))
-        db.commit()
+
+    # Checks have their own 7-day rule (inside maybe_create_check), so they
+    # do not depend on the 10-minute rule above.
+    if user_id is not None and body.type in ("whatsapp", "call"):
+        maybe_create_check(db, provider, user_id, body.type)
+
+    db.commit()
     return Response(status_code=204)
 
 

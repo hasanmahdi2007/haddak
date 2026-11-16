@@ -13,6 +13,7 @@ from app.models import Banner, Provider
 from app.schemas import BannerOut, CategoryBrief, OwnProvider, ProviderDetail, ProviderSummary
 from app.services.contact_stats import public_contact_count
 from app.services.follows import follower_count, is_following
+from app.services.hire_checks import confirmed_hires
 from app.services.opening_hours import is_open_now
 from app.services.posts import PostInfo, load_post_info
 
@@ -104,6 +105,7 @@ def detail_fields(
         active_banner=BannerOut.model_validate(banner) if banner else None,
         follower_count=follower_count(db, provider.id),
         is_following=is_following(db, viewer_id, provider.id),
+        confirmed_hires=confirmed_hires(db, provider.id),
     )
     return fields
 

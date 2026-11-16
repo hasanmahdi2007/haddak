@@ -23,6 +23,7 @@ from app.routers import (
     assist,
     categories,
     follows,
+    hire_checks,
     me,
     posts,
     providers,
@@ -113,6 +114,7 @@ api.include_router(me.router)
 api.include_router(suggestions.router)
 api.include_router(posts.router)
 api.include_router(follows.router)
+api.include_router(hire_checks.router)
 api.include_router(assist.router)
 api.include_router(admin.router)
 

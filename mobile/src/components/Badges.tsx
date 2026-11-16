@@ -1,4 +1,4 @@
-import { Award, Badge, BadgeCheck, Tag, Users } from 'lucide-react-native';
+import { Award, Badge, BadgeCheck, Handshake, Tag, Users } from 'lucide-react-native';
 import { View } from 'react-native';
 
 import { useI18n } from '@/i18n';
@@ -24,6 +24,24 @@ export function VerifiedBadge({ decorative = false }: { decorative?: boolean }) 
       <BadgeCheck color={colors.onMint} size={size.iconSmall} strokeWidth={size.lineBold} />
       <Txt role="caption" color="onMint" style={styles.pillText}>
         {s.badges.verified}
+      </Txt>
+    </View>
+  );
+}
+
+/**
+ * "Hired through Haddak" on a review: the author told Haddak they hired this
+ * provider. Lavender, not mint, so it is never mistaken for the Verified mark.
+ */
+export function HiredBadge() {
+  const { colors } = useTheme();
+  const { s, row } = useI18n();
+  const styles = useStyles();
+  return (
+    <View style={[styles.pill, styles.hired, { flexDirection: row }]} accessible accessibilityLabel={s.hire.mark}>
+      <Handshake color={colors.primary} size={size.iconSmall} strokeWidth={size.stroke} />
+      <Txt role="caption" color="onPrimarySoft" style={styles.pillText}>
+        {s.hire.mark}
       </Txt>
     </View>
   );
@@ -154,6 +172,10 @@ const useStyles = makeStyles((c) => ({
   },
   notVerified: {
     backgroundColor: c.surfaceTintStrong,
+  },
+  hired: {
+    alignSelf: 'flex-start',
+    backgroundColor: c.surfaceTint,
   },
   founding: {
     borderWidth: size.lineMid,

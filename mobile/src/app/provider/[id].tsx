@@ -572,9 +572,12 @@ export default function ProviderScreen() {
               <View
                 style={styles.fact}
                 accessible
-                accessibilityLabel={plural(s.rating.label, shown.review_count, {
-                  rating: shown.avg_rating.toFixed(1),
-                })}
+                accessibilityLabel={[
+                  plural(s.rating.label, shown.review_count, { rating: shown.avg_rating.toFixed(1) }),
+                  provider.confirmed_hires > 0 ? plural(s.hire.confirmed, provider.confirmed_hires) : null,
+                ]
+                  .filter(Boolean)
+                  .join('. ')}
               >
                 <View style={[styles.factValue, { flexDirection: row }]}>
                   {shown.review_count > 0 ? (
@@ -587,6 +590,12 @@ export default function ProviderScreen() {
                 <Txt role="caption" color="textMuted" center>
                   {s.provider.rating}
                 </Txt>
+                {/* "Did you hire them?" answers from the last 90 days, shown only when there are some. */}
+                {provider.confirmed_hires > 0 ? (
+                  <Txt role="caption" color="onPrimarySoft" center style={styles.hires}>
+                    {plural(s.hire.confirmed, provider.confirmed_hires)}
+                  </Txt>
+                ) : null}
               </View>
               {provider.distance_m !== null ? (
                 <>
@@ -918,6 +927,12 @@ const useStyles = makeStyles((c) => ({
   },
   factWide: {
     flex: 1.5,
+  },
+  hires: {
+    marginTop: space.xs,
+    paddingHorizontal: space.sm,
+    borderRadius: radius.pill,
+    backgroundColor: c.surface,
   },
   factValue: {
     alignItems: 'center',
