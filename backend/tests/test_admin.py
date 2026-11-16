@@ -105,3 +105,23 @@ def test_admin_patch_validation_and_404(client, db):
 
     assert bad_status.status_code == 422
     assert unknown.status_code == 404
+
+
+def test_admin_list_shows_sponsor_hook_and_featured_until_can_be_cleared(client, db):
+    provider = make_provider(db, make_category(db, "plumber"), status="verified")
+    url = f"{ADMIN_URL}/{provider.id}"
+    ends = (datetime.now(UTC) + timedelta(days=30)).date().isoformat()
+    provider.sponsor_hook = "Free quote"
+    db.commit()
+
+    client.patch(url, json={"featured_until": ends}, headers=ADMIN_HEADERS)
+    item = client.get(ADMIN_URL, params={"status": "verified"}, headers=ADMIN_HEADERS).json()[
+        "items"
+    ][0]
+    assert item["featured_until"] == ends
+    assert item["sponsor_hook"] == "Free quote"
+
+    # "End sponsorship" on the admin page sends null.
+    response = client.patch(url, json={"featured_until": None}, headers=ADMIN_HEADERS)
+    assert response.status_code == 200
+    assert response.json()["featured_until"] is None

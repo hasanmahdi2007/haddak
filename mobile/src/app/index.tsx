@@ -24,6 +24,7 @@ import { StoriesRow } from '@/components/StoriesRow';
 import { TextLink } from '@/components/TextLink';
 import { Txt } from '@/components/Txt';
 import { useI18n } from '@/i18n';
+import { requireSignIn } from '@/lib/auth';
 import { useCategories, type CategoryNode } from '@/lib/categories';
 import { useFavourites } from '@/lib/favourites';
 import { useLocation } from '@/lib/location';
@@ -358,6 +359,13 @@ export default function HomeScreen() {
           {categories.status === 'ready' ? (
             <TextLink label={s.home.suggest} onPress={() => router.push('/suggest')} />
           ) : null}
+          {/* For owners: list their own business. It needs an account, so signing in comes first. */}
+          <TextLink
+            label={s.join.homeLink}
+            onPress={() => {
+              if (requireSignIn(() => router.push('/join'))) router.push('/join');
+            }}
+          />
         </View>
       </ScrollView>
     </View>

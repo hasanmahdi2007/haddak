@@ -490,3 +490,26 @@ def test_post_routes_share_the_write_limit(client, db):
         response = client.request(method, url, json={"text": "Hi", "title": "Hi"}, headers=headers)
         assert response.status_code == 429
         assert "Retry-After" in response.headers
+
+
+def test_admin_lists_active_stories_and_banners_with_provider_name(client, db):
+    provider, _ = make_owner(db, name="Salon Noor")
+    make_story(db, provider, "fresh")
+    make_story(db, provider, "old", age=timedelta(hours=25))  # expired: not listed
+    make_banner(db, provider, "Half price")
+    other, _ = make_owner(db, name="Gone Garage")
+    make_banner(db, other, "Old offer", expired=True)  # expired: not listed
+
+    stories = client.get("/api/v1/admin/stories", headers=ADMIN_HEADERS).json()["items"]
+    banners = client.get("/api/v1/admin/banners", headers=ADMIN_HEADERS).json()["items"]
+
+    assert [(s["text"], s["provider_name"]) for s in stories] == [("fresh", "Salon Noor")]
+    assert stories[0]["provider_id"] == str(provider.id)
+    assert [(b["title"], b["provider_name"]) for b in banners] == [("Half price", "Salon Noor")]
+    assert banners[0]["provider_id"] == str(provider.id)
+
+
+@pytest.mark.parametrize("path", ["/api/v1/admin/stories", "/api/v1/admin/banners"])
+def test_admin_post_lists_need_the_admin_key(client, path):
+    assert client.get(path).status_code == 401
+    assert client.get(path, headers={"X-Admin-Key": "wrong-key"}).status_code == 401

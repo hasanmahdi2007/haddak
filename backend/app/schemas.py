@@ -477,3 +477,36 @@ class ReportOut(BaseModel):
 class ReportList(BaseModel):
     items: list[ReportOut]
     total: int
+
+
+class AdminStoryOut(BaseModel):
+    """An active story as the admin sees it, with the provider's name."""
+
+    id: uuid.UUID
+    provider_id: uuid.UUID
+    provider_name: str
+    text: str
+    image_url: str | None
+    created_at: datetime
+    expires_at: datetime
+
+
+class AdminStoryList(BaseModel):
+    items: list[AdminStoryOut]
+
+
+class AdminBannerOut(BaseModel):
+    """An active banner as the admin sees it. A banner has no id of its own:
+    provider_id identifies it (DELETE /admin/providers/{provider_id}/banner)."""
+
+    provider_id: uuid.UUID
+    provider_name: str
+    title: str
+    text: str | None
+    discount_percent: int | None
+    starts_at: datetime
+    expires_at: datetime
+
+
+class AdminBannerList(BaseModel):
+    items: list[AdminBannerOut]

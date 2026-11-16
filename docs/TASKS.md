@@ -44,8 +44,8 @@ Design comes first and uses the installed design plugins (`impeccable`, `design:
 | M4 | **Founder reviews the design direction** | done (B chosen; founder still to confirm Results and Profile on his phone) | Founder approves or asks for changes |
 | M5 | Results map view with pins | built, awaiting phone test | Pins match the list; tapping a pin opens the profile |
 | M5b | Name search, Get directions, favourites, opening hours and open-now, optional contact count, Suggest a provider | built, awaiting phone test | Each works on a phone against the backend |
-| M6 | Sign-in, provider sign-up with pin drop and proof upload, edit, stats | todo | Works against the backend |
-| M7 | Reviews, contact-event logging, share link and QR code | todo | Events appear in provider stats |
+| M6 | Sign-in, provider sign-up with pin drop and proof upload, edit, stats | built, awaiting phone and storage test (run `supabase/storage_setup.sql` first) | Works against the backend |
+| M7 | Reviews, contact-event logging, share link and QR code | built, awaiting phone test | Events appear in provider stats |
 | M8 | English and Arabic strings, right-to-left layout, UX copy pass (`design:ux-copy`) | todo | Switching language flips layout correctly |
 | M9 | Design critique, accessibility review, polish pass | todo | Findings fixed or listed |
 

@@ -76,6 +76,22 @@ def list_reviews(
     return ReviewList(items=items, total=total or 0)
 
 
+@router.get("/providers/{provider_id}/reviews/mine", response_model=ReviewOut | None)
+def get_my_review(
+    provider_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+):
+    """My review of this provider, or null if I have not written one.
+
+    The app needs this to offer "Edit" instead of "Write": my review may sit
+    on a later page of the public list.
+    """
+    provider = get_public_provider(db, provider_id)
+    review = find_my_review(db, provider.id, user_id)
+    return None if review is None else to_review_out(review, user_id)
+
+
 @router.put(
     "/providers/{provider_id}/reviews/mine",
     response_model=ReviewOut,

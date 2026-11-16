@@ -16,6 +16,7 @@ import {
   type ProviderStats,
   type ProviderSummary,
   type ProviderUpdateInput,
+  type ReportInput,
   type Review,
   type ReviewInput,
   type ReviewListParams,
@@ -142,7 +143,11 @@ export function createHttpApi(
       }),
     submitSuggestion: (input: SuggestionInput) =>
       request<{ id: string }>('/suggestions', { method: 'POST', body: input }),
+    reportProvider: (providerId: string, input: ReportInput) =>
+      request<{ id: string }>(`/providers/${id(providerId)}/reports`, { method: 'POST', body: input }),
 
+    getMyReview: (providerId: string) =>
+      request<Review | null>(`/providers/${id(providerId)}/reviews/mine`, { auth: true }),
     upsertMyReview: (providerId: string, input: ReviewInput) =>
       request<Review>(`/providers/${id(providerId)}/reviews/mine`, {
         method: 'PUT',

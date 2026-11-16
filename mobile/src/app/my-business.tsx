@@ -1,11 +1,11 @@
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ArrowLeft, ArrowRight, LockKeyhole, Store, Trash2, WifiOff } from 'lucide-react-native';
-import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import { ArrowLeft, ArrowRight, FileCheck2, LockKeyhole, Pencil, Store, Trash2, WifiOff } from 'lucide-react-native';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { api, ApiError, type Banner, type OwnProvider, type Story } from '@/api';
+import { api, ApiError, type Banner, type OwnProvider, type ProviderStats, type Story } from '@/api';
 import { NotVerifiedBadge, SponsoredTag, VerifiedBadge } from '@/components/Badges';
 import { Button } from '@/components/Button';
 import { Field, Notice, useInputStyle } from '@/components/Field';
@@ -109,6 +109,34 @@ export default function MyBusinessScreen() {
     };
   }, [signedIn, key]);
 
+  // Back from "Edit listing" or "List your business": load the listing again,
+  // quietly (no skeleton), so the screen shows what was just saved.
+  const [version, setVersion] = useState(0);
+  const firstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (firstFocus.current) {
+        firstFocus.current = false;
+        return undefined;
+      }
+      if (!signedIn) return undefined;
+      let current = true;
+      api
+        .getMyProvider()
+        .then((own) => {
+          if (!current) return;
+          setSettled({ key, load: { status: 'ready', own } });
+          setVersion((n) => n + 1);
+        })
+        .catch((error: unknown) => {
+          if (current && error instanceof ApiError && error.status === 404) setSettled({ key, load: { status: 'none' } });
+        });
+      return () => {
+        current = false;
+      };
+    }, [signedIn, key]),
+  );
+
   // A section saved a change: show the profile as the server now has it.
   const setOwn = useCallback(
     (own: OwnProvider) => setSettled({ key, load: { status: 'ready', own } }),
@@ -138,10 +166,12 @@ export default function MyBusinessScreen() {
     body = (
       <StateView
         icon={Store}
-        title={s.business.noneTitle}
-        body={s.business.noneBody}
-        actionLabel={s.business.noneAction}
-        onAction={() => router.push('/suggest')}
+        title={s.join.noneTitle}
+        body={s.join.noneBody}
+        actionLabel={s.join.noneAction}
+        onAction={() => router.push('/join')}
+        secondaryLabel={s.join.noneSecondary}
+        onSecondary={() => router.push('/suggest')}
       />
     );
   } else if (load.status === 'error') {
@@ -175,6 +205,13 @@ export default function MyBusinessScreen() {
           >
             <View style={[styles.column, styles.page]}>
               <Header own={load.own} />
+              <Button
+                label={s.join.editListing}
+                icon={Pencil}
+                variant="tonal"
+                onPress={() => router.push('/business-edit')}
+              />
+              <StatsSection own={load.own} version={version} />
               {load.own.status === 'verified' ? (
                 <>
                   <StoriesSection own={load.own} />
@@ -191,6 +228,15 @@ export default function MyBusinessScreen() {
                       {s.business.lockedTitle}
                     </Txt>
                     <Txt color="onAccent">{s.business.lockedBody}</Txt>
+                    {load.own.status === 'unverified' ? (
+                      // No proof waiting: the way to get verified is one tap away.
+                      <Button
+                        label={s.join.sendProof}
+                        icon={FileCheck2}
+                        onPress={() => router.push('/business-edit')}
+                        style={styles.lockedAction}
+                      />
+                    ) : null}
                   </View>
                 </View>
               )}
@@ -260,6 +306,86 @@ function Section({ title, aside, note, children }: { title: string; aside?: stri
 }
 
 type Feedback = { tone: 'error' | 'success'; text: string } | null;
+
+// ---------------------------------------------------------------------------
+// Numbers
+
+/**
+ * This month's numbers (GET /me/provider/stats) and the follower count (from the
+ * listing itself): four grey tiles with a figure and its name. No chart.
+ */
+function StatsSection({ own, version }: { own: OwnProvider; version: number }) {
+  const { s, row, language } = useI18n();
+  const styles = useStyles();
+  const [result, setResult] = useState<{ key: string; stats: ProviderStats | 'error' } | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const key = `${own.id}:${version}:${attempt}`;
+  const stats = result && result.key === key ? result.stats : null;
+
+  useEffect(() => {
+    let current = true;
+    api
+      .getMyProviderStats()
+      .then((next) => {
+        if (current) setResult({ key, stats: next });
+      })
+      .catch(() => {
+        if (current) setResult({ key, stats: 'error' });
+      });
+    return () => {
+      current = false;
+    };
+  }, [key]);
+
+  // "2026-11" -> "November 2026". The stats month is counted in UTC.
+  const month =
+    stats && stats !== 'error'
+      ? new Date(`${stats.month}-01T00:00:00Z`).toLocaleDateString(language === 'ar' ? 'ar-LB' : 'en-GB', {
+          month: 'long',
+          year: 'numeric',
+          timeZone: 'UTC',
+        })
+      : undefined;
+
+  const figures: [string, number | null][] = [
+    [s.join.statsViews, stats && stats !== 'error' ? stats.views : null],
+    [s.join.statsWhatsapp, stats && stats !== 'error' ? stats.whatsapp : null],
+    [s.join.statsCalls, stats && stats !== 'error' ? stats.calls : null],
+    [s.join.statsFollowers, own.follower_count],
+  ];
+
+  return (
+    <Section title={s.join.statsTitle} aside={month} note={s.join.statsNote}>
+      {stats === 'error' ? (
+        <>
+          <Notice tone="error">{s.join.statsError}</Notice>
+          <Button label={s.common.tryAgain} variant="tonal" onPress={() => setAttempt((n) => n + 1)} />
+        </>
+      ) : null}
+      <View style={[styles.stats, { flexDirection: row }]}>
+        {figures.map(([label, value]) => (
+          <View
+            key={label}
+            style={styles.stat}
+            accessible
+            accessibilityLabel={value === null ? label : `${label}: ${value}`}
+          >
+            {value === null ? (
+              <Skeleton height={space.xxxl} round={radius.md} />
+            ) : (
+              <Txt role="display" ltr>
+                {String(value)}
+              </Txt>
+            )}
+            <Txt role="label" color="textMuted">
+              {label}
+            </Txt>
+          </View>
+        ))}
+      </View>
+    </Section>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Updates
@@ -802,6 +928,23 @@ const useStyles = makeStyles((c) => ({
     backgroundColor: c.surface,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  lockedAction: {
+    alignSelf: 'flex-start',
+    marginTop: space.sm,
+  },
+  // Two figures to a row; each is a grey tile inside the white block.
+  stats: {
+    flexWrap: 'wrap',
+    gap: space.sm,
+  },
+  stat: {
+    flexGrow: 1,
+    flexBasis: '40%',
+    gap: space.xxs,
+    padding: space.lg,
+    borderRadius: radius.lg,
+    backgroundColor: c.surfaceTint,
   },
   // Each part of the business is one white block on the lavender ground.
   section: {

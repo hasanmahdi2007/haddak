@@ -7,6 +7,7 @@ import {
   BadgeCheck,
   Banknote,
   Check,
+  Flag,
   Heart,
   MapPin,
   MessageCircle,
@@ -20,7 +21,7 @@ import {
   WifiOff,
   X,
 } from 'lucide-react-native';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -30,34 +31,34 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  Share,
   useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { api, type ContactEventType, type OpeningHours, type ProviderDetail, type Review } from '@/api';
+import { api, type ContactEventType, type OpeningHours, type ProviderDetail } from '@/api';
 import { FeaturedTag, FoundingBadge, SponsoredTag } from '@/components/Badges';
 import { Button } from '@/components/Button';
 import { IconButton } from '@/components/IconButton';
 import { OfferBlock } from '@/components/OfferBlock';
 import { OpenStatus } from '@/components/OpenStatus';
 import { Photo } from '@/components/Photo';
-import { Stars } from '@/components/Rating';
+import { ProviderReviews } from '@/components/ProviderReviews';
+import { ReportSheet } from '@/components/ReportSheet';
+import { ShareProfile } from '@/components/ShareProfile';
+import { Sheet } from '@/components/Sheet';
 import { Skeleton } from '@/components/Skeleton';
 import { StateView } from '@/components/StateView';
 import { StoryRing } from '@/components/StoryRing';
 import { Txt } from '@/components/Txt';
 import { useI18n } from '@/i18n';
-import { directionsUrl, shareUrl, telUrl, whatsappUrl } from '@/lib/links';
+import { directionsUrl, telUrl, whatsappUrl } from '@/lib/links';
 import { useFavourites } from '@/lib/favourites';
 import { DAY_KEYS, dayKeyOf, to12Hour } from '@/lib/hours';
 import { useLocation } from '@/lib/location';
 import { requireSignIn, useAuth } from '@/lib/auth';
 import { useAsync } from '@/lib/useAsync';
 import { makeStyles, motion, opacity, radius, size, space, useTheme } from '@/theme';
-
-const REVIEW_PAGE = 10;
 
 function galleryHeightFor(width: number, hasPhotos: boolean): number {
   return Math.round(width * (hasPhotos ? size.galleryRatio : size.galleryRatioEmpty));
@@ -202,115 +203,6 @@ function OpeningHoursSection({ hours, open }: { hours: OpeningHours; open: boole
   );
 }
 
-function ReviewItem({ review }: { review: Review }) {
-  const { row, language } = useI18n();
-  const styles = useStyles();
-  const date = new Date(review.created_at).toLocaleDateString(
-    language === 'ar' ? 'ar-LB-u-nu-latn' : 'en-GB',
-    { day: 'numeric', month: 'short', year: 'numeric' },
-  );
-  return (
-    <View style={styles.review}>
-      <View style={[styles.reviewHead, { flexDirection: row }]}>
-        <Txt role="bodyStrong" numberOfLines={1} style={styles.reviewAuthor} content>
-          {review.author_name}
-        </Txt>
-        <Txt role="caption" color="textSubtle">
-          {date}
-        </Txt>
-      </View>
-      <View style={{ flexDirection: row }}>
-        <Stars value={review.rating} />
-      </View>
-      {review.comment ? (
-        <Txt color="textMuted" content="block">
-          {review.comment}
-        </Txt>
-      ) : null}
-    </View>
-  );
-}
-
-function Reviews({ provider }: { provider: ProviderDetail }) {
-  const { s, f, row, plural } = useI18n();
-  const styles = useStyles();
-  const [items, setItems] = useState<Review[]>([]);
-  const [total, setTotal] = useState(provider.review_count);
-  const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
-
-  const load = useCallback(
-    async (offset: number) => {
-      try {
-        const page = await api.getReviews(provider.id, { limit: REVIEW_PAGE, offset });
-        setItems((current) => (offset === 0 ? page.items : [...current, ...page.items]));
-        setTotal(page.total);
-        setState('ready');
-      } catch {
-        setState('error');
-      }
-    },
-    [provider.id],
-  );
-
-  useEffect(() => {
-    // State is only set after the awaited request settles, not during the effect.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load(0);
-  }, [load]);
-
-  const more = () => {
-    setState('loading');
-    void load(items.length);
-  };
-
-  return (
-    <View style={styles.section}>
-      <View style={[styles.sectionHead, { flexDirection: row }]}>
-        <Txt role="title" accessibilityRole="header" style={styles.sectionTitle}>
-          {s.provider.reviews}
-        </Txt>
-        {total > 0 ? (
-          <Txt role="label" color="textMuted">
-            {plural(s.provider.reviewCount, total)}
-          </Txt>
-        ) : null}
-      </View>
-
-      {state === 'ready' && total === 0 ? (
-        <View style={styles.noReviews}>
-          <Txt role="bodyStrong">{s.provider.noReviews}</Txt>
-          <Txt color="textMuted">{f(s.provider.noReviewsBody, { name: provider.name })}</Txt>
-        </View>
-      ) : null}
-
-      {items.map((review, i) => (
-        <View key={review.id} style={i > 0 ? styles.reviewDivider : null}>
-          <ReviewItem review={review} />
-        </View>
-      ))}
-
-      {state === 'loading' ? (
-        <View style={styles.reviewSkeleton} accessible accessibilityLabel={s.provider.loading}>
-          <Skeleton width="40%" height={space.lg} />
-          <Skeleton height={space.lg} />
-          <Skeleton width="80%" height={space.lg} />
-        </View>
-      ) : null}
-
-      {state === 'error' ? (
-        <View style={styles.reviewError} accessibilityRole="alert">
-          <Txt color="textMuted">{s.provider.reviewsError}</Txt>
-          <Button label={s.common.tryAgain} variant="outline" onPress={() => more()} />
-        </View>
-      ) : null}
-
-      {state === 'ready' && items.length < total ? (
-        <Button label={s.provider.moreReviews} variant="outline" onPress={() => more()} />
-      ) : null}
-    </View>
-  );
-}
-
 export default function ProviderScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -330,6 +222,14 @@ export default function ProviderScreen() {
     count: number;
   } | null>(null);
   const [followBusy, setFollowBusy] = useState(false);
+  // The rating after the user wrote or deleted a review, fetched quietly (no skeleton).
+  // Tied to the loaded profile object like the Follow pill, so a reload starts clean.
+  const [rated, setRated] = useState<{
+    base: ProviderDetail;
+    avg_rating: number;
+    review_count: number;
+  } | null>(null);
+  const [sheet, setSheet] = useState<'share' | 'report' | null>(null);
   const favourites = useFavourites();
   const saved = favourites.isFavourite(id);
   // Scale of the heart; kept in state so the same value lives for the whole screen.
@@ -381,11 +281,14 @@ export default function ProviderScreen() {
     }
   };
 
-  const share = (target: ProviderDetail) => {
-    const url = shareUrl(target.slug);
-    Share.share({ message: f(s.provider.shareMessage, { name: target.name, url }) }).catch(
-      () => undefined,
-    );
+  // After a review was written, changed or deleted: the new average and count.
+  const refreshRating = (base: ProviderDetail) => {
+    api
+      .getProvider(base.id, from)
+      .then((fresh) =>
+        setRated({ base, avg_rating: fresh.avg_rating, review_count: fresh.review_count }),
+      )
+      .catch(() => undefined);
   };
 
   const openStories = (target: ProviderDetail) =>
@@ -478,6 +381,11 @@ export default function ProviderScreen() {
     );
   }
 
+  // The profile as shown: the loaded one, with a fresher rating after a review.
+  const shown: ProviderDetail =
+    rated && rated.base === provider
+      ? { ...provider, avg_rating: rated.avg_rating, review_count: rated.review_count }
+      : provider;
   const hasPhotos = provider.photos.length > 0;
   // On the mint block every word is dark, whatever the theme.
   const heroText = provider.verified ? 'onMint' : 'text';
@@ -664,16 +572,16 @@ export default function ProviderScreen() {
               <View
                 style={styles.fact}
                 accessible
-                accessibilityLabel={plural(s.rating.label, provider.review_count, {
-                  rating: provider.avg_rating.toFixed(1),
+                accessibilityLabel={plural(s.rating.label, shown.review_count, {
+                  rating: shown.avg_rating.toFixed(1),
                 })}
               >
                 <View style={[styles.factValue, { flexDirection: row }]}>
-                  {provider.review_count > 0 ? (
+                  {shown.review_count > 0 ? (
                     <Star color={colors.rating} fill={colors.rating} size={size.iconSmall} />
                   ) : null}
                   <Txt role="title">
-                    {provider.review_count > 0 ? provider.avg_rating.toFixed(1) : s.rating.none}
+                    {shown.review_count > 0 ? shown.avg_rating.toFixed(1) : s.rating.none}
                   </Txt>
                 </View>
                 <Txt role="caption" color="textMuted" center>
@@ -719,7 +627,20 @@ export default function ProviderScreen() {
               </View>
             ) : null}
 
-            <Reviews provider={provider} />
+            <ProviderReviews provider={shown} onChanged={() => refreshRating(provider)} />
+
+            {/* Reporting is rare, so it is a quiet line at the very end, not a button. */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={s.report.open}
+              onPress={() => setSheet('report')}
+              style={({ pressed }) => [styles.reportLink, { flexDirection: row }, pressed ? styles.dim : null]}
+            >
+              <Flag color={colors.textMuted} size={size.iconSmall} strokeWidth={size.stroke} />
+              <Txt role="label" color="textMuted" style={styles.reportText}>
+                {s.report.open}
+              </Txt>
+            </Pressable>
           </View>
 
         </View>
@@ -761,7 +682,7 @@ export default function ProviderScreen() {
               tone="scrim"
             />
           </Animated.View>
-          <IconButton icon={Share2} label={s.provider.share} onPress={() => share(provider)} tone="scrim" />
+          <IconButton icon={Share2} label={s.provider.share} onPress={() => setSheet('share')} tone="scrim" />
         </View>
       </View>
 
@@ -814,6 +735,16 @@ export default function ProviderScreen() {
           </View>
         </View>
       </View>
+
+      {sheet === 'share' ? (
+        <Sheet title={s.share.title} closeLabel={s.share.close} onClose={() => setSheet(null)}>
+          <Txt color="textMuted">{s.share.intro}</Txt>
+          <ShareProfile slug={provider.slug} name={provider.name} />
+        </Sheet>
+      ) : null}
+      {sheet === 'report' ? (
+        <ReportSheet providerId={provider.id} name={provider.name} onClose={() => setSheet(null)} />
+      ) : null}
     </View>
   );
 }
@@ -1004,39 +935,18 @@ const useStyles = makeStyles((c) => ({
     padding: space.lg,
     gap: space.sm,
   },
-  sectionHead: {
-    alignItems: 'baseline',
-    gap: space.md,
-  },
   sectionTitle: {
     flex: 1,
   },
-  noReviews: {
-    gap: space.xxs,
-  },
-  review: {
-    gap: space.xs,
-  },
-  reviewHead: {
+  reportLink: {
+    alignSelf: 'center',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: space.md,
-  },
-  reviewAuthor: {
-    flex: 1,
-  },
-  reviewDivider: {
-    borderTopWidth: size.hairline,
-    borderTopColor: c.border,
-    paddingTop: space.md,
-    marginTop: space.xs,
-  },
-  reviewSkeleton: {
     gap: space.sm,
-    paddingVertical: space.sm,
+    minHeight: size.touch,
+    paddingHorizontal: space.lg,
   },
-  reviewError: {
-    gap: space.sm,
+  reportText: {
+    textDecorationLine: 'underline',
   },
   dock: {
     backgroundColor: c.background,

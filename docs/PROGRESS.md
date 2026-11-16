@@ -200,3 +200,21 @@ Docs written, local database running, private GitHub repo created. One mistake f
 - **Not verified:** real email sign-in (needs Supabase dashboard setup: `{{ .Token }}` in the Magic Link and Confirm signup templates, custom SMTP, backend `SUPABASE_JWKS_URL` for the hosted project); anything on a phone.
 
 **Next:** provider sign-up from the app (form, pin drop, proof photo), Supabase dashboard setup for sign-in, phone test of everything above.
+
+**Provider sign-up, edit listing and stats in the app.**
+- "List your business" (`mobile/src/app/join.tsx`): category, name, description, price, phone and WhatsApp (local Lebanese numbers get +961), area, a map pin (phone position, else central Beirut; drag or tap; web shows a stand-in), opening hours per day, the show-contact-count switch, up to 5 photos and an optional proof photo. Sends `POST /me/provider`; the result screen says the listing is live without the badge and what happens to the proof. Reached from My business (no listing) and a text link at the bottom of Home (sign-in first).
+- "Edit listing" (`business-edit.tsx`) reuses the same form (`components/ProviderForm.tsx`) and sends only changed fields with `PATCH /me/provider`. Unverified owners get a "Send proof" button.
+- My business shows this month's views, WhatsApp taps and calls (`GET /me/provider/stats`) plus followers, as four plain tiles.
+- Uploads (`mobile/src/lib/upload.ts`): resized to 1600 px, JPEG 0.8, straight to Supabase Storage under `<user id>/`; photos as public URLs, proof as a one-year signed URL. Mock mode returns placeholder links; a build without Supabase says uploads are not set up.
+- `supabase/storage_setup.sql` creates the two buckets and the owner-folder rules. **Not run on the hosted project yet.**
+- Mock mode can create and edit a listing (`api/mockOwner.ts`) after `__haddakMock.setOwnProvider('none')`.
+- Verified: `tsc` clean, `expo lint` clean apart from one existing-file warning; base64 decoding checked against Node. **Not verified:** a real upload, the SQL on Supabase, the native map pin and image picker on a phone, create/edit against the real backend.
+
+**Profile: reviews, report, share and QR, stories that continue.**
+- Reviews card (`components/ProviderReviews.tsx`): average, stars and count; the latest three, "See all" then pages of 10; my own review in a white block with Edit and Delete (asks once). "Write a review" opens a sheet (`ReviewSheet.tsx`): five stars in 48 dp targets, name, optional comment; signed out it opens sign-in first. The profile refetches the average after every write.
+- Backend: new `GET /providers/{id}/reviews/mine` (my review or `null`), so a returning reviewer edits instead of starting over. Owners were already blocked from reviewing their own listing (403); a test for delete was added.
+- "Report this listing": a quiet line at the end of the profile; the sheet (`ReportSheet.tsx`) has the five reasons, optional details and a thank-you.
+- Share: the profile's share button opens a sheet with `components/ShareProfile.tsx` (props `slug`, `name`): QR code of `https://haddak.app/p/<slug>`, dark on pure white with a quiet zone, and a Share button. `haddak://p/<slug>` opens the profile (`app/p/[slug].tsx`).
+- Story viewer: opened from a stories row it goes on to the next provider and back to the previous one (`lib/storyQueue.ts`); from a profile it plays one provider as before.
+- Mock mode supports writing, editing and deleting a review (the average follows) and reporting.
+- Verified: backend `pytest` 328 passed, `ruff` clean; `tsc` clean in these files; web build in mock mode with a development token at 390 x 844: write, post and delete a review, report and thank-you, share sheet with QR, `/p/<slug>` redirect, the story viewer moving from Hadi Mobile Clinic to Ali Tech and back, and the review sheet in Arabic. **Not verified:** on a phone (sheet and keyboard on Android, the share dialog, scanning the printed QR code), against the real backend.

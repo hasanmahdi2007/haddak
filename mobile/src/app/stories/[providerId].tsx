@@ -13,6 +13,7 @@ import { Photo } from '@/components/Photo';
 import { StateView } from '@/components/StateView';
 import { Txt } from '@/components/Txt';
 import { useI18n } from '@/i18n';
+import { takeStoryQueue } from '@/lib/storyQueue';
 import { timeAgo } from '@/lib/time';
 import { useAsync } from '@/lib/useAsync';
 import { makeStyles, motion, opacity, radius, size, space, type TypeRole, useTheme } from '@/theme';
@@ -37,6 +38,11 @@ function roleFor(text: string): TypeRole {
  * English) goes to the next one, a tap on the near side goes back, and holding
  * a finger down pauses. When the phone asks for reduced motion, or a screen
  * reader is on, nothing moves by itself: the user steps through.
+ *
+ * Opened from a stories row (Home's "Updates nearby", the Following feed), the
+ * viewer goes on to the next provider in that row after the last update, and a
+ * tap back on the first update goes to the previous provider. Opened from a
+ * profile or a result card, it plays that one provider and closes.
  */
 export default function StoriesScreen() {
   const router = useRouter();
@@ -46,13 +52,19 @@ export default function StoriesScreen() {
   const styles = useStyles();
   const { providerId, from } = useLocalSearchParams<{ providerId: string; from?: string }>();
 
+  // The row's order of providers, when opened from a row (src/lib/storyQueue.ts); else null.
+  const [queue] = useState(() => takeStoryQueue(providerId));
+  // Which provider of the row is playing.
+  const [position, setPosition] = useState(() => (queue ? queue.indexOf(providerId) : 0));
+  const currentId = queue ? queue[position] : providerId;
+
   // The provider (name, photo) and their updates, asked for together.
   const load = useAsync(
     () =>
-      Promise.all([api.getProvider(providerId), api.getProviderStories(providerId)]).then(
+      Promise.all([api.getProvider(currentId), api.getProviderStories(currentId)]).then(
         ([provider, stories]) => ({ provider, stories: stories.items }),
       ),
-    [providerId],
+    [currentId],
   );
   const stories = load.data?.stories ?? [];
   const count = stories.length;
@@ -87,11 +99,32 @@ export default function StoriesScreen() {
     else router.replace('/');
   }, [router]);
 
-  // A new update (or a restart) begins from an empty bar.
+  // Moves to another provider of the row, starting at their first update.
+  const switchTo = useCallback((nextPosition: number) => {
+    setPosition(nextPosition);
+    setIndex(0);
+  }, []);
+
+  // After the last update: the next provider of the row, or close.
+  const finish = useCallback(() => {
+    if (queue && position < queue.length - 1) switchTo(position + 1);
+    else close();
+  }, [queue, position, switchTo, close]);
+
+  // A provider of the row whose updates all expired since the row loaded is skipped.
+  const emptyInRow = queue !== null && load.status === 'ready' && count === 0;
+  useEffect(() => {
+    if (!emptyInRow) return undefined;
+    // Moved on right after this render, not inside it.
+    const timer = setTimeout(finish, 0);
+    return () => clearTimeout(timer);
+  }, [emptyInRow, finish]);
+
+  // A new update, a new provider or a restart begins from an empty bar.
   useEffect(() => {
     played.current = 0;
     progress.setValue(0);
-  }, [index, run, progress]);
+  }, [index, run, currentId, progress]);
 
   // The timer: fills the bar, then moves on. Stopping it (a hold, or leaving) remembers where it was.
   useEffect(() => {
@@ -105,32 +138,34 @@ export default function StoriesScreen() {
     }).start(({ finished }) => {
       if (!finished) return;
       if (index < count - 1) setIndex(index + 1);
-      else close();
+      else finish();
     });
     return () => {
       progress.stopAnimation((value) => {
         played.current = value;
       });
     };
-  }, [index, run, count, still, held, progress, close]);
+  }, [index, run, count, still, held, progress, finish]);
 
   const next = () => {
     if (index < count - 1) setIndex(index + 1);
-    else close();
+    else finish();
   };
   const previous = () => {
     if (index > 0) setIndex(index - 1);
+    // On the first update: back to the previous provider of the row, or start again.
+    else if (queue && position > 0) switchTo(position - 1);
     else setRun((n) => n + 1);
   };
 
-  if (load.status !== 'ready' || count === 0) {
+  if (load.status !== 'ready' || count === 0 || emptyInRow) {
     // Loading, failed, or every update has expired: a plain page with a way out.
     return (
       <View style={[styles.plain, { paddingTop: insets.top + space.xs }]}>
         <View style={[styles.plainBar, { flexDirection: row }]}>
           <IconButton icon={X} label={s.stories.close} onPress={close} />
         </View>
-        {load.status === 'loading' ? (
+        {load.status === 'loading' || emptyInRow ? (
           <View style={styles.column} accessible accessibilityLabel={s.stories.loading} />
         ) : load.status === 'error' ? (
           <View style={styles.column}>
@@ -150,7 +185,7 @@ export default function StoriesScreen() {
               title={s.stories.emptyTitle}
               body={s.stories.emptyBody}
               actionLabel={s.stories.viewProfile}
-              onAction={() => router.replace({ pathname: '/provider/[id]', params: { id: providerId } })}
+              onAction={() => router.replace({ pathname: '/provider/[id]', params: { id: currentId } })}
             />
           </View>
         )}

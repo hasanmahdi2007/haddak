@@ -3,6 +3,7 @@ import { Pressable, ScrollView, type StyleProp, View, type ViewStyle } from 'rea
 
 import { api, type Coordinates, type ProviderSummary, type StoryGroup } from '@/api';
 import { useI18n } from '@/i18n';
+import { setStoryQueue } from '@/lib/storyQueue';
 import { timeAgo } from '@/lib/time';
 import { makeStyles, opacity, radius, size, space } from '@/theme';
 
@@ -94,7 +95,11 @@ export function StoriesStrip({ title, groups, onOpen, style }: StripProps) {
             accessibilityRole="button"
             accessibilityLabel={`${f(s.stories.open, { name: provider.name })}, ${timeAgo(stories[0].created_at, s)}`}
             accessibilityHint={s.stories.openHint}
-            onPress={() => onOpen(provider)}
+            onPress={() => {
+              // The viewer goes on to the next provider in this row, in this order.
+              setStoryQueue(groups.map((group) => group.provider.id));
+              onOpen(provider);
+            }}
             style={({ pressed }) => [styles.item, pressed ? styles.pressed : null]}
           >
             <StoryRing active box={size.storyBubble} round={radius.md + space.xs}>

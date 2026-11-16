@@ -158,6 +158,7 @@ Limits: `name` 1 to 100 characters, `area_name` up to 100, `note` up to 500; `ph
 
 | Method and path | Purpose |
 |---|---|
+| `GET /providers/{id}/reviews/mine` | My review of this provider as a `Review`, or `null` if I have not written one. 404 if the provider is unknown or rejected. |
 | `PUT /providers/{id}/reviews/mine` | Create or update my review. Body `{"rating": 1-5, "comment": "…", "author_name": "…"}`. Returns `Review`. 403 on own profile. |
 | `DELETE /providers/{id}/reviews/mine` | Remove my review. 204. |
 | `GET /me/provider` | `OwnProvider`, or 404 if the user has no profile. |
@@ -240,6 +241,8 @@ Expired stories and banners are simply no longer returned; nothing deletes them 
 | `POST /admin/suggestions/{id}/publish` | Turn a suggestion into a public, unverified listing. Body below. Returns 201 `OwnProvider`. |
 | `GET /admin/reports` | `{"items": [Report], "total": n}`, newest first. Query: `limit` (default 50, max 100), `offset`. |
 | `DELETE /admin/reports/{id}` | Dismiss a report. 204; 404 if there is no such report. |
+| `GET /admin/stories` | `{"items": [AdminStory]}`: active (not expired) stories, newest first, max 200. `AdminStory` = `id`, `provider_id`, `provider_name`, `text`, `image_url`, `created_at`, `expires_at`. |
+| `GET /admin/banners` | `{"items": [AdminBanner]}`: active banners, soonest expiry first, max 200. `AdminBanner` = `provider_id`, `provider_name`, `title`, `text`, `discount_percent`, `starts_at`, `expires_at`. A banner has no id: `provider_id` is what `DELETE /admin/providers/{id}/banner` takes. |
 | `DELETE /admin/stories/{story_id}` | Remove any story. 204; 404 if there is no such story. |
 | `DELETE /admin/providers/{id}/banner` | Remove a provider's banner. 204; 404 if the provider has no banner. |
 
@@ -304,7 +307,7 @@ Requests are counted before the login token is checked, so failed attempts use t
 
 ## Admin page
 
-`GET /admin` (outside `/api/v1`) serves one static HTML page for the founder: enter the admin key, see profiles by status (Pending, Unverified, Verified, Rejected) with their proof link, approve, decline the proof, reject or restore, set founding member and featured-until. A "Suggestions" tab lists suggested providers with Publish (a small form for the fields that are still missing) and Delete. A "Reports" tab lists reported listings with Dismiss and Reject listing. It only calls the admin endpoints above and the public `GET /categories`; the key is kept in the browser tab's memory, never stored.
+`GET /admin` (outside `/api/v1`) serves one static HTML page for the founder: enter the admin key, see profiles by status (Pending, Unverified, Verified, Rejected) with their proof link, approve, decline the proof, reject or restore, set founding member and featured-until. A "Suggestions" tab lists suggested providers with Publish (a small form for the fields that are still missing) and Delete. A "Reports" tab lists reported listings with Dismiss and Reject listing. A "Posts" tab lists active stories and banners with Delete (confirmed in the page, not with `window.confirm`). Each verified profile has Sponsor 7 / 30 / 90 days buttons (sets `featured_until` to today + N) and End sponsorship (sends `featured_until: null`); other statuses show a hint that only verified profiles count as sponsored. It only calls the admin endpoints above and the public `GET /categories`; the key is kept in the browser tab's memory, never stored.
 
 ## Photos and proof documents
 
@@ -313,10 +316,18 @@ The app uploads files straight to Supabase Storage using the user's login, then 
 - bucket `provider-photos` (public read) for profile photos;
 - bucket `verification-docs` (private) for proof.
 
-Until a Supabase project exists, development uses placeholder image URLs.
+Details (app side in `mobile/src/lib/upload.ts`):
+
+- Each image is resized on the phone to 1600 px on its long side and saved as JPEG at quality 0.8 before upload.
+- Path: `<auth.uid()>/<time>-<random>.jpg` in either bucket. Storage rules only let a signed-in user write, read, replace or delete inside the folder named after their own user id.
+- `photos` holds the public URLs from `provider-photos`. The app sends at most 5 (the API allows 10).
+- `verification_doc_url` holds a **signed URL** to the object in `verification-docs`, valid for one year, so the founder can open it from the admin page while the bucket stays private. The object path is visible inside the URL; after a year the founder can still open the file from the Supabase dashboard. The API accepts any text up to 1000 characters here; the admin page only links `http(s)` values.
+- Buckets and rules are created by `supabase/storage_setup.sql` (run it once in the project's SQL editor). They do not exist on the hosted project until that file is run.
+- No Supabase settings in the build: the app says photo upload is not set up and the listing can be sent without photos. Mock mode (no `EXPO_PUBLIC_API_URL`): uploads return placeholder `https://` links.
 
 ## Links the app builds itself
 
 - WhatsApp: `https://wa.me/<number without +>?text=<prefilled greeting>`
 - Call: `tel:<number>`
 - Share: `https://haddak.app/p/<slug>` (domain not registered yet; the QR code encodes this link)
+- Opening a share code inside the app: `haddak://p/<slug>` (the app's `scheme`) looks the code up with `GET /providers/by-slug/{slug}` and opens the profile. The https link will open the app the same way once the domain and Android app links exist.

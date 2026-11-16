@@ -1,6 +1,7 @@
 """Admin endpoints. Every route here needs the X-Admin-Key header."""
 
 import uuid
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import func, select
@@ -11,7 +12,9 @@ from app.db import get_db
 from app.models import Banner, Provider, ProviderReport, ProviderSuggestion, Story
 from app.routers.me import generate_slug, require_category
 from app.schemas import (
+    AdminBannerList,
     AdminProviderUpdate,
+    AdminStoryList,
     OwnProvider,
     OwnProviderList,
     ProviderStatus,
@@ -28,6 +31,17 @@ router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(requir
 # What a listing published from a suggestion must have, after the admin's
 # body has been merged over the suggestion.
 PUBLISH_REQUIRED_FIELDS = ["name", "phone", "category_id", "area_name", "lat", "lng"]
+
+# The columns copied from a Story / Banner row into the admin list items.
+STORY_FIELDS = ["id", "provider_id", "text", "image_url", "created_at", "expires_at"]
+BANNER_FIELDS = [
+    "provider_id",
+    "title",
+    "text",
+    "discount_percent",
+    "starts_at",
+    "expires_at",
+]
 
 
 @router.get("/providers", response_model=OwnProviderList)
@@ -191,6 +205,44 @@ def delete_report(report_id: uuid.UUID, db: Session = Depends(get_db)):
     db.delete(report)
     db.commit()
     return Response(status_code=204)
+
+
+@router.get("/stories", response_model=AdminStoryList)
+def list_stories(db: Session = Depends(get_db)):
+    """Active stories (not expired yet), newest first, with the provider's name.
+
+    Expired rows stay in the table but nobody sees them, so they are not listed.
+    """
+    query = (
+        select(Story, Provider.name)
+        .join(Provider, Provider.id == Story.provider_id)
+        .where(Story.expires_at > datetime.now(UTC))
+        .order_by(Story.created_at.desc(), Story.id)
+        .limit(200)
+    )
+    # Each row is a (Story, provider name) pair.
+    items = [
+        {**{c: getattr(story, c) for c in STORY_FIELDS}, "provider_name": name}
+        for story, name in db.execute(query)
+    ]
+    return {"items": items}
+
+
+@router.get("/banners", response_model=AdminBannerList)
+def list_banners(db: Session = Depends(get_db)):
+    """Active banners (not expired yet), the ones expiring soonest first."""
+    query = (
+        select(Banner, Provider.name)
+        .join(Provider, Provider.id == Banner.provider_id)
+        .where(Banner.expires_at > datetime.now(UTC))
+        .order_by(Banner.expires_at, Banner.provider_id)
+        .limit(200)
+    )
+    items = [
+        {**{c: getattr(banner, c) for c in BANNER_FIELDS}, "provider_name": name}
+        for banner, name in db.execute(query)
+    ]
+    return {"items": items}
 
 
 @router.delete("/stories/{story_id}", status_code=204)

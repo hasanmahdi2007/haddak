@@ -33,6 +33,14 @@
         {
           "locationWhenInUsePermission": "Haddak uses your location to find professionals and shops near you."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Haddak opens your photos so you can add pictures of your business.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
       ]
     ],
     "scheme": "haddak",

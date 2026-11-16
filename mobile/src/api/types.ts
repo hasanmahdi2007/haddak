@@ -120,6 +120,8 @@ export interface OwnProvider extends ProviderDetail {
   status: ProviderStatus;
   featured_until: string | null;
   verification_doc_url: string | null;
+  /** The owner's choice to show `contacts_this_month` publicly. */
+  show_contact_count: boolean;
 }
 
 export interface Review {
@@ -184,6 +186,10 @@ export interface ProviderCreateInput {
   area_name: string;
   photos: string[];
   verification_doc_url: string | null;
+  /** Show `contacts_this_month` on the public profile. Default false. */
+  show_contact_count?: boolean;
+  /** Null (the default) means "hours not given". */
+  opening_hours?: OpeningHours | null;
 }
 
 export type ProviderUpdateInput = Partial<ProviderCreateInput> & {
@@ -243,6 +249,16 @@ export interface SuggestionInput {
   note?: string;
 }
 
+/** Why a listing is reported (POST /providers/{id}/reports). */
+export type ReportReason = 'wrong_info' | 'not_real' | 'closed' | 'offensive' | 'other';
+
+/** Body of POST /providers/{id}/reports. Nothing about the sender is stored. */
+export interface ReportInput {
+  reason: ReportReason;
+  /** Up to 500 characters. */
+  note?: string | null;
+}
+
 /** Error body: {"detail": "human-readable message"}. */
 export class ApiError extends Error {
   status: number;
@@ -271,8 +287,13 @@ export interface HaddakApi {
   logContactEvent(providerId: string, type: ContactEventType): Promise<void>;
   /** Suggest a provider who is not on Haddak yet. 429 after 5 in an hour. */
   submitSuggestion(input: SuggestionInput): Promise<{ id: string }>;
+  /** Flag a bad listing. No login. 429 after 10 in an hour. */
+  reportProvider(providerId: string, input: ReportInput): Promise<{ id: string }>;
 
   // Auth endpoints: they need a signed-in user (401 otherwise).
+  /** My review of this provider, or null if I have not written one. */
+  getMyReview(providerId: string): Promise<Review | null>;
+  /** 403 on my own listing. */
   upsertMyReview(providerId: string, input: ReviewInput): Promise<Review>;
   deleteMyReview(providerId: string): Promise<void>;
   getMyProvider(): Promise<OwnProvider>;

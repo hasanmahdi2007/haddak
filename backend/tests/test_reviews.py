@@ -76,6 +76,33 @@ def test_cannot_review_own_profile(client, db):
     assert rating_of(client, provider) == (0, 0)
 
 
+def test_get_my_review_returns_mine_or_null(client, db):
+    provider = make_provider(db, make_category(db, "plumber"))
+    rana, jad = uuid.uuid4(), uuid.uuid4()
+    put_review(client, provider, rana, 4, "Quick and tidy")
+
+    mine = client.get(reviews_url(provider) + "/mine", headers=auth_headers(rana))
+    assert mine.status_code == 200
+    assert mine.json()["rating"] == 4
+    assert mine.json()["is_mine"] is True
+
+    # Someone who has not reviewed gets null, not someone else's review.
+    none = client.get(reviews_url(provider) + "/mine", headers=auth_headers(jad))
+    assert none.status_code == 200
+    assert none.json() is None
+
+    assert client.get(reviews_url(provider) + "/mine").status_code == 401
+
+
+def test_owner_cannot_delete_through_own_profile_either(client, db):
+    owner_id = uuid.uuid4()
+    provider = make_provider(db, make_category(db, "plumber"), owner_user_id=owner_id)
+
+    response = client.delete(reviews_url(provider) + "/mine", headers=auth_headers(owner_id))
+
+    assert response.status_code == 403
+
+
 def test_review_needs_a_token(client, db):
     provider = make_provider(db, make_category(db, "plumber"))
     body = {"rating": 5, "comment": "", "author_name": "Rana"}

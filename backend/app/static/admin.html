@@ -10,6 +10,7 @@
   It only calls the admin endpoints: GET and PATCH /api/v1/admin/providers,
   GET, DELETE and POST .../publish on /api/v1/admin/suggestions,
   GET and DELETE /api/v1/admin/reports,
+  GET /api/v1/admin/stories and /banners, DELETE /admin/stories/{id} and /admin/providers/{id}/banner,
   plus the public GET /api/v1/categories (for the category list when publishing).
   The admin key lives in a JavaScript variable: it is gone when the tab is
   closed or reloaded, and is never written to storage or cookies.
@@ -75,6 +76,11 @@
   .settings { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
   .settings label { display: flex; align-items: center; gap: 8px; min-height: 44px; }
   .settings input[type="checkbox"] { width: 22px; height: 22px; }
+  .sponsor { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .sponsor .actions { margin-top: 8px; }
+  .confirm { margin-top: 12px; padding: 12px; border: 1px solid var(--danger); border-radius: 8px; }
+  .confirm[hidden] { display: none; }
+  h3 { font-size: 16px; margin: 16px 0 8px; }
   .spacer { flex: 1 1 100%; height: 0; }
 </style>
 </head>
@@ -104,6 +110,7 @@
       <button type="button" data-status="rejected">Rejected</button>
       <button type="button" data-status="suggestions">Suggestions</button>
       <button type="button" data-status="reports">Reports</button>
+      <button type="button" data-status="posts">Posts</button>
     </div>
     <div id="list"></div>
   </section>
@@ -114,7 +121,7 @@
 
 // The admin key. Memory only: never saved to browser storage or cookies.
 let adminKey = "";
-// Which tab is open: a profile status, "suggestions" or "reports".
+// Which tab is open: a profile status, "suggestions", "reports" or "posts".
 let currentStatus = "pending";
 // The category list for the Publish form. Loaded once, the first time the
 // Suggestions tab is opened.
@@ -232,6 +239,16 @@ async function loadList() {
       data = await callApi("GET", "/reports?limit=100");
       renderItem = renderReport;
       doneText = countMessage(data, "reports");
+    } else if (currentStatus === "posts") {
+      // Two read-only lists: active stories and active banners.
+      const stories = await callApi("GET", "/stories");
+      const banners = await callApi("GET", "/banners");
+      keyPanel.hidden = true;
+      listPanel.hidden = false;
+      lockButton.hidden = false;
+      renderPosts(stories.items, banners.items);
+      showMessage(stories.items.length + " active stories, " + banners.items.length + " active banners.", false);
+      return;
     } else {
       data = await callApi("GET", "/providers?status=" + encodeURIComponent(currentStatus));
       renderItem = renderProvider;
@@ -284,6 +301,27 @@ async function dismissReport(report) {
     await callApi("DELETE", "/reports/" + encodeURIComponent(report.id));
     await loadList();
     showMessage("Dismissed the report about " + report.provider.name + ".", false);
+  } catch (error) {
+    showMessage(error.message, true);
+  }
+}
+
+async function deleteStory(story) {
+  try {
+    await callApi("DELETE", "/stories/" + encodeURIComponent(story.id));
+    await loadList();
+    showMessage("Deleted the story by " + story.provider_name + ".", false);
+  } catch (error) {
+    showMessage(error.message, true);
+  }
+}
+
+// A banner has no id of its own: the provider id identifies it.
+async function deleteBanner(banner) {
+  try {
+    await callApi("DELETE", "/providers/" + encodeURIComponent(banner.provider_id) + "/banner");
+    await loadList();
+    showMessage("Deleted the banner of " + banner.provider_name + ".", false);
   } catch (error) {
     showMessage(error.message, true);
   }
@@ -377,6 +415,8 @@ function renderProvider(provider) {
   }
   card.appendChild(actions);
 
+  card.appendChild(renderSponsor(provider));
+
   // Founding member and featured-until
   const settings = element("div", null, "settings");
 
@@ -421,6 +461,144 @@ function renderProvider(provider) {
 
   card.appendChild(settings);
   return card;
+}
+
+// Today plus `days`, as YYYY-MM-DD in the admin's own calendar (the API takes a date).
+function dateInDays(days) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  const pad = function (n) { return String(n).padStart(2, "0"); };
+  return date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate());
+}
+
+// One-click sponsoring: "Sponsor N days" sets featured_until to today + N,
+// "End sponsorship" sets it to null. Both use the same PATCH as the
+// "Featured until" date field below. Only verified profiles count as
+// sponsored, so other statuses get a hint instead of the buttons.
+function renderSponsor(provider) {
+  const box = element("div", null, "sponsor");
+  box.appendChild(element("strong", "Sponsored"));
+
+  const today = dateInDays(0);
+  const active = provider.status === "verified" && provider.featured_until && provider.featured_until >= today;
+  let state;
+  if (active) {
+    state = "Sponsored until " + provider.featured_until + ".";
+  } else if (provider.featured_until) {
+    state = "Sponsorship date " + provider.featured_until + " (not active).";
+  } else {
+    state = "Not sponsored.";
+  }
+  box.appendChild(element("p", state, "muted"));
+  if (provider.sponsor_hook) {
+    box.appendChild(element("p", "Hook: \u201c" + provider.sponsor_hook + "\u201d", "muted"));
+  }
+
+  if (provider.status !== "verified") {
+    box.appendChild(element("p", "Only verified profiles count as sponsored. Approve this profile first.", "muted"));
+    return box;
+  }
+
+  const actions = element("div", null, "actions");
+  [7, 30, 90].forEach(function (days) {
+    const button = element("button", "Sponsor " + days + " days");
+    button.type = "button";
+    button.addEventListener("click", function () {
+      updateProvider(provider, { featured_until: dateInDays(days) }, "Sponsoring " + provider.name + " for " + days + " days.");
+    });
+    actions.appendChild(button);
+  });
+  const end = element("button", "End sponsorship", "danger");
+  end.type = "button";
+  end.disabled = !provider.featured_until;
+  end.addEventListener("click", function () {
+    updateProvider(provider, { featured_until: null }, "Ended the sponsorship of " + provider.name + ".");
+  });
+  actions.appendChild(end);
+  box.appendChild(actions);
+  return box;
+}
+
+// A card's Delete button with a confirm step inside the page (no window.confirm):
+// the first click opens a small box, "Yes, delete" does it.
+function deleteWithConfirm(card, question, onConfirm) {
+  const actions = element("div", null, "actions");
+  const remove = element("button", "Delete", "danger");
+  remove.type = "button";
+  actions.appendChild(remove);
+
+  const box = element("div", null, "confirm");
+  box.hidden = true;
+  box.appendChild(element("p", question));
+  const row = element("div", null, "actions");
+  const yes = element("button", "Yes, delete", "danger");
+  yes.type = "button";
+  yes.addEventListener("click", function () {
+    yes.disabled = true;
+    onConfirm();
+  });
+  const no = element("button", "Cancel");
+  no.type = "button";
+  no.addEventListener("click", function () {
+    box.hidden = true;
+  });
+  row.appendChild(yes);
+  row.appendChild(no);
+  box.appendChild(row);
+  remove.addEventListener("click", function () {
+    box.hidden = !box.hidden;
+  });
+  card.appendChild(actions);
+  card.appendChild(box);
+}
+
+// Stories and banners are written by providers: untrusted, textContent only.
+function renderStory(story) {
+  const card = element("article", null, "card");
+  const head = element("div", null, "card-head");
+  head.appendChild(element("h2", story.provider_name));
+  card.appendChild(head);
+  card.appendChild(element("p", story.text, "description"));
+  const table = element("dl");
+  if (story.image_url) addRow(table, "Image", link("Open image", story.image_url));
+  addRow(table, "Posted", element("span", formatDate(story.created_at)));
+  addRow(table, "Expires", element("span", new Date(story.expires_at).toLocaleString()));
+  card.appendChild(table);
+  deleteWithConfirm(card, "Delete this story by " + story.provider_name + "?", function () {
+    deleteStory(story);
+  });
+  return card;
+}
+
+function renderBanner(banner) {
+  const card = element("article", null, "card");
+  const head = element("div", null, "card-head");
+  head.appendChild(element("h2", banner.provider_name));
+  if (banner.discount_percent !== null) head.appendChild(element("span", banner.discount_percent + "% off", "badge"));
+  card.appendChild(head);
+  card.appendChild(element("p", banner.title, "description"));
+  if (banner.text) card.appendChild(element("p", banner.text, "description"));
+  const table = element("dl");
+  addRow(table, "Expires", element("span", new Date(banner.expires_at).toLocaleString()));
+  card.appendChild(table);
+  deleteWithConfirm(card, "Delete the banner of " + banner.provider_name + "?", function () {
+    deleteBanner(banner);
+  });
+  return card;
+}
+
+// The Posts tab: two sections, stories then banners.
+function renderPosts(stories, banners) {
+  list.replaceChildren();
+  list.appendChild(element("h3", "Active stories"));
+  if (stories.length === 0) list.appendChild(element("p", "No active stories.", "muted"));
+  stories.forEach(function (story) { list.appendChild(renderStory(story)); });
+  list.appendChild(element("h3", "Active banners"));
+  if (banners.length === 0) list.appendChild(element("p", "No active banners.", "muted"));
+  banners.forEach(function (banner) { list.appendChild(renderBanner(banner)); });
+  tabButtons.forEach(function (button) {
+    button.setAttribute("aria-pressed", String(button.dataset.status === currentStatus));
+  });
 }
 
 // A suggestion is typed by an anonymous visitor: as untrusted as it gets.

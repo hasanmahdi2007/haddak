@@ -8,6 +8,7 @@ import {
   mockBanner,
   mockStories,
 } from './mockData';
+import { applyOwnEdits, buildOwnProvider, mockStats } from './mockOwner';
 import {
   ApiError,
   type Banner,
@@ -17,6 +18,8 @@ import {
   type OwnProvider,
   type ProviderDetail,
   type ProviderSummary,
+  type ProviderUpdateInput,
+  type ReportReason,
   type Review,
   type Story,
   type StoryGroup,
@@ -133,8 +136,6 @@ function buildReviews(provider: ProviderDetail, index: number): Review[] {
   return reviews; // already newest first
 }
 
-const NOT_IN_MOCK = 'Not part of mock mode';
-
 /** What GET /me/provider answers in mock mode (switch it with `controls.setOwnProvider`). */
 export type MockOwnProvider = 'verified' | 'pending' | 'none';
 
@@ -172,6 +173,14 @@ export function createMockApi(
   let ownStories: Story[] | null = null;
   let ownBanner: Banner | null | undefined;
   let ownHook: string | null = MOCK_PROVIDERS[0].sponsor_hook;
+  // A listing made with "List your business" in this session (after setOwnProvider('none')).
+  let createdOwn: OwnProvider | null = null;
+  // Edits to the seed listing other than the hook, applied over it on every read.
+  let ownEdits: ProviderUpdateInput = {};
+  // The signed-in user's reviews, by provider id (mock mode has one user).
+  const myReviews = new Map<string, Review>();
+  // Times of the reports sent in this session, for the 10-per-hour limit.
+  let reportTimes: number[] = [];
 
   const isOwn = (providerId: string) => providerId === OWN_ID && ownKind !== 'none';
   // While the profile is not verified, its stories and banner are hidden everywhere public.
@@ -194,9 +203,33 @@ export function createMockApi(
     if (ownBanner && Date.parse(ownBanner.expires_at) <= Date.now()) ownBanner = null;
     return ownVisible() ? ownBanner : null;
   }
+  /** The seed reviews of a provider, built once, then kept. */
+  function seedReviews(provider: ProviderDetail): Review[] {
+    let all = reviewCache.get(provider.id);
+    if (!all) {
+      all = buildReviews(provider, MOCK_PROVIDERS.indexOf(provider) + 1);
+      reviewCache.set(provider.id, all);
+    }
+    return all;
+  }
+  /** Every review of a provider, newest first, with mine marked when signed in. */
+  function reviewsOf(provider: ProviderDetail, signedIn: boolean): Review[] {
+    const mine = myReviews.get(provider.id);
+    const seeds = seedReviews(provider);
+    return mine ? [{ ...mine, is_mine: signedIn }, ...seeds] : seeds;
+  }
+  /** Like the backend, the average follows every write; untouched providers keep their seed numbers. */
+  function ratingOf(provider: ProviderDetail): { avg_rating: number; review_count: number } {
+    const mine = myReviews.get(provider.id);
+    if (!mine) return { avg_rating: provider.avg_rating, review_count: provider.review_count };
+    const all = [mine, ...seedReviews(provider)];
+    const sum = all.reduce((total, review) => total + review.rating, 0);
+    return { avg_rating: Math.round((sum / all.length) * 100) / 100, review_count: all.length };
+  }
   function summary(provider: ProviderDetail, distance_m: number | null): ProviderSummary {
     return {
       ...toSummary(provider, distance_m),
+      ...ratingOf(provider),
       has_active_story: storiesOf(provider.id).length > 0,
       banner_title: bannerOf(provider.id)?.title ?? null,
       sponsor_hook: provider.sponsored ? (isOwn(provider.id) ? ownHook : provider.sponsor_hook) : null,
@@ -266,7 +299,15 @@ export function createMockApi(
       sponsor_hook: ownHook,
       featured_until: provider.sponsored ? new Date(Date.now() + 20 * 24 * HOUR_MS).toISOString() : null,
       verification_doc_url: null,
+      show_contact_count: false,
     };
+  }
+
+  /** What GET /me/provider answers: a listing made here, or the seed listing with its edits. */
+  function currentOwn(): OwnProvider {
+    if (createdOwn) return createdOwn;
+    // The hook has its own variable (ownHook), so it is left out of the edits.
+    return applyOwnEdits(ownProvider(), { ...ownEdits, sponsor_hook: undefined });
   }
 
   function requireVerified() {
@@ -312,17 +353,14 @@ export function createMockApi(
 
     getProviderBySlug: (slug, from) => publicDetail(() => find((p) => p.slug === slug), from),
 
-    getReviews: (providerId, { limit = 20, offset = 0 } = {}) =>
-      respond(() => {
-        const provider = find((p) => p.id === providerId);
-        let all = reviewCache.get(providerId);
-        if (!all) {
-          all = buildReviews(provider, MOCK_PROVIDERS.indexOf(provider) + 1);
-          reviewCache.set(providerId, all);
-        }
+    getReviews: async (providerId, { limit = 20, offset = 0 } = {}) => {
+      const signedIn = (await getToken()) !== null;
+      return respond(() => {
+        const all = reviewsOf(find((p) => p.id === providerId), signedIn);
         const size = Math.min(Math.max(limit, 1), 50);
         return { items: all.slice(offset, offset + size), total: all.length };
-      }),
+      });
+    },
 
     getProviderStories: (providerId) =>
       respond(() => {
@@ -375,23 +413,92 @@ export function createMockApi(
         return { id: `00000000-0000-4000-9000-${String(now).slice(-12).padStart(12, '0')}` };
       }),
 
-    // Not used by any screen yet.
-    upsertMyReview: () => Promise.reject(new ApiError(501, NOT_IN_MOCK)),
-    deleteMyReview: () => Promise.reject(new ApiError(501, NOT_IN_MOCK)),
-    createMyProvider: () => Promise.reject(new ApiError(501, NOT_IN_MOCK)),
-    getMyProviderStats: () => Promise.reject(new ApiError(501, NOT_IN_MOCK)),
+    reportProvider: (providerId, input) =>
+      respond(() => {
+        const now = Date.now();
+        reportTimes = reportTimes.filter((time) => now - time < 3_600_000);
+        if (reportTimes.length >= 10) {
+          const waitS = Math.ceil((reportTimes[0] + 3_600_000 - now) / 1000);
+          throw new ApiError(429, 'Too many requests', waitS);
+        }
+        // Like the backend, refused requests count too.
+        reportTimes.push(now);
+        find((p) => p.id === providerId);
+        const reasons: ReportReason[] = ['wrong_info', 'not_real', 'closed', 'offensive', 'other'];
+        if (!reasons.includes(input.reason)) throw new ApiError(422, 'Unknown reason');
+        if ((input.note ?? '').length > 500) throw new ApiError(422, 'note is too long');
+        if (__DEV__) console.log('[mock] report:', providerId, input);
+        return { id: `00000000-0000-4000-a000-${String(now).slice(-12).padStart(12, '0')}` };
+      }),
 
-    getMyProvider: () => respondAuth(() => ownProvider()),
+    getMyReview: (providerId) =>
+      respondAuth(() => {
+        find((p) => p.id === providerId);
+        const mine = myReviews.get(providerId);
+        return mine ? { ...mine, is_mine: true } : null;
+      }),
+
+    upsertMyReview: (providerId, { rating, comment, author_name }) =>
+      respondAuth(() => {
+        find((p) => p.id === providerId);
+        // As on the backend: nobody reviews their own listing.
+        if (isOwn(providerId)) throw new ApiError(403, 'You cannot review your own profile');
+        if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new ApiError(422, 'rating must be 1 to 5');
+        const name = author_name.trim();
+        if (name.length < 1 || name.length > 80) throw new ApiError(422, 'author_name must be 1 to 80 characters');
+        if (comment.length > 2000) throw new ApiError(422, 'comment is too long');
+        const before = myReviews.get(providerId);
+        const review: Review = {
+          id: before?.id ?? `00000000-0000-4000-b000-${String(Date.now()).slice(-12).padStart(12, '0')}`,
+          author_name: name,
+          rating,
+          comment: comment.trim(),
+          created_at: before?.created_at ?? new Date().toISOString(),
+          is_mine: true,
+        };
+        myReviews.set(providerId, review);
+        return review;
+      }),
+
+    deleteMyReview: (providerId) =>
+      respondAuth(() => {
+        find((p) => p.id === providerId);
+        if (isOwn(providerId)) throw new ApiError(403, 'You cannot review your own profile');
+        myReviews.delete(providerId);
+      }),
+
+    // Not used by any screen yet.
+    createMyProvider: (input) =>
+      respondAuth(() => {
+        if (createdOwn || ownKind !== 'none') throw new ApiError(409, 'You already have a provider profile');
+        createdOwn = buildOwnProvider(input);
+        return createdOwn;
+      }),
+
+    getMyProviderStats: () =>
+      respondAuth(() => {
+        if (!createdOwn) ownProfile();
+        return mockStats(createdOwn !== null);
+      }),
+
+    getMyProvider: () => respondAuth(() => currentOwn()),
 
     updateMyProvider: (input) =>
       respondAuth(() => {
+        if (createdOwn) {
+          createdOwn = applyOwnEdits(createdOwn, input);
+          return createdOwn;
+        }
         ownProfile();
+        // Checked here so a bad edit is refused before it is kept.
+        applyOwnEdits(currentOwn(), { ...input, sponsor_hook: undefined });
+        ownEdits = { ...ownEdits, ...input };
         if (input.sponsor_hook !== undefined) {
           const hook = input.sponsor_hook?.trim() ?? '';
           if (hook.length > 80) throw new ApiError(422, 'sponsor_hook must be at most 80 characters');
           ownHook = hook || null;
         }
-        return ownProvider();
+        return currentOwn();
       }),
 
     postMyStory: ({ text, image_url }) =>
@@ -488,6 +595,8 @@ export function createMockApi(
     controls: {
       setOwnProvider: (kind) => {
         ownKind = kind;
+        createdOwn = null;
+        ownEdits = {};
       },
       failNext: (count) => {
         failures = count;

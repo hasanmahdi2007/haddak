@@ -69,6 +69,11 @@ export interface ColorTokens {
   onScrim: string;
   /** The soft shadow under the one thing that floats: the card docked over the map. */
   shadow: string;
+
+  /** The share sticker: pure white paper and dark ink in both themes, so a printed or
+   *  shown QR code always scans (dark on light, never inverted). */
+  qrPaper: string;
+  qrInk: string;
 }
 
 /** Light theme: near-white ground, soft grey blocks, ink for text and actions, mint for trust, lavender as the accent. */
@@ -118,6 +123,9 @@ export const lightColors: ColorTokens = {
   scrim: 'rgba(27, 28, 47, 0.72)',
   onScrim: '#FFFFFF',
   shadow: 'rgba(27, 28, 47, 0.20)',
+
+  qrPaper: '#FFFFFF',
+  qrInk: '#1B1C2F',
 };
 
 /** Dark theme: ink ground, lighter ink blocks, the same mint and lavender (still with dark text on them). */
@@ -167,6 +175,9 @@ export const darkColors: ColorTokens = {
   scrim: 'rgba(10, 11, 20, 0.72)',
   onScrim: '#FFFFFF',
   shadow: 'rgba(0, 0, 0, 0.50)',
+
+  qrPaper: '#FFFFFF',
+  qrInk: '#1B1C2F',
 };
 
 /** Font family names as loaded in src/theme/fonts.ts. */
@@ -322,6 +333,20 @@ export const size = {
   offerFigure: 92,
   /** Widest the content column grows on tablets and web. */
   maxContent: 560,
+  /** A star in the "rate this provider" picker (each sits in a 48 dp target). */
+  starPick: 32,
+  /** The QR code on the share sticker, and the white margin around it (the scanner's quiet zone). */
+  qr: 196,
+  qrQuietZone: 16,
+  /** The grab handle at the top of a bottom sheet. */
+  sheetHandleW: 36,
+  sheetHandleH: 4,
+  /** The map in the business form where the owner drops their pin. */
+  mapPicker: 240,
+  /** A chosen photo in the business form, and the "Add photo" tile beside it. */
+  photoTile: 96,
+  /** An "HH:MM" field in the opening-hours editor. */
+  timeField: 84,
 } as const;
 
 /** Durations in milliseconds. Motion only marks a state change. */
