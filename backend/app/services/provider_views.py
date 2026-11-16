@@ -28,6 +28,11 @@ def current_time() -> datetime:
     return datetime.now(UTC)
 
 
+def is_available_now(provider: Provider, now: datetime) -> bool:
+    """True while the owner's "Available now" switch has not run out."""
+    return provider.available_until is not None and provider.available_until > now
+
+
 def visible_banner(provider: Provider, posts: PostInfo) -> Banner | None:
     """The provider's active banner, or None.
 
@@ -73,6 +78,7 @@ def summary_fields(provider: Provider, distance_m: float | None, posts: PostInfo
         "distance_m": None if distance_m is None else round(distance_m),
         "cover_photo_url": provider.photos[0] if provider.photos else None,
         "open_now": is_open_now(provider.opening_hours, current_time()),
+        "available_now": is_available_now(provider, current_time()),
         # "Sponsored" is the name users see for "featured".
         "sponsored": is_featured,
         "sponsor_hook": provider.sponsor_hook if is_featured else None,
@@ -145,4 +151,5 @@ def to_own(db: Session, provider: Provider) -> OwnProvider:
         featured_until=provider.featured_until,
         verification_doc_url=provider.verification_doc_url,
         show_contact_count=provider.show_contact_count,
+        available_until=provider.available_until,
     )

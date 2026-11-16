@@ -582,6 +582,8 @@ def test_no_key_arabizi_plumber_near_me_is_500_m(client, db):
         ("tutor under $20", {"category_slugs": ["tutoring"], "max_price": 20,
          "price_unit": "hour"}),
         ("sankari fete7 hala2", {"category_slugs": ["plumber"], "open_now": True}),
+        ("بدي سنكري ضروري", {"category_slugs": ["plumber"], "open_now": True}),
+        ("sankari urgent", {"category_slugs": ["plumber"], "open_now": True}),
         ("plumbr", {"category_slugs": ["plumber"]}),
     ],
 )  # fmt: skip

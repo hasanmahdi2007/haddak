@@ -299,9 +299,7 @@ def test_inside_the_not_verified_group_the_usual_order_applies(client, db):
 def test_featured_is_ignored_for_providers_that_are_not_verified(client, db):
     category = make_category(db, "plumber")
     make_provider(db, category, "verified plain", distance_m=300)
-    make_provider(
-        db, category, "verified featured", distance_m=400, featured_until=next_month()
-    )
+    make_provider(db, category, "verified featured", distance_m=400, featured_until=next_month())
     # Featured date set, better rating, nearer: without the badge none of it
     # lifts the provider above a verified one, or above its own group.
     make_provider(

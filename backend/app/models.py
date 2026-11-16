@@ -103,6 +103,9 @@ class Provider(Base):
     price_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     price_unit: Mapped[str | None] = mapped_column(Text)  # hour, visit, job, item, month
     price_currency: Mapped[str] = mapped_column(Text, server_default=text("'USD'"))
+    # "Available now" runs until this moment; None = switched off. Nothing
+    # clears it when the time passes: every read compares it with now.
+    available_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # Not real columns: whenever a provider is loaded, the database also
     # computes latitude and longitude from `location`, so Python code can

@@ -2,8 +2,9 @@
 
 import secrets
 import uuid
+from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -12,7 +13,8 @@ from app.auth import get_current_user_id
 from app.db import get_db
 from app.models import Category, ContactEvent, Provider
 from app.rate_limit import limit_writes
-from app.schemas import OwnProvider, ProviderCreate, ProviderStats, ProviderUpdate
+from app.schemas import AvailableIn, OwnProvider, ProviderCreate, ProviderStats, ProviderUpdate
+from app.services import provider_views
 from app.services.contact_stats import current_month_start
 from app.services.geo import point_for_storage
 from app.services.hire_checks import confirmed_hires
@@ -166,6 +168,35 @@ def update_my_provider(
     db.commit()
     db.refresh(provider)
     return to_own(db, provider)
+
+
+@router.put(
+    "/me/provider/available", response_model=OwnProvider, dependencies=[Depends(limit_writes)]
+)
+def set_available_now(
+    body: AvailableIn,
+    db: Session = Depends(get_db),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+):
+    """Switch on "Available now" for 2, 4 or 8 hours. Sending it again
+    restarts the count from now."""
+    provider = get_my_provider_or_404(db, user_id)
+    # Read the clock through the module so tests can replace it.
+    provider.available_until = provider_views.current_time() + timedelta(hours=body.hours)
+    db.commit()
+    db.refresh(provider)
+    return to_own(db, provider)
+
+
+@router.delete("/me/provider/available", status_code=204, dependencies=[Depends(limit_writes)])
+def clear_available_now(
+    db: Session = Depends(get_db), user_id: uuid.UUID = Depends(get_current_user_id)
+):
+    """Switch "Available now" off. 204 also when it was already off."""
+    provider = get_my_provider_or_404(db, user_id)
+    provider.available_until = None
+    db.commit()
+    return Response(status_code=204)
 
 
 @router.get("/me/provider/stats", response_model=ProviderStats)

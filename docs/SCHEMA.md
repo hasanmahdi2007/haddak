@@ -57,6 +57,7 @@ CREATE TABLE providers (
     price_amount          NUMERIC(12,2) CHECK (price_amount > 0),        -- structured price, e.g. 15.00
     price_unit            TEXT CHECK (price_unit IN ('hour', 'visit', 'job', 'item', 'month')),
     price_currency        TEXT NOT NULL DEFAULT 'USD' CHECK (price_currency IN ('USD', 'LBP')),
+    available_until       TIMESTAMPTZ,                                   -- "Available now" until this moment; NULL = off
     CONSTRAINT providers_price_amount_unit_together
         CHECK ((price_amount IS NULL) = (price_unit IS NULL))
 );
@@ -202,7 +203,7 @@ CREATE TABLE assist_log (
 CREATE INDEX assist_log_created_idx ON assist_log (created_at);
 ```
 
-Migrations: `0001` created the first four tables; `0002` added `providers.show_contact_count`, `providers.opening_hours` and the `provider_suggestions` table; `0003` added the `unverified` status, made `providers.owner_user_id` nullable, and added `providers.source`, `provider_suggestions.lat` / `lng` and the `provider_reports` table; `0004` added `providers.sponsor_hook` and the `stories`, `banners` and `follows` tables; `0005` added `providers.price_amount`, `price_unit` and `price_currency`; `0006` added `pg_trgm`, `normalize_name()`, the `places` table with its first rows, and the `assist_cache` and `assist_log` tables; `0007` added the `hire_checks` table.
+Migrations: `0001` created the first four tables; `0002` added `providers.show_contact_count`, `providers.opening_hours` and the `provider_suggestions` table; `0003` added the `unverified` status, made `providers.owner_user_id` nullable, and added `providers.source`, `provider_suggestions.lat` / `lng` and the `provider_reports` table; `0004` added `providers.sponsor_hook` and the `stories`, `banners` and `follows` tables; `0005` added `providers.price_amount`, `price_unit` and `price_currency`; `0006` added `pg_trgm`, `normalize_name()`, the `places` table with its first rows, and the `assist_cache` and `assist_log` tables; `0007` added the `hire_checks` table; `0008` added `providers.available_until`.
 
 ### `providers.status`
 
@@ -222,6 +223,10 @@ Who moves a profile between statuses:
 ### `providers.source` and unclaimed listings
 
 `source = 'owner'`: the provider created the profile in the app. `source = 'suggestion'`: the admin published it from a row in `provider_suggestions`; it starts `unverified` with `owner_user_id = NULL` ("listed by the community"). `UNIQUE (owner_user_id)` still means one profile per user: Postgres lets any number of rows have NULL there.
+
+### `providers.available_until`
+
+The owner's "Available now" switch, for providers without fixed hours. Switching it on sets `now() + 2, 4 or 8 hours`; switching it off sets `NULL`. The provider counts as available while `available_until > now()`; nothing clears the column when the time passes, it is simply compared on every read. No index: it is only ever tested on rows already chosen by the location filter.
 
 ### `providers.opening_hours`
 
@@ -256,10 +261,10 @@ A missing day (or an empty list) means closed that day. `NULL` for the whole col
 
 ## Search query
 
-Inputs: `lat`, `lng`, `radius_m`, optional `category_id` (matches the category or any of its children; the assistant may pass several), optional `include_unverified` (default false), optional `max_price` with `price_unit` and `price_currency`, optional `open_now`, `sort` (`best`, `distance` or `price`).
+Inputs: `lat`, `lng`, `radius_m`, optional `category_id` (matches the category or any of its children; the assistant may pass several), optional `include_unverified` (default false), optional `max_price` with `price_unit` and `price_currency`, optional `open_now`, optional `available_now`, `sort` (`best`, `distance` or `price`).
 
 1. Filter: `ST_DWithin(location, point, radius_m)` and `status = 'verified'`. With `include_unverified`, the status filter is `status IN ('verified', 'unverified', 'pending')` instead. `rejected` never matches.
-   With `max_price`: `price_amount <= max_price AND price_unit = :unit AND price_currency = :currency` (no structured price = left out). With `open_now`: today's ranges in `opening_hours` (Beirut day and "HH:MM" time) contain the current minute; no hours = left out.
+   With `max_price`: `price_amount <= max_price AND price_unit = :unit AND price_currency = :currency` (no structured price = left out). With `open_now`: today's ranges in `opening_hours` (Beirut day and "HH:MM" time) contain the current minute, OR `available_until > now` (marked "Available now"); no hours and not available = left out. With `available_now`: `available_until > now`.
 2. Compute `distance_m = ST_Distance(location, point)`.
 3. Order by:
    1. verified first: every verified provider comes before every non-verified one;

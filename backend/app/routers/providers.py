@@ -74,8 +74,11 @@ def search(
     max_price: float | None = Query(default=None, gt=0),
     price_unit: PriceUnit | None = None,
     price_currency: PriceCurrency = "USD",
-    # True: only providers whose opening hours say open now (Beirut time).
+    # True: only providers whose opening hours say open now (Beirut time),
+    # or who are marked "Available now".
     open_now: bool = False,
+    # True: only providers marked "Available now".
+    available_now: bool = False,
     sort: Literal["best", "distance", "price"] = "best",
     limit: int = Query(default=30, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
@@ -97,6 +100,7 @@ def search(
         price_unit=price_unit,
         price_currency=price_currency,
         open_now=open_now,
+        available_now=available_now,
         # Read through the module so tests can replace the clock.
         now=provider_views.current_time(),
         sort=sort,

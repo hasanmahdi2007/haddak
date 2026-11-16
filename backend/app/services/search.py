@@ -75,6 +75,7 @@ def search_providers(
     price_unit: str | None = None,
     price_currency: str = "USD",
     open_now: bool = False,
+    available_now: bool = False,
     now: datetime | None = None,
     sort: str = "best",
     limit: int = 30,
@@ -89,8 +90,9 @@ def search_providers(
     of them (used by the assistant, which may pick two or three). Both may
     be combined: a provider matching any of them is kept.
     max_price keeps providers whose structured price in that unit and
-    currency is at most max_price (it needs price_unit). open_now needs
-    `now`, the current moment, which is turned into Beirut time.
+    currency is at most max_price (it needs price_unit). open_now and
+    available_now need `now`, the current moment (open_now turns it into
+    Beirut time). open_now also keeps providers marked "Available now".
     """
     search_point = point_for_query(lat, lng)
 
@@ -127,8 +129,13 @@ def search_providers(
         filters.append(Provider.price_unit == price_unit)
         filters.append(Provider.price_currency == price_currency)
     if open_now:
+        # Open by the hours, OR marked "Available now" (people without fixed
+        # hours who can come right away count as open).
         open_day, open_time = beirut_day_and_time(now)
-        filters.append(text(OPEN_NOW_SQL).bindparams(open_day=open_day, open_time=open_time))
+        open_by_hours = text(OPEN_NOW_SQL).bindparams(open_day=open_day, open_time=open_time)
+        filters.append(or_(open_by_hours, Provider.available_until > now))
+    if available_now:
+        filters.append(Provider.available_until > now)
 
     # 2. Distance in metres (the column is GEOGRAPHY, so no unit conversion).
     distance_m = func.ST_Distance(Provider.location, search_point)

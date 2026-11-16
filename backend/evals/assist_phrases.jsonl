@@ -100,3 +100,99 @@
 {"id": 100, "style": "fr", "text": "cours de piano pour adulte, max 30 dollars par mois", "expect": {"kind": "search", "category_slugs": ["piano-lessons"], "max_price": 30, "price_unit": "month", "price_currency": "USD"}}
 {"id": 101, "style": "mixed", "text": "fi 7ada bi Hazmieh bya3mel cake 3a toul?", "expect": {"kind": "search", "category_slugs": ["cake-shop"], "place_name": ["hazmieh"]}}
 {"id": 102, "style": "arabizi", "text": "baddé mosawwer la 3ers bel batroun", "expect": {"kind": "search", "category_slugs": ["photographer"], "also_ok": ["videographer"], "place_name": ["batroun", "el batroun"]}}
+{"id": 103, "style": "arabizi", "text": "el brad ma 3am ybarred", "expect": {"kind": "search", "category_slugs": ["ac-repair"]}}
+{"id": 104, "style": "arabizi", "text": "frigo 3am ysarre5 w ma 3am ybared", "expect": {"kind": "search", "category_slugs": ["ac-repair"]}}
+{"id": 105, "style": "arabizi", "text": "baddi 7ada ysalle7li el tallaje", "expect": {"kind": "search", "category_slugs": ["ac-repair"]}}
+{"id": 106, "style": "arabizi", "text": "el kahraba ma3 2at3a bl beit", "expect": {"kind": "search", "category_slugs": ["electrician"]}}
+{"id": 107, "style": "arabizi", "text": "2at3a bel kahraba, bde kahrabje hala2", "expect": {"kind": "search", "category_slugs": ["electrician"], "open_now": true}}
+{"id": 108, "style": "arabizi", "text": "el moteur 3am ye2ta3 kel shway", "expect": {"kind": "search", "category_slugs": ["electrician"]}}
+{"id": 109, "style": "arabizi", "text": "ishtirak el moteur ma 3am yjeeb kahraba", "expect": {"kind": "search", "category_slugs": ["electrician"]}}
+{"id": 110, "style": "arabizi", "text": "may 3am tnazzel men el sakf", "expect": {"kind": "search", "category_slugs": ["plumber"]}}
+{"id": 111, "style": "arabizi", "text": "el sakf 3am ynazzel may", "expect": {"kind": "search", "category_slugs": ["plumber"]}}
+{"id": 112, "style": "arabizi", "text": "fi naz bl 7ammam", "expect": {"kind": "search", "category_slugs": ["plumber"]}}
+{"id": 113, "style": "arabizi", "text": "el 7anafiye 3am tna22et", "expect": {"kind": "search", "category_slugs": ["plumber"]}}
+{"id": 114, "style": "arabizi", "text": "el majrour bl matba5 msakkar", "expect": {"kind": "search", "category_slugs": ["plumber"]}}
+{"id": 115, "style": "mixed", "text": "laptop ma 3am ye2la3", "expect": {"kind": "search", "category_slugs": ["laptop-repair"]}}
+{"id": 116, "style": "mixed", "text": "el pc ta3e 3am ya3mel restart la 7alo", "expect": {"kind": "search", "category_slugs": ["laptop-repair"]}}
+{"id": 117, "style": "mixed", "text": "chargeur el laptop 5erb", "expect": {"kind": "search", "category_slugs": ["laptop-repair"]}}
+{"id": 118, "style": "mixed", "text": "bde 7ada yzabbet el computer", "expect": {"kind": "search", "category_slugs": ["laptop-repair"]}}
+{"id": 119, "style": "arabizi", "text": "ostez riyadiyet la ebne", "expect": {"kind": "search", "category_slugs": ["math-tutoring"], "also_ok": ["tutoring"]}}
+{"id": 120, "style": "arabizi", "text": "bdi m3allme drous khsousé lal brevet", "expect": {"kind": "search", "category_slugs": ["tutoring"], "also_ok": ["math-tutoring", "physics-tutoring", "english-tutoring", "french-tutoring"]}}
+{"id": 121, "style": "mixed", "text": "dars khsousé math", "expect": {"kind": "search", "category_slugs": ["math-tutoring"], "also_ok": ["tutoring"]}}
+{"id": 122, "style": "mixed", "text": "baddi solar lal beit", "expect": {"kind": "search", "category_slugs": ["electrician"]}}
+{"id": 123, "style": "mixed", "text": "el inverter wa2ef w el batarié faddye", "expect": {"kind": "search", "category_slugs": ["electrician"]}}
+{"id": 124, "style": "mixed", "text": "bde 7ada yrakkebli panel solar w unduler", "expect": {"kind": "search", "category_slugs": ["electrician"]}}
+{"id": 125, "style": "arabizi", "text": "bdi mekanik 2arib", "expect": {"kind": "search", "category_slugs": ["mechanic"]}}
+{"id": 126, "style": "arabizi", "text": "el sayyara 3am tdawwer w btetfe", "expect": {"kind": "search", "category_slugs": ["mechanic", "car-services"], "also_ok": ["car-electrician"]}}
+{"id": 127, "style": "arabizi", "text": "bde ghayyer zeit el sayyara", "expect": {"kind": "search", "category_slugs": ["mechanic"], "also_ok": ["car-services"]}}
+{"id": 128, "style": "arabizi", "text": "el frem 3am yzammer", "expect": {"kind": "search", "category_slugs": ["mechanic"]}}
+{"id": 129, "style": "arabizi", "text": "dawlebe nafes, fi 7ada ybadllo?", "expect": {"kind": "search", "category_slugs": ["mechanic"]}}
+{"id": 130, "style": "arabizi", "text": "batariyet el sayyara faddye", "expect": {"kind": "search", "category_slugs": ["car-electrician"], "also_ok": ["mechanic"]}}
+{"id": 131, "style": "arabizi", "text": "baddi ghassel sayyarte", "expect": {"kind": "search", "category_slugs": ["car-wash"]}}
+{"id": 132, "style": "arabizi", "text": "fi lavage 2arib?", "expect": {"kind": "search", "category_slugs": ["car-wash"]}}
+{"id": 133, "style": "arabizi", "text": "snkri 2rib", "expect": {"kind": "search", "category_slugs": ["plumber"]}}
+{"id": 134, "style": "arabizi", "text": "sanakri bi sor3a please", "expect": {"kind": "search", "category_slugs": ["plumber"], "open_now": true}}
+{"id": 135, "style": "arabizi", "text": "baddesankari", "expect": {"kind": "search", "category_slugs": ["plumber"]}}
+{"id": 136, "style": "arabizi", "text": "bdi kahrabji b jounieh", "expect": {"kind": "search", "category_slugs": ["electrician"]}}
+{"id": 137, "style": "arabizi", "text": "7akim snen fete7 hala2", "expect": {"kind": "search", "category_slugs": ["dentist"], "open_now": true}}
+{"id": 138, "style": "arabizi", "text": "dersi 3am yewja3ne", "expect": {"kind": "search", "category_slugs": ["dentist"]}}
+{"id": 139, "style": "arabizi", "text": "ebne s5en, baddi 7akim atfal", "expect": {"kind": "search", "category_slugs": ["pediatrician"]}}
+{"id": 140, "style": "mixed", "text": "doctor lal wlad 2arib", "expect": {"kind": "search", "category_slugs": ["pediatrician"]}}
+{"id": 141, "style": "arabizi", "text": "7akim jeld la7ebbet el wej", "expect": {"kind": "search", "category_slugs": ["dermatologist"]}}
+{"id": 142, "style": "mixed", "text": "bde dermato mni7", "expect": {"kind": "search", "category_slugs": ["dermatologist"]}}
+{"id": 143, "style": "arabizi", "text": "3ande s5ouneh w rash7, bde 7akim", "expect": {"kind": "search", "category_slugs": ["general-practitioner"], "also_ok": ["doctors"]}}
+{"id": 144, "style": "arabizi", "text": "bde najjar ysalle7li el khzene", "expect": {"kind": "search", "category_slugs": ["carpenter"]}}
+{"id": 145, "style": "arabizi", "text": "el bab el khashab maksour", "expect": {"kind": "search", "category_slugs": ["carpenter"]}}
+{"id": 146, "style": "arabizi", "text": "bdi dahhan ydahhenli el beit", "expect": {"kind": "search", "category_slugs": ["painter"]}}
+{"id": 147, "style": "arabizi", "text": "bde 7ada yedhanli el 7iten", "expect": {"kind": "search", "category_slugs": ["painter"]}}
+{"id": 148, "style": "arabizi", "text": "el mkayyef 3am ynazzel may", "expect": {"kind": "search", "category_slugs": ["ac-repair"], "also_ok": ["plumber"]}}
+{"id": 149, "style": "mixed", "text": "air condition ma 3am ybarred", "expect": {"kind": "search", "category_slugs": ["ac-repair"]}}
+{"id": 150, "style": "arabizi", "text": "shashet el tlifon maksoura", "expect": {"kind": "search", "category_slugs": ["phone-repair"]}}
+{"id": 151, "style": "mixed", "text": "iphone 5erb ma 3am ye5od charge", "expect": {"kind": "search", "category_slugs": ["phone-repair"]}}
+{"id": 152, "style": "arabizi", "text": "el telfizyon ma fi soura", "expect": {"kind": "search", "category_slugs": ["tv-repair"]}}
+{"id": 153, "style": "mixed", "text": "el resiver ma 3am yjib channels", "expect": {"kind": "search", "category_slugs": ["tv-repair"]}}
+{"id": 154, "style": "arabizi", "text": "bde et3allam piano", "expect": {"kind": "search", "category_slugs": ["piano-lessons"]}}
+{"id": 155, "style": "arabizi", "text": "drous guitar lal mbtade2in", "expect": {"kind": "search", "category_slugs": ["guitar-lessons"]}}
+{"id": 156, "style": "arabizi", "text": "ostez 3oud bl dahye", "expect": {"kind": "search", "category_slugs": ["oud-lessons"]}}
+{"id": 157, "style": "arabizi", "text": "bdi 2ostez fizya la binte", "expect": {"kind": "search", "category_slugs": ["physics-tutoring"], "also_ok": ["tutoring"]}}
+{"id": 158, "style": "arabizi", "text": "drous fransawe lal bac", "expect": {"kind": "search", "category_slugs": ["french-tutoring"], "also_ok": ["tutoring"]}}
+{"id": 159, "style": "arabizi", "text": "bde 7elo lal 3ers, ba2lewa w knefe", "expect": {"kind": "search", "category_slugs": ["arabic-sweets"], "also_ok": ["sweets-shops"]}}
+{"id": 160, "style": "arabizi", "text": "bde gato la 3id milad ebne", "expect": {"kind": "search", "category_slugs": ["cake-shop"]}}
+{"id": 161, "style": "arabizi", "text": "fi ma7al sakaker 2arib", "expect": {"kind": "search", "category_slugs": ["candy-shop"]}}
+{"id": 162, "style": "arabizi", "text": "bde 2osso sha3re, fi 7alla2 fete7?", "expect": {"kind": "search", "category_slugs": ["barber"], "open_now": true}}
+{"id": 163, "style": "arabizi", "text": "bde zabbet da2ne", "expect": {"kind": "search", "category_slugs": ["barber"]}}
+{"id": 164, "style": "arabizi", "text": "kwafeera la 3ers okhte", "expect": {"kind": "search", "category_slugs": ["hair-salon"]}}
+{"id": 165, "style": "arabizi", "text": "bdi a3mel brushing w sabgha", "expect": {"kind": "search", "category_slugs": ["hair-salon"]}}
+{"id": 166, "style": "arabizi", "text": "manikir w pedikir 2arib", "expect": {"kind": "search", "category_slugs": ["nail-salon"]}}
+{"id": 167, "style": "mixed", "text": "bdi a3mel nails", "expect": {"kind": "search", "category_slugs": ["nail-salon"]}}
+{"id": 168, "style": "mixed", "text": "bde coach ydarrebne bl beit", "expect": {"kind": "search", "category_slugs": ["personal-trainer"]}}
+{"id": 169, "style": "mixed", "text": "fi gym 2arib?", "expect": {"kind": "search", "category_slugs": ["fitness"], "also_ok": ["personal-trainer"]}}
+{"id": 170, "style": "arabizi", "text": "drous karate lal wled", "expect": {"kind": "search", "category_slugs": ["martial-arts"]}}
+{"id": 171, "style": "mixed", "text": "yoga classes bl ashrafiye", "expect": {"kind": "search", "category_slugs": ["yoga"]}}
+{"id": 172, "style": "arabizi", "text": "bde 5ayyat y2assirli el bantalon", "expect": {"kind": "search", "category_slugs": ["tailor"]}}
+{"id": 173, "style": "arabizi", "text": "bde kendarje ysalle7 sabbate", "expect": {"kind": "search", "category_slugs": ["shoe-repair"]}}
+{"id": 174, "style": "arabizi", "text": "bdi msawwer la 3ers", "expect": {"kind": "search", "category_slugs": ["photographer"], "also_ok": ["videographer"]}}
+{"id": 175, "style": "mixed", "text": "bde 7ada ysawwer video lal 3ers", "expect": {"kind": "search", "category_slugs": ["videographer"], "also_ok": ["photographer"]}}
+{"id": 176, "style": "arabizi", "text": "bde et3allam rasem", "expect": {"kind": "search", "category_slugs": ["drawing-lessons"], "also_ok": ["art-lessons", "painting-lessons"]}}
+{"id": 177, "style": "arabizi", "text": "drous khat 3arabe", "expect": {"kind": "search", "category_slugs": ["calligraphy-lessons"]}}
+{"id": 178, "style": "arabizi", "text": "ma fi may s5ne, el sakhan 5erb", "expect": {"kind": "search", "category_slugs": ["plumber"], "also_ok": ["electrician"]}}
+{"id": 179, "style": "arabizi", "text": "fi tasrib may ta7t el majle", "expect": {"kind": "search", "category_slugs": ["plumber"]}}
+{"id": 180, "style": "arabizi", "text": "el ghassele 3am tnazzel may", "expect": {"kind": "search", "category_slugs": ["home-repair", "plumber"]}}
+{"id": 181, "style": "arabizi", "text": "bde kahrabji rkhis", "expect": {"kind": "search", "category_slugs": ["electrician"], "sort": "price"}}
+{"id": 182, "style": "en", "text": "plumbr urgent", "expect": {"kind": "search", "category_slugs": ["plumber"], "open_now": true}}
+{"id": 183, "style": "mixed", "text": "electrisien 2arib", "expect": {"kind": "search", "category_slugs": ["electrician"]}}
+{"id": 184, "style": "mixed", "text": "bdi electrician hala2", "expect": {"kind": "search", "category_slugs": ["electrician"], "open_now": true}}
+{"id": 185, "style": "mixed", "text": "fi 7ada bysalle7 laptopet?", "expect": {"kind": "search", "category_slugs": ["laptop-repair"]}}
+{"id": 186, "style": "mixed", "text": "lap top screen maksoura", "expect": {"kind": "search", "category_slugs": ["laptop-repair"]}}
+{"id": 187, "style": "mixed", "text": "bdi 7ada yzabbetle el wifi w el pc", "expect": {"kind": "search", "category_slugs": ["laptop-repair"]}}
+{"id": 188, "style": "arabizi", "text": "ana bede sankary daroure", "expect": {"kind": "search", "category_slugs": ["plumber"], "open_now": true}}
+{"id": 189, "style": "arabizi", "text": "kahraba el beit ma3 2at3a w el priz 3am ysharret", "expect": {"kind": "search", "category_slugs": ["electrician"]}}
+{"id": 190, "style": "arabizi", "text": "a2rab mekanike", "expect": {"kind": "search", "category_slugs": ["mechanic"], "sort": "distance"}}
+{"id": 191, "style": "arabizi", "text": "kifak ya habibi, shu akhbarak", "expect": {"kind": "off_topic"}}
+{"id": 192, "style": "arabizi", "text": "lol hahaha", "expect": {"kind": "off_topic"}}
+{"id": 193, "style": "arabizi", "text": "asdkjh qwe zxcvb", "expect": {"kind": "off_topic"}}
+{"id": 194, "style": "arabizi", "text": "shu 3am ta3mel lyom", "expect": {"kind": "off_topic"}}
+{"id": 195, "style": "arabizi", "text": "ana ktir ta3ban lyom", "expect": {"kind": "off_topic"}}
+{"id": 196, "style": "arabizi", "text": "yalla bye, mnetla2a bokra", "expect": {"kind": "off_topic"}}
+{"id": 197, "style": "arabizi", "text": "kam se3er el dollar lyom", "expect": {"kind": "off_topic"}}
+{"id": 198, "style": "arabizi", "text": "wen el 7afle lyom bel lel?", "expect": {"kind": "off_topic"}}

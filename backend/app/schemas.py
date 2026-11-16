@@ -179,6 +179,8 @@ class ProviderSummary(BaseModel):
     distance_m: int | None
     cover_photo_url: str | None
     open_now: bool | None  # None when the provider gave no opening hours
+    # The owner switched on "Available now" and it has not run out yet.
+    available_now: bool
     # What users see as "Sponsored": the same value as `featured`.
     sponsored: bool
     sponsor_hook: str | None  # always None unless sponsored
@@ -215,6 +217,7 @@ class OwnProvider(ProviderDetail):
     featured_until: date | None
     verification_doc_url: str | None
     show_contact_count: bool
+    available_until: datetime | None  # when "Available now" turns itself off
 
 
 class ProviderSearchResult(BaseModel):
@@ -244,6 +247,13 @@ class StoryGroup(BaseModel):
 
 class StoryGroupList(BaseModel):
     items: list[StoryGroup]
+
+
+class AvailableIn(BaseModel):
+    """Body of PUT /me/provider/available: how long "Available now" lasts."""
+
+    # Only three choices, so a forgotten switch never stays on for long.
+    hours: Literal[2, 4, 8]
 
 
 class ProviderStats(BaseModel):

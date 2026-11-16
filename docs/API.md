@@ -37,6 +37,7 @@ Admin routes use the header `X-Admin-Key: <ADMIN_API_KEY>` instead.
   "lat": 33.8551, "lng": 35.5102, "distance_m": 184,
   "cover_photo_url": "https://...",            // null if no photos
   "open_now": true,                            // null if the provider gave no opening hours
+  "available_now": false,                      // the owner switched on "Available now" and it has not run out
   "sponsored": false,                          // verified AND featured_until not passed; show as "Sponsored"
   "sponsor_hook": null,                        // one-sentence pitch; always null unless sponsored
   "has_active_story": false,                   // a story posted in the last 24 hours
@@ -58,7 +59,8 @@ Admin routes use the header `X-Admin-Key: <ADMIN_API_KEY>` instead.
 { "status": "pending",                         // "unverified" | "pending" | "verified" | "rejected"
   "source": "owner",                           // "owner" | "suggestion"
   "featured_until": null, "verification_doc_url": "…",
-  "show_contact_count": false }
+  "show_contact_count": false,
+  "available_until": null }                    // when "Available now" turns itself off, or null
 // In OwnProvider, sponsor_hook is the stored text even when the profile is not sponsored,
 // so the owner can edit it. is_following is always false there.
 
@@ -143,7 +145,8 @@ A provider can be listed without being verified.
 | `max_price` | number | optional (> 0); keeps only providers with a structured price `price_amount <= max_price`. Needs `price_unit`; `price_currency` defaults to `USD`. Providers without a structured price are left out when this is set. |
 | `price_unit` | string | `hour`, `visit`, `job`, `item`, `month`; required with `max_price` (422 without it), ignored without it |
 | `price_currency` | string | `USD` (default) or `LBP` |
-| `open_now` | bool | default `false`; `true` keeps providers whose opening hours say open now (Beirut time). Providers with no hours are left out. |
+| `open_now` | bool | default `false`; `true` keeps providers whose opening hours say open now (Beirut time), and also providers marked "Available now" (with or without hours). Other providers with no hours are left out. |
+| `available_now` | bool | default `false`; `true` keeps only providers marked "Available now" (`available_until` in the future). |
 | `sort` | string | `best` (default, the order below) or `distance` (nearest first; verified still before non-verified) or `price` (cheapest structured price first, then the default order) |
 | `limit` | int | default 30, max 100 |
 | `offset` | int | default 0 |
@@ -245,6 +248,8 @@ Limits: `name` 1 to 100 characters, `area_name` up to 100, `note` up to 500; `ph
 | `GET /me/provider` | `OwnProvider`, or 404 if the user has no profile. |
 | `POST /me/provider` | Create my profile. Body below. Returns 201 `OwnProvider`. `status` is `"pending"` if a `verification_doc_url` was sent, otherwise `"unverified"`; the profile is listed publicly either way. 409 if one exists. |
 | `PATCH /me/provider` | Update any of the create fields. Returns `OwnProvider`. Status rules below. |
+| `PUT /me/provider/available` | Switch on "Available now". Body `{"hours": 2 \| 4 \| 8}`. Sets `available_until` to now + that many hours (sending it again restarts the count). Returns `OwnProvider`. 404 without a profile; any other `hours` is 422. |
+| `DELETE /me/provider/available` | Switch it off now (`available_until` = `null`). 204, also when it was off. 404 without a profile. |
 | `GET /me/provider/stats` | `{"month": "2026-11", "views": 40, "whatsapp": 9, "calls": 3, "confirmed_hires": 2}`. Views, WhatsApp and calls are for the current month; `confirmed_hires` covers the last 90 days, like the profile. |
 | `POST /me/provider/stories` | Post a story. Body `{"text": "…", "image_url": "https://…"}` (`image_url` optional). Returns 201 `Story`. Rules below. |
 | `DELETE /me/provider/stories/{story_id}` | Delete one of my stories. 204; 404 if it is not mine or does not exist. |
@@ -313,6 +318,10 @@ Expired stories and banners are simply no longer returned; nothing deletes them 
 ### Sponsored
 
 "Sponsored" is what users see for the admin's "featured" placement. `sponsored` is `true` when the provider is verified and `featured_until` has not passed; it always equals `featured`, which is kept for older app builds. `sponsor_hook` is `null` unless `sponsored` is `true`. Sponsored providers come first among verified ones in search (the existing featured rule; nothing else about the order changed). There are no payments in the app: the admin sets `featured_until` by hand.
+
+### Available now
+
+For providers without fixed hours (a plumber who works when called). The owner switches it on from My business for 2, 4 or 8 hours; it turns itself off when `available_until` passes, so a forgotten switch never stays on for long. `available_now` in `ProviderSummary` is `true` while `available_until` is in the future. Nothing runs in the background: the time is compared on every read. Search does not rank by it; the `available_now` filter, the widened `open_now` filter and the assistant's urgent words (see `AI_ASSISTANT.md`) use it.
 
 ### Opening hours
 
