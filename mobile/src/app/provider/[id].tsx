@@ -53,7 +53,7 @@ import { directionsUrl, shareUrl, telUrl, whatsappUrl } from '@/lib/links';
 import { useFavourites } from '@/lib/favourites';
 import { DAY_KEYS, dayKeyOf, to12Hour } from '@/lib/hours';
 import { useLocation } from '@/lib/location';
-import { requireSignIn } from '@/lib/auth';
+import { requireSignIn, useAuth } from '@/lib/auth';
 import { useAsync } from '@/lib/useAsync';
 import { makeStyles, motion, opacity, radius, size, space, useTheme } from '@/theme';
 
@@ -321,6 +321,15 @@ export default function ProviderScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { coords, status: locationStatus } = useLocation();
   const [notice, setNotice] = useState<string | null>(null);
+  const auth = useAuth();
+  // What the Follow pill shows right after a tap, before the server has answered.
+  // Tied to the loaded profile object, so a reload brings back the server's numbers.
+  const [followView, setFollowView] = useState<{
+    base: ProviderDetail;
+    following: boolean;
+    count: number;
+  } | null>(null);
+  const [followBusy, setFollowBusy] = useState(false);
   const favourites = useFavourites();
   const saved = favourites.isFavourite(id);
   // Scale of the heart; kept in state so the same value lives for the whole screen.
@@ -382,10 +391,38 @@ export default function ProviderScreen() {
   const openStories = (target: ProviderDetail) =>
     router.push({ pathname: '/stories/[providerId]', params: { providerId: target.id, from: 'profile' } });
 
-  // Following needs an account. There is no sign-in yet, so this only shows the
-  // "coming soon" notice; the follow request itself is added with sign-in.
-  const follow = () => {
-    if (!requireSignIn()) return;
+  // Following needs an account. Signed out, sign-in opens first and the follow
+  // happens when it closes; then the profile reloads with the real count.
+  // Signed in, the pill and the count change at once and go back if the request fails.
+  const follow = async (target: ProviderDetail, following: boolean, count: number) => {
+    if (
+      !requireSignIn(() => {
+        api
+          .followProvider(target.id)
+          .then(() => {
+            AccessibilityInfo.announceForAccessibility(s.follow.following);
+            load.reload();
+          })
+          .catch(() => setNotice(s.follow.failed));
+      })
+    ) {
+      return;
+    }
+    if (followBusy) return;
+    const next = !following;
+    setFollowView({ base: target, following: next, count: Math.max(0, count + (next ? 1 : -1)) });
+    setFollowBusy(true);
+    setNotice(null);
+    try {
+      if (next) await api.followProvider(target.id);
+      else await api.unfollowProvider(target.id);
+      AccessibilityInfo.announceForAccessibility(next ? s.follow.following : s.follow.follow);
+    } catch {
+      setFollowView({ base: target, following, count });
+      setNotice(s.follow.failed);
+    } finally {
+      setFollowBusy(false);
+    }
   };
 
   // Saves or removes the provider on this phone, with a short pulse and a spoken confirmation.
@@ -448,6 +485,10 @@ export default function ProviderScreen() {
   const TrustIcon = provider.verified ? BadgeCheck : Badge;
   // Shown only when the provider chose to, and only when there is something to say.
   const shownContacts = provider.contacts_this_month ?? 0;
+  const pending = followView && followView.base === provider ? followView : null;
+  // Signed out (for example after signing out elsewhere), nobody is "following".
+  const isFollowing = auth.status === 'signedIn' && (pending?.following ?? provider.is_following);
+  const followerCount = pending?.count ?? provider.follower_count;
   // The bar covers the status bar area and the row of round buttons.
   const barHeight = insets.top + space.sm * 2 + size.touch;
   // Fully solid when the white sheet's top edge reaches the bottom of the bar.
@@ -557,38 +598,40 @@ export default function ProviderScreen() {
               )}
             </View>
 
-            {/* Followers, and the Follow pill (it asks for sign-in, which is not built yet). */}
+            {/* Followers, and the Follow pill (signed out, it opens sign-in first). */}
             <View style={[styles.followRow, { flexDirection: row }]}>
               <View style={[styles.contactCount, styles.trustText, { flexDirection: row }]}>
                 <Users color={colors.textSubtle} size={size.iconSmall} strokeWidth={size.stroke} />
                 <Txt role="label" color="textMuted" style={styles.trustText}>
-                  {plural(s.follow.count, provider.follower_count)}
+                  {plural(s.follow.count, followerCount)}
                 </Txt>
               </View>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={
-                  provider.is_following ? s.follow.following : f(s.follow.followLabel, { name: provider.name })
+                  isFollowing
+                    ? f(s.follow.unfollowLabel, { name: provider.name })
+                    : f(s.follow.followLabel, { name: provider.name })
                 }
-                accessibilityState={{ selected: provider.is_following }}
-                onPress={follow}
+                accessibilityState={{ selected: isFollowing, busy: followBusy }}
+                onPress={() => void follow(provider, isFollowing, followerCount)}
                 // 40 dp to the eye; hitSlop makes the touch target 48.
                 hitSlop={space.xs}
                 android_ripple={{ color: colors.surfaceTintStrong }}
                 style={({ pressed }) => [
                   styles.follow,
                   { flexDirection: row },
-                  provider.is_following ? styles.following : null,
+                  isFollowing ? styles.following : null,
                   pressed ? styles.dim : null,
                 ]}
               >
-                {provider.is_following ? (
+                {isFollowing ? (
                   <Check color={colors.text} size={size.iconSmall} strokeWidth={size.strokeBold} />
                 ) : (
                   <Plus color={colors.onPrimary} size={size.iconSmall} strokeWidth={size.strokeBold} />
                 )}
-                <Txt role="action" color={provider.is_following ? 'text' : 'onPrimary'}>
-                  {provider.is_following ? s.follow.following : s.follow.follow}
+                <Txt role="action" color={isFollowing ? 'text' : 'onPrimary'}>
+                  {isFollowing ? s.follow.following : s.follow.follow}
                 </Txt>
               </Pressable>
             </View>

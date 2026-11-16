@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ArrowLeft, ArrowRight, Heart, LocateFixed, MapPin, Search, WifiOff, X } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, Heart, LocateFixed, MapPin, Search, UserRound, WifiOff, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -139,6 +139,8 @@ export default function HomeScreen() {
             {s.appName}
           </Txt>
           <View style={[styles.brandActions, { flexDirection: row }]}>
+            {/* Who you follow, their updates, and your account. */}
+            <IconButton icon={UserRound} label={s.account.open} onPress={() => router.push('/following')} />
             {/* Saved providers; the lavender badge counts them. */}
             <View>
               <IconButton

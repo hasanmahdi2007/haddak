@@ -11,9 +11,8 @@ import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { SignInNotice } from '@/components/SignInNotice';
-
 import { I18nProvider } from '@/i18n';
+import { AuthProvider } from '@/lib/auth';
 import { CategoriesProvider } from '@/lib/categories';
 import { FavouritesProvider } from '@/lib/favourites';
 import { LocationProvider } from '@/lib/location';
@@ -46,27 +45,29 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <I18nProvider>
-        <LocationProvider>
-          <CategoriesProvider>
-            <FavouritesProvider>
-              <StatusBar style={dark ? 'light' : 'dark'} />
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  contentStyle: { backgroundColor: colors.background },
-                }}
-              >
-                {/* A provider's updates open over everything, full screen, and fade in. */}
-                <Stack.Screen
-                  name="stories/[providerId]"
-                  options={{ presentation: 'fullScreenModal', animation: 'fade' }}
-                />
-              </Stack>
-              {/* The "Sign-in is coming soon" notice (see src/lib/auth.ts). */}
-              <SignInNotice />
-            </FavouritesProvider>
-          </CategoriesProvider>
-        </LocationProvider>
+        <AuthProvider>
+          <LocationProvider>
+            <CategoriesProvider>
+              <FavouritesProvider>
+                <StatusBar style={dark ? 'light' : 'dark'} />
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    contentStyle: { backgroundColor: colors.background },
+                  }}
+                >
+                  {/* A provider's updates open over everything, full screen, and fade in. */}
+                  <Stack.Screen
+                    name="stories/[providerId]"
+                    options={{ presentation: 'fullScreenModal', animation: 'fade' }}
+                  />
+                  {/* Sign-in slides up over the screen that asked for it, and closes back to it. */}
+                  <Stack.Screen name="sign-in" options={{ presentation: 'modal' }} />
+                </Stack>
+              </FavouritesProvider>
+            </CategoriesProvider>
+          </LocationProvider>
+        </AuthProvider>
       </I18nProvider>
     </SafeAreaProvider>
   );

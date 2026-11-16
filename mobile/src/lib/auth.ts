@@ -1,28 +1,253 @@
+import type { Session } from '@supabase/supabase-js';
+import { isAuthApiError, isAuthRetryableFetchError } from '@supabase/supabase-js';
+import { router } from 'expo-router';
+import { type ReactNode, useEffect, useSyncExternalStore } from 'react';
+
+import { supabase } from './supabase';
+
 /**
- * Sign-in does not exist yet. Anything that needs an account (Follow, and later
- * reviews and posting) calls `requireSignIn()` first:
+ * Who is signed in, and the one gate every account-only action goes through.
  *
- *   if (!requireSignIn()) return;
+ * Signing in is Supabase Auth with an email and a 6-digit code (no passwords).
+ * The state lives in this module (not in a React context) so the API client,
+ * which is not a component, can read the token too. Screens read it with
+ * `useAuth()`. `<AuthProvider>` in the root layout starts it.
  *
- * For now it always answers false and shows a small "Sign-in is coming soon"
- * notice (drawn by `SignInNotice`, which sits in the root layout). When sign-in
- * is built, this one function is the place to open the sign-in screen instead.
+ * Anything that needs an account calls `requireSignIn()` first:
+ *
+ *   if (!requireSignIn(() => follow())) return;
+ *
+ * Signed in: it answers true. Signed out: it opens the sign-in screen and answers
+ * false; after a successful sign-in the screen closes (the user is back where
+ * they were) and the function passed in runs, so the action they wanted happens.
  */
 
-type Listener = () => void;
+export type AuthStatus = 'loading' | 'signedOut' | 'signedIn';
 
-const listeners = new Set<Listener>();
+export interface AuthState {
+  status: AuthStatus;
+  /** Null for the development token, which carries no email. */
+  email: string | null;
+  userId: string | null;
+  /** Signed in with EXPO_PUBLIC_DEV_TOKEN (development builds only). */
+  dev: boolean;
+}
 
-/** Used by SignInNotice to hear about each call. Returns the function that stops listening. */
-export function onSignInRequired(listener: Listener): () => void {
+/** False when the app was built without the Supabase URL and key. */
+export const signInConfigured = supabase !== null;
+
+// ---------------------------------------------------------------------------
+// Development token. `backend/scripts/dev_token.py` prints a token the local
+// backend accepts (while SUPABASE_JWKS_URL is empty). Put it in
+// EXPO_PUBLIC_DEV_TOKEN to be signed in without an email. `__DEV__` is false in
+// store builds, so there this is always empty, whatever the environment says.
+const DEV_TOKEN = __DEV__ ? (process.env.EXPO_PUBLIC_DEV_TOKEN ?? '').trim() : '';
+let devTokenActive = DEV_TOKEN.length > 0;
+
+/** Reads the user id (`sub`) out of a JWT without checking it; the backend checks it. */
+function tokenSubject(token: string): string | null {
+  try {
+    const part = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(part.padEnd(part.length + ((4 - (part.length % 4)) % 4), '='))) as {
+      sub?: unknown;
+    };
+    return typeof payload.sub === 'string' ? payload.sub : null;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The store: one value and the components listening to it.
+
+let state: AuthState = { status: 'loading', email: null, userId: null, dev: false };
+const listeners = new Set<() => void>();
+
+function setState(next: AuthState) {
+  state = next;
+  listeners.forEach((listener) => listener());
+}
+
+function fromSession(session: Session | null): AuthState {
+  return session
+    ? { status: 'signedIn', email: session.user.email ?? null, userId: session.user.id, dev: false }
+    : { status: 'signedOut', email: null, userId: null, dev: false };
+}
+
+function subscribe(listener: () => void) {
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
   };
 }
 
-/** True when the user is signed in. Today: never, and the user is told sign-in is coming. */
-export function requireSignIn(): boolean {
-  listeners.forEach((listener) => listener());
+/** The current sign-in state; the component re-renders when it changes. */
+export function useAuth(): AuthState {
+  return useSyncExternalStore(subscribe, () => state, () => state);
+}
+
+let started = false;
+
+/** Reads the saved session once and follows every change after it. */
+function start() {
+  if (started) return;
+  started = true;
+  if (devTokenActive) {
+    setState({ status: 'signedIn', email: null, userId: tokenSubject(DEV_TOKEN), dev: true });
+    return;
+  }
+  if (!supabase) {
+    setState(fromSession(null));
+    return;
+  }
+  supabase.auth
+    .getSession()
+    .then(({ data }) => {
+      if (!devTokenActive) setState(fromSession(data.session));
+    })
+    .catch(() => setState(fromSession(null)));
+  supabase.auth.onAuthStateChange((_event, session) => {
+    if (!devTokenActive) setState(fromSession(session));
+  });
+}
+
+/** Sits in the root layout and starts the store. Draws nothing of its own. */
+export function AuthProvider({ children }: { children: ReactNode }) {
+  useEffect(start, []);
+  return children;
+}
+
+/**
+ * The token for `Authorization: Bearer ...`, or null when signed out.
+ * Supabase hands back a fresh one when the old one is about to expire.
+ */
+export async function getAccessToken(): Promise<string | null> {
+  if (devTokenActive) return DEV_TOKEN;
+  if (!supabase) return null;
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Signs out on this phone only. Works offline. */
+export async function signOut(): Promise<void> {
+  if (devTokenActive) {
+    devTokenActive = false;
+    setState(fromSession(null));
+    return;
+  }
+  if (!supabase) return;
+  try {
+    await supabase.auth.signOut({ scope: 'local' });
+  } finally {
+    setState(fromSession(null));
+  }
+}
+
+/** The backend refused the token (401): the session is no good, so drop it. */
+export function handleUnauthorized() {
+  if (state.status === 'signedIn') void signOut();
+}
+
+// ---------------------------------------------------------------------------
+// The gate.
+
+let afterSignIn: (() => void) | null = null;
+
+/** True when signed in. Otherwise opens sign-in and runs `then` once it succeeds. */
+export function requireSignIn(then?: () => void): boolean {
+  if (state.status === 'signedIn') return true;
+  afterSignIn = then ?? null;
+  router.push('/sign-in');
   return false;
+}
+
+/** Called by the sign-in screen when the user is in: close it and finish what they started. */
+export function finishSignIn() {
+  const next = afterSignIn;
+  afterSignIn = null;
+  if (router.canGoBack()) router.back();
+  else router.replace('/');
+  // After the screen has closed, so the action happens where the user started it.
+  if (next) setTimeout(next, 0);
+}
+
+/** The user closed sign-in without finishing: forget the action they wanted. */
+export function cancelSignIn() {
+  afterSignIn = null;
+}
+
+// ---------------------------------------------------------------------------
+// Sending and checking the code.
+
+export type AuthFailure =
+  | 'notConfigured'
+  | 'invalidEmail'
+  | 'notAllowed'
+  | 'wrongCode'
+  | 'expired'
+  | 'rateLimited'
+  | 'offline'
+  | 'other';
+
+export type AuthResult = { ok: true } | { ok: false; failure: AuthFailure; retryAfterS: number | null };
+
+/** Supabase's default life of an email code (Auth settings, "Email OTP expiration"). */
+const CODE_LIFETIME_MS = 3600 * 1000;
+let codeSentAt = 0;
+
+function fail(failure: AuthFailure, retryAfterS: number | null = null): AuthResult {
+  return { ok: false, failure, retryAfterS };
+}
+
+/** Turns a Supabase error into one of the cases the screen has words for. */
+function toFailure(error: unknown, step: 'send' | 'verify'): AuthResult {
+  if (isAuthRetryableFetchError(error)) return fail('offline');
+  if (isAuthApiError(error)) {
+    // "For security purposes, you can only request this after 42 seconds."
+    const seconds = /(\d+)\s*second/.exec(error.message);
+    if (error.status === 429 || error.code?.startsWith('over_')) {
+      return fail('rateLimited', seconds ? Number(seconds[1]) : null);
+    }
+    // Supabase's built-in mailer only writes to the project's team until custom SMTP is set up.
+    if (error.code === 'email_address_not_authorized') return fail('notAllowed');
+    if (step === 'send' && (error.code === 'email_address_invalid' || error.code === 'validation_failed')) {
+      return fail('invalidEmail');
+    }
+    if (step === 'verify' && (error.code === 'otp_expired' || error.status === 403 || error.status === 400)) {
+      // Supabase gives one answer for "wrong" and "expired". Past the code's life
+      // it must be the second; before it, most likely a typo or an older email.
+      return fail(codeSentAt > 0 && Date.now() - codeSentAt > CODE_LIFETIME_MS ? 'expired' : 'wrongCode');
+    }
+  }
+  if (error instanceof TypeError) return fail('offline');
+  return fail('other');
+}
+
+/** Step 1: email the user a 6-digit code. A new email address gets an account. */
+export async function sendCode(email: string): Promise<AuthResult> {
+  if (!supabase) return fail('notConfigured');
+  try {
+    const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+    if (error) return toFailure(error, 'send');
+    codeSentAt = Date.now();
+    return { ok: true };
+  } catch (error) {
+    return toFailure(error, 'send');
+  }
+}
+
+/** Step 2: check the code. On success Supabase stores the session and the store updates. */
+export async function verifyCode(email: string, code: string): Promise<AuthResult> {
+  if (!supabase) return fail('notConfigured');
+  try {
+    const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' });
+    if (error) return toFailure(error, 'verify');
+    return { ok: true };
+  } catch (error) {
+    return toFailure(error, 'verify');
+  }
 }

@@ -1,5 +1,5 @@
 import { type ComponentRef, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, type StyleProp, View, type ViewStyle } from 'react-native';
 
 import { api, type Coordinates, type ProviderSummary, type StoryGroup } from '@/api';
 import { useI18n } from '@/i18n';
@@ -29,10 +29,8 @@ interface Props {
  * the previous row stays up, so the page does not jump twice.
  */
 export function StoriesRow({ coords, radiusM, ready, onOpen }: Props) {
-  const { s, f, row, rtl } = useI18n();
-  const styles = useStyles();
+  const { s } = useI18n();
   const [groups, setGroups] = useState<StoryGroup[]>([]);
-  const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
   const { lat, lng } = coords;
 
   useEffect(() => {
@@ -54,10 +52,29 @@ export function StoriesRow({ coords, radiusM, ready, onOpen }: Props) {
 
   if (groups.length === 0) return null;
 
+  return <StoriesStrip title={s.stories.nearby} groups={groups} onOpen={onOpen} />;
+}
+
+interface StripProps {
+  title: string;
+  groups: StoryGroup[];
+  onOpen: (provider: ProviderSummary) => void;
+  style?: StyleProp<ViewStyle>;
+}
+
+/**
+ * The row itself: a title, then one ringed photo per provider. Used by
+ * "Updates nearby" on Home and by the feed on the Following screen.
+ */
+export function StoriesStrip({ title, groups, onOpen, style }: StripProps) {
+  const { s, f, row, rtl } = useI18n();
+  const styles = useStyles();
+  const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
+
   return (
-    <View style={styles.section}>
+    <View style={[styles.section, style]}>
       <Txt role="headline" accessibilityRole="header">
-        {s.stories.nearby}
+        {title}
       </Txt>
       <ScrollView
         ref={scroller}

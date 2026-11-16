@@ -184,3 +184,19 @@ Docs written, local database running, private GitHub repo created. One mistake f
 - Seed now has 6 unverified providers, 4 sponsored, 8 stories, 3 banners.
 - Verified: 322 tests pass, ruff clean, dev DB migrated and seeded.
 - Not done: admin page buttons to delete a story or banner (endpoints exist).
+
+## 2026-11-16 (day)
+
+**Design follow-ups from the founder.** Light-only theme (dark mode switched off on request), no black fills; all category tiles one colour (white) on a soft lavender ground; purple primary buttons, mint kept for trust marks.
+
+**Stories, banners, sponsored: app read side.** "Updates nearby" row on Home, full-screen story viewer, story ring on cards and profile, offer block on profile, "Sponsored" section (max 2, labelled paid placement) at the top of category results, follower count on profile.
+
+**Sign-in, Follow, Following, My business.**
+- Sign-in with Supabase email + 6-digit code (`src/app/sign-in.tsx`, `src/lib/auth.ts`, `src/lib/supabase.ts`); the app sends the access token to the backend; a 401 signs out locally.
+- Follow / unfollow on the profile (optimistic). Following screen: account, stories feed from followed providers, followed list.
+- My business: post and delete updates (max 5, 24 h), offer with optional discount (1 to 7 days), sponsor sentence. Not-verified and no-listing states.
+- Dev-only `EXPO_PUBLIC_DEV_TOKEN` lets the local app act as a signed-in user with a token from `backend/scripts/dev_token.py` (works only while `SUPABASE_JWKS_URL` is empty).
+- Verified: `tsc` and `expo lint` clean; follow, feed, stories, offer and sponsor sentence exercised against the local backend with curl and the web build; sign-in error states with Supabase calls stubbed. No real email sent.
+- **Not verified:** real email sign-in (needs Supabase dashboard setup: `{{ .Token }}` in the Magic Link and Confirm signup templates, custom SMTP, backend `SUPABASE_JWKS_URL` for the hosted project); anything on a phone.
+
+**Next:** provider sign-up from the app (form, pin drop, proof photo), Supabase dashboard setup for sign-in, phone test of everything above.

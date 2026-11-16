@@ -1,8 +1,11 @@
 import {
   ApiError,
+  type Banner,
+  type BannerInput,
   type Category,
   type ContactEventType,
   type Coordinates,
+  type FollowingParams,
   type HaddakApi,
   type HealthResponse,
   type NearbyStoriesParams,
@@ -19,6 +22,7 @@ import {
   type SearchParams,
   type Story,
   type StoryGroup,
+  type StoryInput,
   type SuggestionInput,
 } from './types';
 
@@ -37,10 +41,12 @@ const TIMEOUT_MS = 12000;
 /**
  * Client for the FastAPI backend described in docs/API.md.
  * `getToken` returns the Supabase access token, or null when signed out.
+ * `onUnauthorized` runs when the backend refuses a token we sent (401).
  */
 export function createHttpApi(
   baseUrl: string,
   getToken: () => Promise<string | null> = async () => null,
+  onUnauthorized: () => void = () => undefined,
 ): HaddakApi {
   const root = `${baseUrl.replace(/\/+$/, '')}/api/v1`;
 
@@ -88,6 +94,9 @@ export function createHttpApi(
       } catch {
         // Keep the generic message.
       }
+      // The token was refused (expired, revoked, or from another project): sign out
+      // on this phone, so the app stops sending it and asks for a fresh sign-in.
+      if (response.status === 401 && token) onUnauthorized();
       // Retry-After is in seconds; only rate-limited (429) answers carry it.
       const retryAfter = Number(response.headers.get('Retry-After'));
       throw new ApiError(
@@ -148,5 +157,19 @@ export function createHttpApi(
     updateMyProvider: (input: ProviderUpdateInput) =>
       request<OwnProvider>('/me/provider', { method: 'PATCH', body: input, auth: true }),
     getMyProviderStats: () => request<ProviderStats>('/me/provider/stats', { auth: true }),
+    postMyStory: (input: StoryInput) =>
+      request<Story>('/me/provider/stories', { method: 'POST', body: input, auth: true }),
+    deleteMyStory: (storyId: string) =>
+      request<void>(`/me/provider/stories/${id(storyId)}`, { method: 'DELETE', auth: true }),
+    setMyBanner: (input: BannerInput) =>
+      request<Banner>('/me/provider/banner', { method: 'PUT', body: input, auth: true }),
+    deleteMyBanner: () => request<void>('/me/provider/banner', { method: 'DELETE', auth: true }),
+    followProvider: (providerId: string) =>
+      request<void>(`/providers/${id(providerId)}/follow`, { method: 'PUT', auth: true }),
+    unfollowProvider: (providerId: string) =>
+      request<void>(`/providers/${id(providerId)}/follow`, { method: 'DELETE', auth: true }),
+    getMyFollowing: (params?: FollowingParams) =>
+      request<Page<ProviderSummary>>('/me/following', { query: { ...params }, auth: true }),
+    getMyFeed: () => request<{ items: StoryGroup[] }>('/me/feed', { auth: true }),
   };
 }

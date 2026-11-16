@@ -113,7 +113,8 @@ export interface ProviderDetail extends ProviderSummary {
   is_following: boolean;
 }
 
-export type ProviderStatus = 'pending' | 'verified' | 'rejected';
+/** `unverified`: no proof sent yet; `pending`: proof waiting for the founder. */
+export type ProviderStatus = 'unverified' | 'pending' | 'verified' | 'rejected';
 
 export interface OwnProvider extends ProviderDetail {
   status: ProviderStatus;
@@ -185,7 +186,35 @@ export interface ProviderCreateInput {
   verification_doc_url: string | null;
 }
 
-export type ProviderUpdateInput = Partial<ProviderCreateInput>;
+export type ProviderUpdateInput = Partial<ProviderCreateInput> & {
+  /** One sentence, 1 to 80 characters, shown only while sponsored. Null or "" clears it. */
+  sponsor_hook?: string | null;
+};
+
+/** Body of POST /me/provider/stories. */
+export interface StoryInput {
+  /** 1 to 280 characters. */
+  text: string;
+  /** Optional; must start with https://. Null means none. */
+  image_url?: string | null;
+}
+
+/** Body of PUT /me/provider/banner. */
+export interface BannerInput {
+  /** 1 to 60 characters. */
+  title: string;
+  /** Up to 200 characters; null means none. */
+  text?: string | null;
+  /** 1 to 90; null means no figure. */
+  discount_percent?: number | null;
+  /** 1 to 7, default 7. */
+  days?: number;
+}
+
+export interface FollowingParams {
+  limit?: number;
+  offset?: number;
+}
 
 export interface ProviderStats {
   /** "YYYY-MM" */
@@ -243,11 +272,23 @@ export interface HaddakApi {
   /** Suggest a provider who is not on Haddak yet. 429 after 5 in an hour. */
   submitSuggestion(input: SuggestionInput): Promise<{ id: string }>;
 
-  // Auth endpoints. Typed and wired now; the screens that use them are tasks M6 and M7.
+  // Auth endpoints: they need a signed-in user (401 otherwise).
   upsertMyReview(providerId: string, input: ReviewInput): Promise<Review>;
   deleteMyReview(providerId: string): Promise<void>;
   getMyProvider(): Promise<OwnProvider>;
   createMyProvider(input: ProviderCreateInput): Promise<OwnProvider>;
   updateMyProvider(input: ProviderUpdateInput): Promise<OwnProvider>;
   getMyProviderStats(): Promise<ProviderStats>;
+  /** 403 while my profile is not verified; 409 with 5 active stories already. */
+  postMyStory(input: StoryInput): Promise<Story>;
+  deleteMyStory(storyId: string): Promise<void>;
+  /** Replaces the banner I had. 403 while not verified. */
+  setMyBanner(input: BannerInput): Promise<Banner>;
+  deleteMyBanner(): Promise<void>;
+  followProvider(providerId: string): Promise<void>;
+  unfollowProvider(providerId: string): Promise<void>;
+  /** Providers I follow, most recently followed first. */
+  getMyFollowing(params?: FollowingParams): Promise<Page<ProviderSummary>>;
+  /** Active stories of the verified providers I follow (at most 30 providers). */
+  getMyFeed(): Promise<{ items: StoryGroup[] }>;
 }
