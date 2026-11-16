@@ -58,7 +58,9 @@ FUZZY_MATCH_SQL = text(
 )
 
 
-def find_place(db: Session, name: str) -> list[Place]:
+def find_place(db: Session, name: str, *, fuzzy: bool = True) -> list[Place]:
+    """fuzzy=False: exact matches only (used by the keyword fallback, which
+    tries every leftover word of a sentence and must not guess)."""
     normalized = normalize_text(name)
     if len(normalized) < 2:
         return []
@@ -68,7 +70,7 @@ def find_place(db: Session, name: str) -> list[Place]:
             select(Place).where(EXACT_MATCH_SQL.bindparams(name=normalized)).order_by(Place.id)
         )
     )
-    if exact:
+    if exact or not fuzzy:
         return same_name_only(exact)
 
     rows = db.execute(

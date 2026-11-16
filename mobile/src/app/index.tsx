@@ -184,7 +184,7 @@ export default function HomeScreen() {
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + space.xxl }]}
       >
         <View style={[styles.column, styles.stack]}>
-          {/* The lavender block: the question, where the search is centred, the assistant and search by name. */}
+          {/* The lavender block, kept calm: the question, where the search is centred, the assistant, search by name. */}
           <View style={styles.hero}>
             <Txt role="display" color="onHero" accessibilityRole="header">
               {s.home.question}
@@ -215,7 +215,7 @@ export default function HomeScreen() {
               ) : null}
             </View>
 
-            {/* The assistant: one big white entry, then a few sentences people can tap instead of typing. */}
+            {/* The assistant: one big white entry that looks like a field. Nothing else competes with it. */}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={s.assist.name}
@@ -234,21 +234,6 @@ export default function HomeScreen() {
                 <ForwardIcon color={colors.onPrimary} size={size.iconLarge} strokeWidth={size.lineBold} />
               </View>
             </Pressable>
-            <View style={[styles.examples, { flexDirection: row }]}>
-              {[s.assist.examples.fridge, s.assist.examples.tutor].map((example) => (
-                <Pressable
-                  key={example}
-                  accessibilityRole="button"
-                  accessibilityLabel={example}
-                  accessibilityHint={s.assist.exampleHint}
-                  onPress={() => router.push({ pathname: '/assist', params: { text: example } })}
-                  android_ripple={{ color: colors.surfaceTintStrong }}
-                  style={({ pressed }) => [styles.example, pressed ? styles.dim : null]}
-                >
-                  <Txt role="bodyStrong">{example}</Txt>
-                </Pressable>
-              ))}
-            </View>
 
             {/* Search by name stays, one tap away: the assistant took the field's place. */}
             {nameOpen ? (
@@ -504,7 +489,7 @@ const useStyles = makeStyles((c) => ({
   underline: {
     textDecorationLine: 'underline',
   },
-  // "Ask Haddak": a white block as tall as two lines of big text, with the ink arrow at its end.
+  // "Ask Jarak AI": a white block as tall as two lines of big text, with the ink arrow at its end.
   ask: {
     alignItems: 'center',
     gap: space.md,
@@ -531,19 +516,6 @@ const useStyles = makeStyles((c) => ({
     backgroundColor: c.primary,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  examples: {
-    flexWrap: 'wrap',
-    gap: space.sm,
-  },
-  // A sentence to tap: pale lavender on the lavender block, so it reads as lighter than the white entry.
-  example: {
-    minHeight: size.touch,
-    justifyContent: 'center',
-    paddingHorizontal: space.lg,
-    paddingVertical: space.sm,
-    borderRadius: radius.pill,
-    backgroundColor: c.background,
   },
   nameToggle: {
     alignItems: 'center',

@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Info,
-  Mic,
   Phone,
   Send,
   Siren,
@@ -197,30 +196,6 @@ export default function AssistScreen() {
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const canSend = text.trim().length >= TEXT_MIN;
   const comma = language === 'ar' ? '، ' : ', ';
-  const examples = [s.assist.examples.fridge, s.assist.examples.tutor, s.assist.examples.plumber];
-
-  /** Sentences to tap instead of typing: white blocks, one per line. */
-  const exampleList = (
-    <View style={styles.exampleList}>
-      {examples.map((example) => (
-        <Pressable
-          key={example}
-          accessibilityRole="button"
-          accessibilityLabel={example}
-          accessibilityHint={s.assist.exampleHint}
-          onPress={() => send(example)}
-          android_ripple={{ color: colors.surfaceTint }}
-          style={({ pressed }) => [styles.example, { flexDirection: row }, pressed ? styles.examplePressed : null]}
-        >
-          <Txt role="bodyLargeStrong" style={styles.exampleText}>
-            {example}
-          </Txt>
-          <ForwardIcon color={colors.primary} size={size.icon} strokeWidth={size.lineBold} />
-        </Pressable>
-      ))}
-    </View>
-  );
-
   /** A short note in plain words: the place was not found, or we looked further. */
   const note = (words: string) => (
     <View style={[styles.note, { flexDirection: row }]}>
@@ -285,7 +260,6 @@ export default function AssistScreen() {
           <View style={styles.block}>
             <Txt role="bodyLargeStrong">{s.assist.offTopic}</Txt>
           </View>
-          {exampleList}
         </View>
       );
     }
@@ -434,7 +408,7 @@ export default function AssistScreen() {
       <View style={[styles.column, styles.bar, { flexDirection: row }]}>
         <IconButton icon={BackIcon} label={s.common.back} onPress={goBack} />
         <Txt role="headline" accessibilityRole="header" numberOfLines={1} style={styles.barTitle}>
-          {s.assist.name}
+          {s.assist.title}
         </Txt>
       </View>
 
@@ -476,22 +450,12 @@ export default function AssistScreen() {
               ) : null}
             </View>
             {/*
-              Speaking: Expo Go has no speech-recognition module, so the keyboard's own
-              microphone does it (Gboard and the iPhone keyboard both have one).
+              Speaking: Expo Go has no speech-recognition module, and not every keyboard
+              has a microphone key, so for now the screen only offers typing.
               TODO(dev build): add a hold-to-talk button here with a native speech module
               (for example expo-speech-recognition), Arabic and English, once the app
               leaves Expo Go (docs/AI_ASSISTANT.md, "Voice and reading aloud").
             */}
-            {phase.status === 'idle' ? (
-              <View style={[styles.micHint, { flexDirection: row }]}>
-                <View style={styles.micDisc}>
-                  <Mic color={colors.onAccent} size={size.icon} strokeWidth={size.lineBold} />
-                </View>
-                <Txt role="body" color="textMuted" style={styles.noteText}>
-                  {s.assist.micHint}
-                </Txt>
-              </View>
-            ) : null}
           </View>
           <Button
             label={s.assist.send}
@@ -504,15 +468,6 @@ export default function AssistScreen() {
 
           {/* The answer. Screen readers hear it as it arrives. */}
           <View accessibilityLiveRegion="polite" style={styles.stack}>
-            {phase.status === 'idle' ? (
-              <View style={styles.stack}>
-                <Txt role="title" accessibilityRole="header">
-                  {s.assist.examplesTitle}
-                </Txt>
-                {exampleList}
-              </View>
-            ) : null}
-
             {phase.status === 'loading' ? (
               <View style={[styles.block, styles.looking, { flexDirection: row }]} accessible>
                 <ActivityIndicator color={colors.primary} size="large" />
@@ -608,41 +563,6 @@ const useStyles = makeStyles((c) => ({
   },
   inputTall: {
     minHeight: size.askInput,
-  },
-  micHint: {
-    alignItems: 'center',
-    gap: space.md,
-    backgroundColor: c.surfaceTint,
-    borderRadius: radius.md,
-    padding: space.sm,
-  },
-  micDisc: {
-    width: size.touch - space.sm,
-    height: size.touch - space.sm,
-    borderRadius: radius.pill,
-    backgroundColor: c.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  exampleList: {
-    gap: space.sm,
-  },
-  example: {
-    alignItems: 'center',
-    gap: space.md,
-    minHeight: size.buttonLarge,
-    backgroundColor: c.surface,
-    borderRadius: radius.lg,
-    paddingHorizontal: space.xl,
-    paddingVertical: space.md,
-    overflow: 'hidden',
-  },
-  examplePressed: {
-    backgroundColor: c.surfaceTint,
-  },
-  exampleText: {
-    flex: 1,
-    minWidth: 0,
   },
   // A white block for a question, a message or "Looking…".
   block: {

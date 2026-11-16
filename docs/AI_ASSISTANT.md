@@ -1,4 +1,6 @@
-# Haddak assistant (version 1)
+# Haddak assistant: Jarak AI (version 1)
+
+The assistant is called **Jarak AI** (جارك AI, "your neighbour"; the "AI" makes clear it is not a real person). The name appears only in the app's i18n strings (`assist.name`, `assist.title`).
 
 Decided with the founder on 2026-11-16. The goal is that someone who rarely uses a phone can open Haddak, say what they need in their own words, and reach the right person in two taps.
 
@@ -40,7 +42,7 @@ The AI never sees the user's location, name, email or any provider data. It sees
 | Requests per IP per day | 30 | `ASSIST_DAILY_LIMIT` |
 | Spending cap per calendar month | $10 | `ASSIST_MONTHLY_BUDGET_USD` |
 | Model | `claude-haiku-5-5` (cheapest; the founder asked for low cost). Switch to `claude-sonnet-5-5` only if the phrase test shows Haiku misses too much. | `ASSIST_MODEL` |
-| No key, cap reached, or AI error | assistant answers `unavailable`; the app falls back to normal search | backend |
+| No key, cap reached, daily allowance used, or AI error | free keyword fallback (below); `unavailable` only when it finds no category, then the app falls back to normal search | backend |
 
 Every AI request is logged with its token counts and cost (`assist_log`), with no user id.
 
@@ -54,8 +56,16 @@ Today prices are free text (`price_text`). A price filter needs structured field
 
 ## Voice and reading aloud
 
-- Speaking: in Expo Go the app relies on the keyboard's own microphone (Gboard and the iPhone keyboard both have one, free). A dedicated hold-to-talk button needs a native speech module and comes with the first store build.
+- Speaking: not in Expo Go. Not every keyboard has a microphone key (the founder's does not), so the screen no longer tells people to use one. A hold-to-talk button needs a native speech module and a development build (to be decided with the founder).
 - Reading aloud: results can be read aloud with the phone's built-in text-to-speech (`expo-speech`), free.
+
+## Free keyword fallback (no AI)
+
+When the AI cannot be asked (no `ANTHROPIC_API_KEY`, monthly cap reached, daily allowance used, or the AI request failed), `app/services/assist/keywords.py` reads the sentence with plain word lists instead, at no cost:
+
+- A dictionary of words and phrases for every seeded category in English, Lebanese Arabic, Arabizi and French (`fridge`/`براد`/`brad`/`frigo` → `ac-repair`, since there is no appliance category and cooling technicians fix fridges; `sankari`/`سنكري`/`plombier` → `plumber`; `tutor`/`2ostez`/`أستاذ`/`prof` → `tutoring`, a subject word wins over it). Longest phrase first, small Arabic prefixes and endings (`البراد`, `برادي`) and small Latin spelling mistakes (`plumbr`) are tolerated. Text is normalised as everywhere (lower case, no marks, one alef/ya/ta marbuta form).
+- Simple patterns: "near me"/"2arib"/"قريب" → 500 m; "under 20"/"a2al men 20"/"اقل من 20" → a price limit (unit from the category group: tutors by the hour, doctors per visit, repairs per job, shops per item; currency USD unless lira/alf is said); "open now"/"fete7 hala2"/"هلق" → open now; a place name through `find_place` (fuzzy after "in", "b", "fi", "في"; exact for any other leftover word).
+- The answer is the same `results` response as an AI answer (template summary, no WhatsApp draft), logged with `source` = `direct`. No category matched → `unavailable`, as before. With a key and budget, the AI path is unchanged.
 
 ## Emergencies
 

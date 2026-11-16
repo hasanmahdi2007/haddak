@@ -279,7 +279,8 @@ class AssistLog(Base):
     """One row per assistant request. No user id and no IP address.
 
     source: 'ai' (the AI was asked), 'cache' (remembered answer) or 'direct'
-    (the text was exactly a category or provider name, no AI needed).
+    (answered by our own code, no AI: the text was exactly a category or
+    provider name, or the keyword fallback understood it).
     Only 'ai' rows have tokens and a cost.
     """
 

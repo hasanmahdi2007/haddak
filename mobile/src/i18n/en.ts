@@ -622,24 +622,18 @@ export const en = {
     gone: 'This listing has already been removed.',
   },
 
-  // The assistant. Its name lives only in `name`: the founder is still choosing it.
+  // The assistant, "Jarak AI" (جارك, "your neighbour"; "AI" so nobody takes it for a real person).
+  // Its name lives only in `name` (the button) and `title` (the screen title).
   assist: {
-    name: 'Ask Haddak',
-    hint: 'Say or type what you need',
-    openHint: 'Opens a page where you can write or say what you need.',
-    examples: {
-      fridge: 'My fridge stopped working',
-      tutor: 'Maths tutor near me under $20',
-      plumber: 'Water is leaking under the sink',
-    },
-    examplesTitle: 'You can ask like this',
-    exampleHint: 'Asks Haddak this',
+    name: 'Ask Jarak AI',
+    title: 'Jarak AI',
+    hint: 'Type what you need, in your own words',
+    openHint: 'Opens a page where you can write what you need.',
     inputLabel: 'What do you need?',
     placeholder: 'For example: my fridge stopped working',
     clear: 'Clear what you wrote',
     send: 'Send',
     sendHint: 'Write a few words first.',
-    micHint: 'To speak instead, tap the microphone on your keyboard.',
     looking: 'Looking…',
     lookingBody: 'Finding the right people near you.',
     errorTitle: "Couldn't reach Haddak",
@@ -670,7 +664,7 @@ export const en = {
     redCross: 'Lebanese Red Cross',
     civilDefence: 'Civil Defence',
     emergencyCall: '{name}, call {number}',
-    offTopic: 'I can only help you find people and shops near you. Try something like:',
+    offTopic: 'I can only help you find people and shops near you, like a plumber or a tutor.',
     emptyTitle: 'Nobody found yet',
     emptyBody: 'Haddak is still adding people in this area.',
     emptyCityBody: 'We looked across the whole city. Haddak is still adding people.',

@@ -486,12 +486,12 @@ def test_off_topic_passes_straight_through(client, db, fake_ai):
 # ---------- unavailable ----------
 
 
-def test_unavailable_without_a_key(client, db):
+def test_unavailable_without_a_key_when_no_word_is_known(client, db):
     # No fake_ai: creating the client would fail the test, so this also
     # proves the AI is not even tried.
     make_category(db, "plumber")
 
-    body = ask(client, "baddé sankari")
+    body = ask(client, "qwzx blorptan vexulim")
 
     assert body["kind"] == "unavailable"
     assert body["results"] is None
@@ -536,6 +536,104 @@ def test_daily_limit_per_ip_counts_only_ai_requests(client, db, fake_ai, monkeyp
 
     clock.advance(24 * 60 * 60 + 1)  # a day later
     assert ask(client, "third sentence")["kind"] == "results"
+
+
+# ---------- the free keyword fallback (no AI) ----------
+
+
+def test_no_key_fridge_sentence_finds_results_with_keywords(client, db):
+    # No fake_ai: the AI is never tried.
+    cooling = make_category(db, "ac-repair")
+    make_provider(db, cooling, "Cool Tech", distance_m=300)
+
+    body = ask(client, "my fridge stopped working")
+
+    assert body["kind"] == "results"
+    assert body["understood"]["category_slugs"] == ["ac-repair"]
+    assert names(body) == ["Cool Tech"]
+    assert body["summary"] == "Ac Repair · near you · 1 km"
+    assert body["whatsapp_draft"] is None
+    [row] = logs(db)
+    assert (row.source, row.kind, row.cost_usd) == ("direct", "results", 0)
+
+
+def test_no_key_arabizi_plumber_near_me_is_500_m(client, db):
+    plumber = make_category(db, "plumber")
+    make_provider(db, plumber, "Abu Ali", distance_m=200)
+    make_provider(db, plumber, "Far Plumber", distance_m=3000)
+
+    body = ask(client, "baddé sankari 2arib")
+
+    assert body["kind"] == "results"
+    assert body["understood"]["category_slugs"] == ["plumber"]
+    assert body["understood"]["radius_m"] == 500
+    assert names(body) == ["Abu Ali"]
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("بدي سنكري قريب", {"category_slugs": ["plumber"], "radius_m": 500}),
+        ("plombier", {"category_slugs": ["plumber"]}),
+        ("البراد خربان", {"category_slugs": ["ac-repair"]}),
+        ("laptob msakkar", {"category_slugs": ["laptop-repair"]}),
+        ("2ostez riyadiyat a2al men 20$", {"category_slugs": ["math-tutoring"],
+         "max_price": 20, "price_unit": "hour", "price_currency": "USD"}),
+        ("tutor under $20", {"category_slugs": ["tutoring"], "max_price": 20,
+         "price_unit": "hour"}),
+        ("sankari fete7 hala2", {"category_slugs": ["plumber"], "open_now": True}),
+        ("plumbr", {"category_slugs": ["plumber"]}),
+    ],
+)  # fmt: skip
+def test_keyword_fallback_understands(client, db, text, expected):
+    tutoring = make_category(db, "tutoring")
+    make_category(db, "math-tutoring", parent=tutoring)
+    for slug in ("plumber", "ac-repair", "laptop-repair"):
+        category = make_category(db, slug)
+        # Something close by, so the circle is not widened.
+        make_provider(db, category, f"Near {slug}", distance_m=100)
+
+    body = ask(client, text)
+
+    assert body["kind"] == "results"
+    for field, value in expected.items():
+        assert body["understood"][field] == value, field
+
+
+def test_keyword_fallback_finds_a_named_place(client, db):
+    make_category(db, "plumber")
+
+    body = ask(client, "plombier à Jounieh")
+
+    assert body["understood"]["place"]["slug"] == "jounieh"
+    assert "in Jounieh" in body["summary"]
+
+
+def test_keyword_fallback_when_the_budget_is_used_up(client, db, fake_ai, monkeypatch):
+    monkeypatch.setattr(settings, "assist_monthly_budget_usd", 1.0)
+    make_category(db, "plumber")
+    db.add(AssistLog(source="ai", model="claude-haiku-5-5", cost_usd=1.0, kind="results",
+                     text_hash="x"))  # fmt: skip
+    db.commit()
+
+    body = ask(client, "baddé sankari")
+
+    assert body["kind"] == "results"
+    assert body["understood"]["category_slugs"] == ["plumber"]
+    assert fake_ai.calls == []
+
+
+def test_keyword_fallback_when_the_ai_fails(client, db, fake_ai):
+    make_category(db, "plumber")
+    request = httpx2.Request("POST", "https://api.anthropic.com/v1/messages")
+    fake_ai.error = anthropic.APIConnectionError(request=request)
+
+    body = ask(client, "baddé sankari")
+
+    assert body["kind"] == "results"
+    assert body["understood"]["category_slugs"] == ["plumber"]
+    [row] = logs(db)  # one row: the AI's cost and the fallback's answer
+    assert (row.source, row.kind) == ("ai", "results")
 
 
 def test_api_error_is_unavailable_and_logged(client, db, fake_ai):

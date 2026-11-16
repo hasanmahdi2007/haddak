@@ -6,9 +6,12 @@ For a sentence, the checks run in this order (cheapest first):
      -> search directly, no AI.
   2. Cache: the same sentence was understood before -> reuse that answer.
   3. Before asking the AI: an API key is set, the monthly budget is not used
-     up, and this IP has not used up its daily allowance. If any fails, the
-     answer is kind "unavailable" (HTTP 200) and the app runs a normal search.
+     up, and this IP has not used up its daily allowance.
   4. Ask the AI, check its answer, remember it, log the cost.
+If the AI cannot be asked (step 3 fails) or its request fails, the free
+keyword fallback (keywords.py) tries word lists instead. Only when that
+finds no category either is the answer kind "unavailable" (HTTP 200), and
+the app runs a normal search.
 Then, for a search: look up the place, run the normal search (widening the
 circle if nothing is found), build the summary, log the request.
 """
@@ -36,6 +39,7 @@ from app.services import provider_views
 from app.services.assist.ai_client import AIOption, AIResult, AIUnavailable, Usage, ask_model
 from app.services.assist.budget import budget_reached, cost_usd, daily_limit_reached
 from app.services.assist.cache import get_cached, save_cached
+from app.services.assist.keywords import understand as understand_keywords
 from app.services.assist.normalize import normalize_text, text_hash
 from app.services.assist.places import find_place, place_by_slug
 from app.services.assist.prompt import build_system_prompt
@@ -435,6 +439,28 @@ def write_log(
     db.commit()
 
 
+def keyword_fallback(db: Session, body: AssistIn, categories: list[Category]) -> AssistOut:
+    """The AI cannot help: understand the sentence with word lists instead.
+    Same "results" answer as from the AI (minus the WhatsApp draft), or
+    "unavailable" when no category word was found."""
+    found = understand_keywords(db, body.text, categories)
+    if found is None:
+        return plain_response("unavailable", body.lang)
+    return respond_to(db, search_result(**found), categories, body)
+
+
+def answer_without_ai(
+    db: Session, body: AssistIn, categories: list[Category], hashed: str, normalized: str
+) -> AssistOut:
+    """No key, budget used up or daily allowance used up. A keyword answer is
+    logged like an exact match (source "direct": our own code, no cost), so
+    a search that found nothing still reaches the "most wanted" list."""
+    response = keyword_fallback(db, body, categories)
+    if response.kind != "unavailable":
+        write_log(db, source="direct", response=response, hashed=hashed, normalized=normalized)
+    return response
+
+
 # ---------- the two entry points ----------
 
 
@@ -461,13 +487,14 @@ def assist_from_text(db: Session, body: AssistIn, client_ip: str) -> AssistOut:
 
     # 3. May we ask the AI? The daily allowance is checked last, so it only
     #    counts requests that really go to the AI.
+    #    If not, the free keyword fallback answers instead.
     if not settings.anthropic_api_key.strip():
-        return plain_response("unavailable", body.lang)
+        return answer_without_ai(db, body, categories, hashed, normalized)
     if budget_reached(db):
-        logger.warning("assistant monthly budget reached; answering unavailable")
-        return plain_response("unavailable", body.lang)
+        logger.warning("assistant monthly budget reached; using the keyword fallback")
+        return answer_without_ai(db, body, categories, hashed, normalized)
     if daily_limit_reached(client_ip):
-        return plain_response("unavailable", body.lang)
+        return answer_without_ai(db, body, categories, hashed, normalized)
 
     # 4. Ask the AI.
     model = settings.assist_model
@@ -476,7 +503,8 @@ def assist_from_text(db: Session, body: AssistIn, client_ip: str) -> AssistOut:
     except AIUnavailable as error:
         # The reason never contains the key or the user's text.
         logger.warning("assistant AI request failed: %s", error)
-        response = plain_response("unavailable", body.lang)
+        # One log row for this request: the AI's cost, the fallback's answer.
+        response = keyword_fallback(db, body, categories)
         write_log(
             db,
             source="ai",

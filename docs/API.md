@@ -191,7 +191,7 @@ Response:
 }
 ```
 
-- `unavailable`: no API key, monthly cap reached, this IP's daily AI allowance used up, or the AI failed. The app then runs a normal name search with the text.
+- `unavailable`: the AI could not be asked (no API key, monthly cap reached, this IP's daily AI allowance used up, or the AI failed) **and** the free keyword fallback found no category in the text. When the fallback does find one, the answer is a normal `results` (with `whatsapp_draft` null). On `unavailable` the app runs a normal name search with the text.
 - `emergency`: the app shows its own built-in emergency numbers. `off_topic`: the app shows one fixed polite line.
 - The AI request is sent only the sentence and the category list. The phone location never leaves the backend.
 
@@ -378,7 +378,7 @@ Write routes are limited per client IP, in the API process's memory (no extra se
 - `PUT /providers/{id}/reviews/mine`, `POST` and `PATCH /me/provider`, `POST /me/provider/stories`, `DELETE /me/provider/stories/{story_id}`, `PUT` and `DELETE /me/provider/banner`, `PUT` and `DELETE /providers/{id}/follow`: 20 per minute per IP. One shared allowance across these routes.
 - `POST /suggestions`: 5 per hour per IP (its own allowance). Requests refused for a validation error count too.
 - `POST /providers/{id}/reports`: 10 per hour per IP (its own allowance). Requests refused for a validation error or an unknown provider count too.
-- `POST /assist`: `ASSIST_DAILY_LIMIT` (default 30) requests per IP per 24 hours that reach the AI. Exact name matches, remembered sentences and the `understood` form do not count. Over the limit the answer is HTTP 200 with kind `unavailable`, not 429, so the app simply falls back to a normal search.
+- `POST /assist`: `ASSIST_DAILY_LIMIT` (default 30) requests per IP per 24 hours that reach the AI. Exact name matches, remembered sentences and the `understood` form do not count. Over the limit the free keyword fallback answers instead (HTTP 200, kind `results`, or `unavailable` when it finds no category), never 429.
 
 Requests are counted before the login token is checked, so failed attempts use the allowance too. Behind a hosting proxy the client IP is read from `X-Forwarded-For`, counting `PROXY_HOPS` entries from the right so a client cannot fake it.
 
