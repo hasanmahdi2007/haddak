@@ -793,6 +793,8 @@ export const MOCK_PROVIDERS: ProviderDetail[] = SEEDS.map((seed, index) => {
     contacts_this_month: CONTACT_COUNTS[index] ?? null,
     // Filled in per request from the clock (see mock.ts).
     open_now: null,
+    // The mock API keeps the "Available now" switches and fills this in.
+    available_now: false,
     // Stories and banners are also filled in per request (mockStories and mockBanner below).
     has_active_story: false,
     banner_title: null,

@@ -47,6 +47,8 @@ export interface ProviderSummary {
   cover_photo_url: string | null;
   /** Open at this moment (Lebanon time). Null when the provider gave no opening hours. */
   open_now: boolean | null;
+  /** The owner switched on "Available now" and it has not run out yet. */
+  available_now: boolean;
   /** Paid placement: shown in the "Sponsored" section above the results. */
   sponsored: boolean;
   /** One line written by the sponsor, shown on the sponsored card. */
@@ -131,12 +133,17 @@ export interface ProviderDetail extends ProviderSummary {
 /** `unverified`: no proof sent yet; `pending`: proof waiting for the founder. */
 export type ProviderStatus = 'unverified' | 'pending' | 'verified' | 'rejected';
 
+/** How long "Available now" lasts once switched on. */
+export type AvailableHours = 2 | 4 | 8;
+
 export interface OwnProvider extends ProviderDetail {
   status: ProviderStatus;
   featured_until: string | null;
   verification_doc_url: string | null;
   /** The owner's choice to show `contacts_this_month` publicly. */
   show_contact_count: boolean;
+  /** When "Available now" turns itself off; null when it is off. */
+  available_until: string | null;
 }
 
 export interface Review {
@@ -187,8 +194,10 @@ export interface SearchParams {
   price_unit?: PriceUnit;
   /** Default USD. */
   price_currency?: PriceCurrency;
-  /** Keeps providers whose opening hours say open now. */
+  /** Keeps providers whose opening hours say open now, or who are marked "Available now". */
   open_now?: boolean;
+  /** Keeps only providers marked "Available now". */
+  available_now?: boolean;
   sort?: SearchSort;
   limit?: number;
   offset?: number;
@@ -427,6 +436,10 @@ export interface HaddakApi {
   /** Replaces the banner I had. 403 while not verified. */
   setMyBanner(input: BannerInput): Promise<Banner>;
   deleteMyBanner(): Promise<void>;
+  /** Switch on "Available now" for 2, 4 or 8 hours. */
+  setMyAvailable(hours: AvailableHours): Promise<OwnProvider>;
+  /** Switch "Available now" off. */
+  clearMyAvailable(): Promise<void>;
   followProvider(providerId: string): Promise<void>;
   unfollowProvider(providerId: string): Promise<void>;
   /** Providers I follow, most recently followed first. */

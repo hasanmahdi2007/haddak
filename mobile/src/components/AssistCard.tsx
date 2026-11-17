@@ -6,7 +6,7 @@ import { useI18n } from '@/i18n';
 import { providerPrice } from '@/lib/price';
 import { makeStyles, radius, size, space, useTheme } from '@/theme';
 
-import { NotVerifiedBadge, VerifiedBadge } from './Badges';
+import { AvailableTag, NotVerifiedBadge, VerifiedBadge } from './Badges';
 import { Button } from './Button';
 import { OpenStatus } from './OpenStatus';
 import { Photo } from './Photo';
@@ -39,7 +39,8 @@ export function AssistCard({ provider, onOpen, onWhatsApp, onCall, busy = null }
     provider.name,
     place,
     provider.verified ? s.badges.verified : s.badges.notVerified,
-    provider.open_now === null ? null : provider.open_now ? s.hours.openNow : s.hours.closedNow,
+    provider.available_now ? s.badges.availableNow : null,
+    provider.available_now || provider.open_now === null ? null : provider.open_now ? s.hours.openNow : s.hours.closedNow,
     away,
     price,
     provider.review_count > 0
@@ -68,7 +69,11 @@ export function AssistCard({ provider, onOpen, onWhatsApp, onCall, busy = null }
           </Txt>
           <View style={[styles.badges, { flexDirection: row }]}>
             {provider.verified ? <VerifiedBadge decorative /> : <NotVerifiedBadge decorative />}
-            <OpenStatus open={provider.open_now} role="bodyStrong" />
+            {provider.available_now ? (
+              <AvailableTag decorative />
+            ) : (
+              <OpenStatus open={provider.open_now} role="bodyStrong" />
+            )}
           </View>
         </View>
       </Pressable>

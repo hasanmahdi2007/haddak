@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Info,
+  Mic,
   Phone,
   Send,
   Siren,
@@ -44,6 +45,7 @@ import {
   type AssistPhase,
   useAssist,
 } from '@/lib/useAssist';
+import { useVoice, type VoiceProblem } from '@/lib/useVoice';
 import { makeStyles, opacity, radius, size, space, type as typeScale, useTheme } from '@/theme';
 
 // Web only: the field shows focus itself, so the browser's ring is turned off.
@@ -55,7 +57,7 @@ export default function AssistScreen() {
   const { colors } = useTheme();
   const { s, f, plural, row, rtl, textAlign, writingDirection, language, distance } = useI18n();
   const styles = useStyles();
-  const params = useLocalSearchParams<{ text?: string }>();
+  const params = useLocalSearchParams<{ text?: string; listen?: string }>();
   const { byId } = useCategories();
 
   // A sentence tapped on Home arrives with the link and is asked at once.
@@ -66,6 +68,8 @@ export default function AssistScreen() {
   const [busy, setBusy] = useState<{ id: string; type: 'whatsapp' | 'call' } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [speaking, setSpeaking] = useState(false);
+  // "Speak" on Home opens this screen with listen=1: start listening at once, no keyboard.
+  const [autoListen] = useState(() => params.listen === '1' && !autoAsk);
 
   /** Start a question from a tap: stop reading aloud, close the keyboard, show "Looking…". */
   function start(next: Ask) {
@@ -82,6 +86,31 @@ export default function AssistScreen() {
     setText(words);
     start({ kind: 'text', text: trimmed });
   };
+
+  // Speaking: the words appear in the field as they are heard, and are sent when the person stops.
+  const voice = useVoice({
+    language,
+    onPartial: setText,
+    onFinal: (words) => send(words.slice(0, TEXT_MAX)),
+  });
+
+  function listen() {
+    Speech.stop();
+    setSpeaking(false);
+    setNotice(null);
+    Keyboard.dismiss();
+    setText('');
+    void voice.start();
+  }
+
+  const listenStarted = useRef(false);
+  useEffect(() => {
+    if (!autoListen || !voice.available || listenStarted.current) return;
+    listenStarted.current = true;
+    listen();
+    // Once, on arrival; `listen` is a plain function that changes every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoListen, voice.available]);
 
   const sendSettings = (understood: UnderstoodInput) => {
     const before = phase.status === 'done' ? phase : null;
@@ -189,6 +218,22 @@ export default function AssistScreen() {
       onStopped: stop,
       onError: stop,
     });
+  }
+
+  /** Why the microphone gave nothing back, in plain words. */
+  function voiceProblemText(problem: VoiceProblem) {
+    switch (problem) {
+      case 'denied':
+        return s.assist.voiceDenied;
+      case 'blocked':
+        return s.assist.voiceBlocked;
+      case 'unheard':
+        return s.assist.voiceUnheard;
+      case 'network':
+        return s.assist.voiceNetwork;
+      default:
+        return s.assist.voiceFailed;
+    }
   }
 
   const BackIcon = rtl ? ArrowRight : ArrowLeft;
@@ -417,14 +462,29 @@ export default function AssistScreen() {
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + space.huge }]}
       >
         <View style={[styles.column, styles.page]}>
-          {/* The question: a big white field, then the Send button. */}
-          <View style={styles.field}>
+          {/* The question: a big white field, then Speak and Send. */}
+          <View style={[styles.field, voice.listening ? styles.fieldListening : null]}>
+            {voice.listening ? (
+              // While listening: a clear sign at the top of the field; the words fill in under it.
+              <View style={[styles.listeningHead, { flexDirection: row }]} accessibilityLiveRegion="polite" accessible>
+                <View style={styles.listeningDisc}>
+                  <Mic color={colors.onAccent} size={size.iconLarge} strokeWidth={size.lineBold} />
+                </View>
+                <View style={styles.noteText}>
+                  <Txt role="headline">{s.assist.listening}</Txt>
+                  <Txt role="bodyLarge" color="textMuted">
+                    {s.assist.listeningBody}
+                  </Txt>
+                </View>
+              </View>
+            ) : null}
             <View style={[styles.fieldTop, { flexDirection: row }]}>
               <TextInput
                 value={text}
                 onChangeText={setText}
+                editable={!voice.listening}
                 multiline
-                autoFocus={!autoAsk}
+                autoFocus={!autoAsk && !autoListen}
                 maxLength={TEXT_MAX}
                 placeholder={s.assist.placeholder}
                 placeholderTextColor={colors.textSubtle}
@@ -445,26 +505,55 @@ export default function AssistScreen() {
                   { textAlign, writingDirection },
                 ]}
               />
-              {text.length > 0 ? (
+              {text.length > 0 && !voice.listening ? (
                 <IconButton icon={X} label={s.assist.clear} onPress={() => setText('')} color={colors.textMuted} />
               ) : null}
             </View>
-            {/*
-              Speaking: Expo Go has no speech-recognition module, and not every keyboard
-              has a microphone key, so for now the screen only offers typing.
-              TODO(dev build): add a hold-to-talk button here with a native speech module
-              (for example expo-speech-recognition), Arabic and English, once the app
-              leaves Expo Go (docs/AI_ASSISTANT.md, "Voice and reading aloud").
-            */}
           </View>
-          <Button
-            label={s.assist.send}
-            accessibilityHint={canSend ? undefined : s.assist.sendHint}
-            icon={Send}
-            large
-            disabled={!canSend || phase.status === 'loading'}
-            onPress={() => send()}
-          />
+          {voice.listening ? (
+            <Button label={s.assist.stopListening} icon={Square} large onPress={voice.stop} />
+          ) : (
+            <View style={[styles.actions, { flexDirection: row }]}>
+              {/* Only in a build with the speech module: Expo Go and the web never show it. */}
+              {voice.available ? (
+                <Button
+                  label={s.assist.speak}
+                  accessibilityHint={s.assist.speakHint}
+                  icon={Mic}
+                  variant="tonal"
+                  large
+                  disabled={phase.status === 'loading'}
+                  onPress={listen}
+                  style={styles.action}
+                />
+              ) : null}
+              <Button
+                label={s.assist.send}
+                accessibilityHint={canSend ? undefined : s.assist.sendHint}
+                icon={Send}
+                large
+                disabled={!canSend || phase.status === 'loading'}
+                onPress={() => send()}
+                style={styles.action}
+              />
+            </View>
+          )}
+          {voice.problem ? (
+            <View style={styles.stack} accessibilityLiveRegion="polite">
+              {note(voiceProblemText(voice.problem))}
+              {voice.problem === 'blocked' ? (
+                <Button
+                  label={s.assist.openSettings}
+                  variant="tonal"
+                  large
+                  onPress={() => {
+                    voice.clearProblem();
+                    Linking.openSettings().catch(() => undefined);
+                  }}
+                />
+              ) : null}
+            </View>
+          ) : null}
 
           {/* The answer. Screen readers hear it as it arrives. */}
           <View accessibilityLiveRegion="polite" style={styles.stack}>
@@ -542,12 +631,38 @@ const useStyles = makeStyles((c) => ({
   stack: {
     gap: space.md,
   },
-  // The typing field: a white block, big type, the microphone hint along its bottom.
+  // The typing field: a white block, big type. Its edge turns ink while listening.
   field: {
     backgroundColor: c.surface,
     borderRadius: radius.lg,
+    borderWidth: size.lineBold,
+    borderColor: c.surface,
     padding: space.md,
     gap: space.sm,
+  },
+  fieldListening: {
+    borderColor: c.primary,
+  },
+  listeningHead: {
+    alignItems: 'center',
+    gap: space.md,
+    paddingHorizontal: space.sm,
+    paddingTop: space.xs,
+  },
+  // A lavender disc with the microphone: the "listening" sign.
+  listeningDisc: {
+    width: size.buttonLarge,
+    height: size.buttonLarge,
+    borderRadius: radius.pill,
+    backgroundColor: c.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actions: {
+    gap: space.md,
+  },
+  action: {
+    flex: 1,
   },
   fieldTop: {
     alignItems: 'flex-start',

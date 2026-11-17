@@ -1,11 +1,12 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ArrowLeft, ArrowRight, FileCheck2, LockKeyhole, Pencil, Store, Trash2, WifiOff } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, FileCheck2, LockKeyhole, Pencil, Printer, Store, Trash2, WifiOff } from 'lucide-react-native';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { api, ApiError, type Banner, type OwnProvider, type ProviderStats, type Story } from '@/api';
+import { AvailableNowSection } from '@/components/AvailableNowSection';
 import { NotVerifiedBadge, SponsoredTag, VerifiedBadge } from '@/components/Badges';
 import { Button } from '@/components/Button';
 import { Field, Notice, useInputStyle } from '@/components/Field';
@@ -211,6 +212,14 @@ export default function MyBusinessScreen() {
                 variant="tonal"
                 onPress={() => router.push('/business-edit')}
               />
+              <Button
+                label={s.business.poster}
+                icon={Printer}
+                variant="tonal"
+                onPress={() => router.push({ pathname: '/poster/[slug]', params: { slug: load.own.slug } })}
+              />
+              {/* Open to every owner, verified or not: it only says "I can come now". */}
+              <AvailableNowSection own={load.own} onSaved={setOwn} />
               <StatsSection own={load.own} version={version} />
               {load.own.status === 'verified' ? (
                 <>

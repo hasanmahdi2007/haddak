@@ -37,7 +37,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { api, type ContactEventType, type OpeningHours, type ProviderDetail } from '@/api';
-import { FeaturedTag, FoundingBadge, SponsoredTag } from '@/components/Badges';
+import { AvailableTag, FeaturedTag, FoundingBadge, SponsoredTag } from '@/components/Badges';
 import { Button } from '@/components/Button';
 import { IconButton } from '@/components/IconButton';
 import { OfferBlock } from '@/components/OfferBlock';
@@ -546,10 +546,11 @@ export default function ProviderScreen() {
 
             {provider.active_banner ? <OfferBlock banner={provider.active_banner} /> : null}
 
-            {provider.sponsored || provider.featured || provider.founding_member || shownContacts > 0 ? (
+            {provider.available_now || provider.sponsored || provider.featured || provider.founding_member || shownContacts > 0 ? (
             <View style={styles.extras}>
-              {provider.sponsored || provider.featured || provider.founding_member ? (
+              {provider.available_now || provider.sponsored || provider.featured || provider.founding_member ? (
                 <View style={[styles.badges, { flexDirection: row }]}>
+                  {provider.available_now ? <AvailableTag /> : null}
                   {provider.sponsored ? <SponsoredTag /> : null}
                   {provider.featured ? <FeaturedTag /> : null}
                   {provider.founding_member ? <FoundingBadge /> : null}
@@ -748,7 +749,14 @@ export default function ProviderScreen() {
       {sheet === 'share' ? (
         <Sheet title={s.share.title} closeLabel={s.share.close} onClose={() => setSheet(null)}>
           <Txt color="textMuted">{s.share.intro}</Txt>
-          <ShareProfile slug={provider.slug} name={provider.name} />
+          <ShareProfile
+            slug={provider.slug}
+            name={provider.name}
+            onPoster={() => {
+              setSheet(null);
+              router.push({ pathname: '/poster/[slug]', params: { slug: provider.slug } });
+            }}
+          />
         </Sheet>
       ) : null}
       {sheet === 'report' ? (

@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ArrowLeft, ArrowRight, Heart, LocateFixed, MapPin, Search, UserRound, WifiOff, X } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, Heart, LocateFixed, MapPin, Mic, Search, UserRound, WifiOff, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -29,6 +29,7 @@ import { useCategories, type CategoryNode } from '@/lib/categories';
 import { useFavourites } from '@/lib/favourites';
 import { useLocation } from '@/lib/location';
 import { DEFAULT_RADIUS, type RadiusM } from '@/lib/radius';
+import { VOICE_AVAILABLE } from '@/lib/useVoice';
 import { makeStyles, opacity, radius, size, space, type as typeScale, useTheme } from '@/theme';
 
 /** Limits of the search endpoint's `q` parameter (docs/API.md). */
@@ -68,6 +69,8 @@ export default function HomeScreen() {
 
   const [radiusM, setRadiusM] = useState<RadiusM>(DEFAULT_RADIUS);
   const [openParent, setOpenParent] = useState<CategoryNode | null>(null);
+  // The Ask entry is two buttons when the phone can listen; the whole block greys while its text part is pressed.
+  const [askPressed, setAskPressed] = useState(false);
   const [name, setName] = useState('');
   const [nameFocused, setNameFocused] = useState(false);
   const [nameOpen, setNameOpen] = useState(false);
@@ -216,24 +219,55 @@ export default function HomeScreen() {
             </View>
 
             {/* The assistant: one big white entry that looks like a field. Nothing else competes with it. */}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={s.assist.name}
-              accessibilityHint={s.assist.openHint}
-              onPress={() => router.push('/assist')}
-              android_ripple={{ color: colors.surfaceTintStrong }}
-              style={({ pressed }) => [styles.ask, { flexDirection: row }, pressed ? styles.askPressed : null]}
-            >
-              <View style={styles.askText}>
-                <Txt role="headline">{s.assist.name}</Txt>
-                <Txt role="bodyLarge" color="textMuted">
-                  {s.assist.hint}
-                </Txt>
+            {VOICE_AVAILABLE ? (
+              // With a speech module (the development build): the block opens the assistant to type,
+              // the ink disc at its end opens it already listening.
+              <View style={[styles.ask, styles.askSplit, { flexDirection: row }, askPressed ? styles.askPressed : null]}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={s.assist.name}
+                  accessibilityHint={s.assist.openHint}
+                  onPress={() => router.push('/assist')}
+                  onPressIn={() => setAskPressed(true)}
+                  onPressOut={() => setAskPressed(false)}
+                  style={styles.askOpen}
+                >
+                  <Txt role="headline">{s.assist.name}</Txt>
+                  <Txt role="bodyLarge" color="textMuted">
+                    {s.assist.hintVoice}
+                  </Txt>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={s.assist.speak}
+                  accessibilityHint={s.assist.speakOpenHint}
+                  onPress={() => router.push({ pathname: '/assist', params: { listen: '1' } })}
+                  android_ripple={{ color: colors.primaryPressed, borderless: true }}
+                  style={({ pressed }) => [styles.askGo, pressed ? styles.askGoPressed : null]}
+                >
+                  <Mic color={colors.onPrimary} size={size.iconLarge} strokeWidth={size.lineBold} />
+                </Pressable>
               </View>
-              <View style={styles.askGo}>
-                <ForwardIcon color={colors.onPrimary} size={size.iconLarge} strokeWidth={size.lineBold} />
-              </View>
-            </Pressable>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={s.assist.name}
+                accessibilityHint={s.assist.openHint}
+                onPress={() => router.push('/assist')}
+                android_ripple={{ color: colors.surfaceTintStrong }}
+                style={({ pressed }) => [styles.ask, { flexDirection: row }, pressed ? styles.askPressed : null]}
+              >
+                <View style={styles.askText}>
+                  <Txt role="headline">{s.assist.name}</Txt>
+                  <Txt role="bodyLarge" color="textMuted">
+                    {s.assist.hint}
+                  </Txt>
+                </View>
+                <View style={styles.askGo}>
+                  <ForwardIcon color={colors.onPrimary} size={size.iconLarge} strokeWidth={size.lineBold} />
+                </View>
+              </Pressable>
+            )}
 
             {/* Search by name stays, one tap away: the assistant took the field's place. */}
             {nameOpen ? (
@@ -504,6 +538,22 @@ const useStyles = makeStyles((c) => ({
   },
   askPressed: {
     backgroundColor: c.surfaceTint,
+  },
+  // Split entry: the text part carries its own padding so the whole of it is the tap area.
+  askSplit: {
+    paddingVertical: 0,
+    paddingStart: 0,
+  },
+  askOpen: {
+    flex: 1,
+    minWidth: 0,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    paddingVertical: space.md,
+    paddingStart: space.xl,
+  },
+  askGoPressed: {
+    backgroundColor: c.primaryPressed,
   },
   askText: {
     flex: 1,

@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, ArrowRight, List, Map as MapIcon, SearchX, WifiOff, X } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, List, Map as MapIcon, SearchX, WifiOff, X, Zap } from 'lucide-react-native';
 import { useState } from 'react';
 import { FlatList, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -70,6 +70,7 @@ export default function ResultsScreen() {
     price_unit?: string;
     price_currency?: string;
     open_now?: string;
+    available_now?: string;
     sort?: string;
     lat?: string;
     lng?: string;
@@ -101,6 +102,8 @@ export default function ResultsScreen() {
     return amount !== undefined && amount > 0 && unit ? { amount, unit, currency } : null;
   });
   const [openNow, setOpenNow] = useState(params.open_now === '1' || params.open_now === 'true');
+  // "Available now": a pill the user can always switch on (not only from the assistant).
+  const [availableNow, setAvailableNow] = useState(params.available_now === '1' || params.available_now === 'true');
   const [sort, setSort] = useState<SearchSort>(
     params.sort === 'distance' || params.sort === 'price' ? params.sort : 'best',
   );
@@ -122,6 +125,7 @@ export default function ResultsScreen() {
             price_unit: price?.unit,
             price_currency: price?.currency,
             open_now: openNow || undefined,
+            available_now: availableNow || undefined,
             sort,
           }),
     [
@@ -136,6 +140,7 @@ export default function ResultsScreen() {
       price?.unit,
       price?.currency,
       openNow,
+      availableNow,
       sort,
     ],
   );
@@ -237,26 +242,47 @@ export default function ResultsScreen() {
             <VerifiedFilter verifiedOnly={verifiedOnly} onChange={setVerifiedOnly} />
           </View>
 
-          {extraFilters.length > 0 ? (
-            <View style={[styles.extraFilters, { flexDirection: row }]}>
-              {extraFilters.map((filter) => (
-                <Pressable
-                  key={filter.key}
-                  accessibilityRole="button"
-                  accessibilityLabel={f(s.price.removeFilter, { name: filter.label })}
-                  onPress={filter.remove}
-                  hitSlop={{ top: size.segmentSlop, bottom: size.segmentSlop }}
-                  android_ripple={{ color: colors.primaryPressed }}
-                  style={[styles.extraFilter, { flexDirection: row }]}
-                >
-                  <Txt role="label" color="onPrimary" numberOfLines={1}>
-                    {filter.label}
-                  </Txt>
-                  <X color={colors.onPrimary} size={size.iconSmall} strokeWidth={size.lineBold} />
-                </Pressable>
-              ))}
-            </View>
-          ) : null}
+          <View style={[styles.extraFilters, { flexDirection: row }]}>
+            {/* Always there: grey when off; on, it turns ink like the other filters. */}
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityLabel={s.results.availableFilter}
+              accessibilityHint={s.results.availableFilterHint}
+              accessibilityState={{ checked: availableNow }}
+              aria-checked={availableNow}
+              onPress={() => setAvailableNow((on) => !on)}
+              hitSlop={{ top: size.segmentSlop, bottom: size.segmentSlop }}
+              android_ripple={{ color: availableNow ? colors.primaryPressed : colors.surfaceTintStrong }}
+              style={[styles.extraFilter, availableNow ? null : styles.extraFilterOff, { flexDirection: row }]}
+            >
+              <Zap
+                color={availableNow ? colors.onPrimary : colors.text}
+                fill={availableNow ? colors.onPrimary : 'none'}
+                size={size.iconSmall}
+                strokeWidth={size.lineBold}
+              />
+              <Txt role="label" color={availableNow ? 'onPrimary' : 'text'} numberOfLines={1}>
+                {s.results.availableFilter}
+              </Txt>
+              {availableNow ? <X color={colors.onPrimary} size={size.iconSmall} strokeWidth={size.lineBold} /> : null}
+            </Pressable>
+            {extraFilters.map((filter) => (
+              <Pressable
+                key={filter.key}
+                accessibilityRole="button"
+                accessibilityLabel={f(s.price.removeFilter, { name: filter.label })}
+                onPress={filter.remove}
+                hitSlop={{ top: size.segmentSlop, bottom: size.segmentSlop }}
+                android_ripple={{ color: colors.primaryPressed }}
+                style={[styles.extraFilter, { flexDirection: row }]}
+              >
+                <Txt role="label" color="onPrimary" numberOfLines={1}>
+                  {filter.label}
+                </Txt>
+                <X color={colors.onPrimary} size={size.iconSmall} strokeWidth={size.lineBold} />
+              </Pressable>
+            ))}
+          </View>
         </View>
       </View>
 
@@ -446,6 +472,9 @@ const useStyles = makeStyles((c) => ({
     borderRadius: radius.pill,
     backgroundColor: c.primary,
     overflow: 'hidden',
+  },
+  extraFilterOff: {
+    backgroundColor: c.surfaceTint,
   },
   list: {
     paddingHorizontal: space.lg,

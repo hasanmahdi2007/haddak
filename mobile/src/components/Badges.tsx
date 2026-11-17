@@ -1,4 +1,4 @@
-import { Award, Badge, BadgeCheck, Handshake, Tag, Users } from 'lucide-react-native';
+import { Award, Badge, BadgeCheck, Handshake, Tag, Users, Zap } from 'lucide-react-native';
 import { View } from 'react-native';
 
 import { useI18n } from '@/i18n';
@@ -24,6 +24,29 @@ export function VerifiedBadge({ decorative = false }: { decorative?: boolean }) 
       <BadgeCheck color={colors.onMint} size={size.iconSmall} strokeWidth={size.lineBold} />
       <Txt role="caption" color="onMint" style={styles.pillText}>
         {s.badges.verified}
+      </Txt>
+    </View>
+  );
+}
+
+/**
+ * "Available now": the owner said they can take a job right away (it turns
+ * itself off after 2, 4 or 8 hours). Mint like the other positive marks, with a
+ * lightning icon instead of the check, so it never reads as Verified.
+ */
+export function AvailableTag({ decorative = false }: { decorative?: boolean }) {
+  const { colors } = useTheme();
+  const { s, row } = useI18n();
+  const styles = useStyles();
+  return (
+    <View
+      style={[styles.pill, styles.verified, { flexDirection: row }]}
+      accessible={!decorative}
+      accessibilityLabel={decorative ? undefined : s.badges.availableNow}
+    >
+      <Zap color={colors.onMint} size={size.iconSmall} strokeWidth={size.lineBold} fill={colors.onMint} />
+      <Txt role="caption" color="onMint" style={styles.pillText}>
+        {s.badges.availableNow}
       </Txt>
     </View>
   );

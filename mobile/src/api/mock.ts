@@ -116,6 +116,8 @@ function toSummary(provider: ProviderDetail, distance_m: number | null): Provide
     cover_photo_url,
     // The backend works this out in Lebanon time; the mock uses the device clock.
     open_now: isOpenAt(provider.opening_hours, new Date()),
+    // Filled in by the mock API, which keeps the "Available now" switches.
+    available_now: false,
   };
 }
 
@@ -223,6 +225,17 @@ export function createMockApi(
   ];
   // Providers the user said they hired: their review gets the mark and the count goes up.
   const hiredProviderIds = new Set<string>();
+  // "Available now" switches: provider id -> the time it turns off. Two seed
+  // providers start available for 3 hours, so the tag and the filter can be seen.
+  const availableUntil = new Map<string, number>([
+    [MOCK_PROVIDERS[4].id, Date.now() + 3 * HOUR_MS],
+    [MOCK_PROVIDERS[5].id, Date.now() + 3 * HOUR_MS],
+  ]);
+  function availableFields(providerId: string) {
+    const until = availableUntil.get(providerId);
+    const on = until !== undefined && until > Date.now();
+    return { available_now: on, available_until: on ? new Date(until).toISOString() : null };
+  }
 
   const isOwn = (providerId: string) => providerId === OWN_ID && ownKind !== 'none';
   // While the profile is not verified, its stories and banner are hidden everywhere public.
@@ -274,6 +287,7 @@ export function createMockApi(
       ...ratingOf(provider),
       has_active_story: storiesOf(provider.id).length > 0,
       banner_title: bannerOf(provider.id)?.title ?? null,
+      available_now: availableFields(provider.id).available_now,
       sponsor_hook: provider.sponsored ? (isOwn(provider.id) ? ownHook : provider.sponsor_hook) : null,
     };
   }
@@ -307,7 +321,9 @@ export function createMockApi(
             p.price_currency === currency &&
             p.price_amount <= params.max_price),
       )
-      .filter((p) => !params.open_now || p.open_now === true);
+      // Like the backend, "open now" also keeps providers marked "Available now".
+      .filter((p) => !params.open_now || p.open_now === true || p.available_now)
+      .filter((p) => !params.available_now || p.available_now);
 
     let ranked = rankProviders(matches);
     if (params.sort === 'distance') {
@@ -453,14 +469,15 @@ export function createMockApi(
       featured_until: provider.sponsored ? new Date(Date.now() + 20 * 24 * HOUR_MS).toISOString() : null,
       verification_doc_url: null,
       show_contact_count: false,
+      available_until: null,
     };
   }
 
   /** What GET /me/provider answers: a listing made here, or the seed listing with its edits. */
   function currentOwn(): OwnProvider {
-    if (createdOwn) return createdOwn;
     // The hook has its own variable (ownHook), so it is left out of the edits.
-    return applyOwnEdits(ownProvider(), { ...ownEdits, sponsor_hook: undefined });
+    const own = createdOwn ?? applyOwnEdits(ownProvider(), { ...ownEdits, sponsor_hook: undefined });
+    return { ...own, ...availableFields(own.id) };
   }
 
   function requireVerified() {
@@ -763,6 +780,19 @@ export function createMockApi(
       respondAuth(() => {
         ownProfile();
         ownBanner = null;
+      }),
+
+    setMyAvailable: (hours) =>
+      respondAuth(() => {
+        if (![2, 4, 8].includes(hours)) throw new ApiError(422, 'hours must be 2, 4 or 8');
+        const own = currentOwn();
+        availableUntil.set(own.id, Date.now() + hours * HOUR_MS);
+        return currentOwn();
+      }),
+
+    clearMyAvailable: () =>
+      respondAuth(() => {
+        availableUntil.delete(currentOwn().id);
       }),
 
     followProvider: (providerId) =>

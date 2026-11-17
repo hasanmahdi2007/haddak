@@ -6,6 +6,7 @@ import { useI18n } from '@/i18n';
 import { makeStyles, opacity, radius, size, space, useTheme } from '@/theme';
 
 import {
+  AvailableTag,
   CommunityLabel,
   FeaturedTag,
   FoundingBadge,
@@ -67,7 +68,9 @@ export function ProviderCard({ provider, onPress, onOpenStory, plain = false }: 
     provider.banner_title ? f(s.offer.labelNamed, { title: provider.banner_title }) : null,
     provider.featured ? s.badges.featuredLabel : null,
     provider.founding_member ? s.badges.founding : null,
-    provider.open_now === null ? null : provider.open_now ? s.hours.openNow : s.hours.closedNow,
+    provider.available_now ? s.badges.availableNow : null,
+    // "Available now" wins over the hours: "Closed" beside it would only confuse.
+    provider.available_now || provider.open_now === null ? null : provider.open_now ? s.hours.openNow : s.hours.closedNow,
     plural(s.rating.label, provider.review_count, { rating: provider.avg_rating.toFixed(1) }),
     provider.distance_m !== null ? f(s.provider.away, { distance: distance(provider.distance_m) }) : null,
     provider.price_text,
@@ -143,7 +146,11 @@ export function ProviderCard({ provider, onPress, onOpenStory, plain = false }: 
             {provider.featured && !sponsored ? <FeaturedTag /> : null}
             {provider.founding_member && !sponsored ? <FoundingBadge /> : null}
             {provider.claimed || sponsored ? null : <CommunityLabel />}
-            <OpenStatus open={provider.open_now} onPastel={sponsored} />
+            {provider.available_now ? (
+              <AvailableTag decorative />
+            ) : (
+              <OpenStatus open={provider.open_now} onPastel={sponsored} />
+            )}
           </View>
         </View>
       </View>

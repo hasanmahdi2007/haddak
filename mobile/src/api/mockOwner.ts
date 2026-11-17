@@ -86,6 +86,7 @@ export function buildOwnProvider(input: ProviderCreateInput): OwnProvider {
     distance_m: null,
     cover_photo_url: input.photos[0] ?? null,
     open_now: isOpenAt(hours, new Date()),
+    available_now: false,
     sponsored: false,
     sponsor_hook: null,
     has_active_story: false,
@@ -106,6 +107,7 @@ export function buildOwnProvider(input: ProviderCreateInput): OwnProvider {
     featured_until: null,
     verification_doc_url: proof,
     show_contact_count: input.show_contact_count ?? false,
+    available_until: null,
   };
 }
 

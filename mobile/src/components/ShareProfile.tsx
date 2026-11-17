@@ -1,4 +1,4 @@
-import { Share2 } from 'lucide-react-native';
+import { Printer, Share2 } from 'lucide-react-native';
 import { Share, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
@@ -13,6 +13,8 @@ interface Props {
   /** The provider's share code: the link is https://haddak.app/p/<slug>. */
   slug: string;
   name: string;
+  /** Given: a "Print a poster" button under Share, which calls this (the caller closes its sheet and opens the poster). */
+  onPoster?: () => void;
 }
 
 /**
@@ -24,7 +26,7 @@ interface Props {
  * the code (the quiet zone scanners need). Used on the profile; My business can
  * place it too.
  */
-export function ShareProfile({ slug, name }: Props) {
+export function ShareProfile({ slug, name, onPoster }: Props) {
   const { colors } = useTheme();
   const { s, f } = useI18n();
   const styles = useStyles();
@@ -64,6 +66,7 @@ export function ShareProfile({ slug, name }: Props) {
         </View>
       </View>
       <Button label={s.share.send} icon={Share2} onPress={share} />
+      {onPoster ? <Button label={s.share.poster} icon={Printer} variant="tonal" onPress={onPoster} /> : null}
     </View>
   );
 }

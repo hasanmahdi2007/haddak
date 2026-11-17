@@ -2,6 +2,7 @@ import {
   ApiError,
   type AssistRequest,
   type AssistResponse,
+  type AvailableHours,
   type Banner,
   type BannerInput,
   type Category,
@@ -130,6 +131,7 @@ export function createHttpApi(
           include_unverified: params.include_unverified ? true : undefined,
           // Defaults are left out, like include_unverified, to keep the URL short.
           open_now: params.open_now ? true : undefined,
+          available_now: params.available_now ? true : undefined,
           sort: params.sort === 'best' ? undefined : params.sort,
         },
       }),
@@ -178,6 +180,10 @@ export function createHttpApi(
     setMyBanner: (input: BannerInput) =>
       request<Banner>('/me/provider/banner', { method: 'PUT', body: input, auth: true }),
     deleteMyBanner: () => request<void>('/me/provider/banner', { method: 'DELETE', auth: true }),
+    setMyAvailable: (hours: AvailableHours) =>
+      request<OwnProvider>('/me/provider/available', { method: 'PUT', body: { hours }, auth: true }),
+    clearMyAvailable: () =>
+      request<void>('/me/provider/available', { method: 'DELETE', auth: true }),
     followProvider: (providerId: string) =>
       request<void>(`/providers/${id(providerId)}/follow`, { method: 'PUT', auth: true }),
     unfollowProvider: (providerId: string) =>

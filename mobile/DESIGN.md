@@ -6,7 +6,7 @@ Status: rebuilt on 2026-11-16 after the founder rejected the earlier teal design
 
 ## Direction: Blocks
 
-A near-white page built from big rounded blocks of solid colour. Ink for words and actions, mint for trust, lavender for accent, soft grey for everything that is just a container.
+A pale lavender page built from big rounded blocks of solid colour. Ink for words, purple (`primary`) for actions and the selected state, mint for trust, lavender for accent, a lavender-grey for everything that is just a container.
 
 - **Feel:** bright, confident, a little playful. Nothing is outlined; things are blocks.
 - **Scene:** a person on an Android phone in daylight, in the street or at home, who needs someone now. Light theme by default with strong contrast; a dark theme follows the system setting.
@@ -15,27 +15,34 @@ A near-white page built from big rounded blocks of solid colour. Ink for words a
 
 ## Colour
 
-Each colour has one job.
+Each colour has one job. This table matches `src/theme/tokens.ts` value for value (checked 2026-11-16).
 
 | Token | Light | Dark | Job |
 |---|---|---|---|
-| `background` | `#FAFEFF` | `#12131F` | Page ground |
-| `surface` | `#FFFFFF` | `#2A2C44` | Insets inside a grey block (the facts strip), the card over the map |
-| `surfaceTint` | `#EFF1EE` | `#1D1E32` | Cards, tiles, fields, control tracks |
-| `surfaceTintStrong` | `#D0D2CF` | `#3A3C57` | Pressed surfaces, skeletons, the "Not verified" pill |
-| `primary` / `onPrimary` | `#1B1C2F` / `#FFFFFF` | `#FAFEFF` / `#1B1C2F` | Primary buttons and the selected state |
-| `hero` / `onHero` | `#1B1C2F` / `#FFFFFF` | `#2A2C44` / `#FFFFFF` | The ink block on Home |
-| `mint` / `onMint` | `#A4F5A6` / `#1B1C2F` | same | Trust: Verified, "Open now", the search button in the field |
-| `accent` / `onAccent` | `#B2A1FF` / `#1B1C2F` | same | Lavender: category blocks, Featured, Sponsored, the search circle |
+| `background` | `#E5E1F5` | `#12131F` | Page ground (pale lavender in light) |
+| `surface` | `#FAF9FE` | `#2A2C44` | White blocks: sections, insets (the facts strip), the card over the map |
+| `surfaceTint` | `#D7D2EE` | `#1D1E32` | Cards, tiles, fields, control tracks |
+| `surfaceTintStrong` | `#C2BCE0` | `#3A3C57` | Pressed surfaces, skeletons, the "Not verified" pill |
+| `primary` / `primaryPressed` / `onPrimary` | `#6F5BD6` / `#5B48BF` / `#FFFFFF` | `#FAFEFF` / `#D0D2CF` / `#1B1C2F` | Primary buttons, the selected state, applied filters |
+| `onPrimarySoft` | `#1B1C2F` | `#FAFEFF` | Text and icons of a quiet action on a grey surface |
+| `hero` / `onHero` / `onHeroMuted` | `#B2A1FF` / `#1B1C2F` / `#2F3046` | `#2A2C44` / `#FFFFFF` / `#C9CBDA` | The lavender block on Home |
+| `mint` / `onMint` | `#A4F5A6` / `#1B1C2F` | same | Trust and positive marks: Verified, "Open now", "Available now" |
+| `accent` / `onAccent` | `#B2A1FF` / `#1B1C2F` | same | Lavender: category blocks, Featured, Sponsored |
 | `accentSoft` | `#C0C4FF` | same | The block behind a missing photo |
-| `accentStrong` | `#6F5BD6` | `#B2A1FF` | The edge of the search circle on the map |
-| `text` / `textMuted` / `textSubtle` | `#1B1C2F` / `#55576A` / `#666879` | `#F3F5F4` / `#BBBDCB` / `#9C9EB0` | Text |
-| `border` / `outline` | `#D0D2CF` / `#85878F` | `#34364D` / `#7F8198` | Dividers inside a card / control boundaries (3:1) |
+| `accentStrong` | `#6F5BD6` | `#B2A1FF` | The edge of the search circle, the story ring |
+| `accentWash` | `rgba(178, 161, 255, 0.24)` | `rgba(178, 161, 255, 0.20)` | The inside of the search circle |
+| `text` / `textMuted` / `textSubtle` | `#1B1C2F` / `#4A4C60` / `#585A6E` | `#F3F5F4` / `#BBBDCB` / `#9C9EB0` | Text |
+| `border` / `outline` | `#C2BCE0` / `#77738F` | `#34364D` / `#7F8198` | Dividers inside a card / control boundaries (3:1) |
 | `rating` | `#B97A00` | `#F2BE4A` | Rating stars only |
-| `danger` (+ soft pair) | `#B3261E` | `#FFB4AB` | Errors only, and the assistant's emergency block |
+| `success` | `#1F7A3A` | same | The ring of the "Open now" dot |
+| `danger` / `dangerSoft` / `onDangerSoft` | `#B3261E` / `#FBE4E1` / `#7A1410` | `#FFB4AB` / `#5C1612` / `#FFDAD5` | Errors only, and the assistant's emergency block |
 | `dangerPressed` / `onDanger` | `#931F18` / `#FFFFFF` | `#FF8A7E` / `#3B0906` | The solid emergency Call buttons only |
-| `whatsapp` | `#25D366` | same | The WhatsApp button only |
-| `qrPaper` / `qrInk` | `#FFFFFF` / `#1B1C2F` | same | The share sticker only: a QR code must stay dark on white |
+| `whatsapp` / `whatsappPressed` / `onWhatsapp` | `#25D366` / `#1EB958` / `#062E17` | same | The WhatsApp button only |
+| `scrim` / `onScrim` | `rgba(27, 28, 47, 0.72)` / `#FFFFFF` | `rgba(10, 11, 20, 0.72)` / `#FFFFFF` | Behind controls on photos, behind a sheet |
+| `shadow` | `rgba(27, 28, 47, 0.20)` | `rgba(0, 0, 0, 0.50)` | The one shadow: the card over the map |
+| `qrPaper` / `qrInk` | `#FFFFFF` / `#1B1C2F` | same | The share sticker and the poster only: dark on white in both themes |
+
+In the light theme `primary` is purple, not ink: where the component notes below say "ink" for a button, a pill or a selected segment, they mean `primary` (near-white in the dark theme). Text itself is always `text` (`#1B1C2F`).
 
 Rules:
 
@@ -92,17 +99,20 @@ The assistant is a step bigger on purpose: it is made for people who rarely use 
 - **Reviews card** (`ProviderReviews.tsx`): a grey card: the average as a `display` figure beside its stars and count; my own review in a white inset with tonal Edit and Delete (Delete asks once, in place); otherwise a `primary` "Write a review" pill. Then the latest three, and a white pill "See all N reviews" that opens the rest a page at a time.
 - **Review sheet** (`ReviewSheet.tsx`): five 32 dp stars in 48 dp targets on a white block (a radio group, the word for the choice under them: Poor to Excellent), the name shown with the review, an optional comment.
 - **Report** (`ReportSheet.tsx`): a quiet underlined "Report this listing" line with a flag at the very end of a profile. The sheet lists the reasons as white pills (the chosen one `primary`, with a white check disc), optional details, "We don't save anything about you", then a white thank-you block with a mint check disc.
-- **Share sticker** (`ShareProfile.tsx`, props `slug` and `name`): the name, a QR code of `https://haddak.app/p/<slug>` and the Haddak wordmark in `qrInk` on `qrPaper` (pure white in both themes, with a 16 dp quiet zone) so it prints and scans as a door sticker; a `primary` "Share link" pill under it. The profile opens it in a sheet from the share button.
+- **Available now** (`AvailableTag` in `Badges.tsx`): a mint pill with a filled lightning icon and "Available now", on cards, the assistant cards and the profile's badge row. It replaces the open / closed status on a card while it is on. Lightning, not a check, so it never reads as Verified.
+- **Available now switch** (`AvailableNowSection.tsx`, My business): a white block with the title (and the tag while on), the `SwitchRow` (hint "On until 3:30 PM" or "Off"), then "For how long" with three equal pills, 2, 4 and 8 hours, the chosen one `primary`. Picking another length while on restarts the count. A mint notice confirms.
+- **Poster** (`app/poster/[slug].tsx`): two segments, "Your business" and "For a building". The paper is `qrPaper` with `qrInk` only, at least A4 height (`size.posterRatio`), with the QR code at `size.posterQrShare` of its width. English and Arabic sit side by side in two columns split by a hairline, always English left and Arabic right (printed, never mirrored); "Haddak" and "حدّك" at the two top corners; thick ink rules above and below the middle. Business: name (`poster`), category, the code of the profile link, "Scan to call or WhatsApp", the link, then "Find trusted help near you: Haddak". Building: the question for the natour's residents, the code of `https://haddak.app`, and a dashed empty "Natour code" box. Under the paper: Share link, Print (web only) and a one-line print hint.
+- **Share sticker** (`ShareProfile.tsx`, props `slug` and `name`): the name, a QR code of `https://haddak.app/p/<slug>` and the Haddak wordmark in `qrInk` on `qrPaper` (pure white in both themes, with a 16 dp quiet zone) so it prints and scans as a door sticker; a `primary` "Share link" pill under it, and a tonal "Print a poster" pill when the caller passes `onPoster`. The profile opens it in a sheet from the share button.
 - **Switch row** (`SwitchRow.tsx`): an on/off setting in a form. A grey block with the label and a one-line hint at the start and the "Verified only" switch at the end: off is a mid-grey track with an empty thumb at the start, on is a `primary` track with a white thumb and check at the end. The block stays grey (mint is for trust). `accessibilityRole="switch"`.
 - **Business form** (`ProviderForm.tsx`, shared by List your business and Edit listing): white blocks on the ground, one per topic (What you do, How people reach you, Where you are, Opening hours, Photos, Proof), each with a `headline` title and an optional note; grey pill fields inside (`Field.tsx`); the `primary` button and any error docked above the keyboard; a focused field scrolls itself clear of the keyboard. Parts:
   - `CategoryPicker.tsx`: the Suggest category pill and its grey list with a white search pill.
   - `PinPicker.tsx` (`.web.tsx` stand-in): a 240 dp map (`size.mapPicker`) in a `lg` block with one draggable pin in `primary`; tapping the map moves it. A tonal "Use my location" button under it.
   - `HoursEditor.tsx`: one row per day (name, Open / Closed, the small switch), then two centred 24-hour time pills (`size.timeField`) when open; "Use Monday's times for every open day" as a text link.
   - `PhotoPicker.tsx`: 96 dp rounded photo tiles (`size.photoTile`, `radius.md`) with a 36 dp scrim remove button at the top end (48 with `hitSlop`), a scrim "Cover" tag on the first, a spinner or "Try again" veil while uploading or after a failure, then a grey "Add photo" tile. The proof is one grey block with a lavender icon square that opens the picker; once chosen, the thumbnail with Change and Remove, and a lock line saying only Haddak sees it.
-- **Ask entry** (Home, inside the lavender block): a white `lg` block, 72 dp, with the assistant's name in `headline` and "Say or type what you need" in `bodyLarge`, and a 56 dp `primary` disc with an arrow at the end. Under it two example sentences as pale-lavender (`background`) pills, 48 dp, that open the assistant and ask at once. The name comes only from the `assist.name` string (the founder is still choosing it).
+- **Ask entry** (Home, inside the lavender block): a white `lg` block, 72 dp, with the assistant's name in `headline` and "Say or type what you need" in `bodyLarge`, and a 56 dp `primary` disc with an arrow at the end. When the phone can listen (development build), the block splits in two: the words open the assistant to type, and the disc carries a microphone and opens it already listening; in Expo Go the disc stays an arrow. Under it two example sentences as pale-lavender (`background`) pills, 48 dp, that open the assistant and ask at once. The name comes only from the `assist.name` string (the founder is still choosing it).
 - **Assistant card** (`AssistCard.tsx`): one of the assistant's top three. A white `lg` block: 84 dp photo, name in `headline`, "category · area" in `bodyLarge`, the Verified pill and open status; a grey strip with distance, price and rating in `bodyLargeStrong`; then a full-width 56 dp WhatsApp button and a `tonal` Call button. Photo and name open the profile.
 - **Assistant blocks** (`app/assist.tsx`): white `lg` blocks for a question with big `primary` choices (clarify, two places with one name), "Looking…" (spinner, `headline`, one line) and the off-topic line; the summary is a lavender block that is one button to the full list, with a `primary` arrow disc; notes ("we looked further", "place not found") are a plain line with an info icon; emergency and errors are `dangerSoft` blocks, emergency with solid `danger` Call buttons; example sentences are white 56 dp rows with an arrow.
-- **Filter pills** (Results header, from the assistant): `primary` pills with white words and an X ("Up to $20 an hour", "Open now", "Nearest first"); a tap removes the filter.
+- **Filter pills** (Results header): first an "Available now" switch pill that is always there (grey with a lightning icon when off, `primary` with an X when on); then the assistant's filters as `primary` pills with white words and an X ("Up to $20 an hour", "Open now", "Nearest first"); a tap removes the filter.
 - **State view** (`StateView.tsx`): a lavender disc with the icon and a mint dot; errors use the error colours.
 
 ## Screens
@@ -113,10 +123,10 @@ The assistant is a step bigger on purpose: it is made for people who rarely use 
 - **Saved:** a big title and one grey block per saved provider.
 - **Sign-in** (modal): a close button; a lavender block (icon, title, one sentence) as on Suggest; the email field, or the code boxes with "New code in 0:42" / "Send a new code" and "Use another email"; the `primary` button and any error docked above the keyboard.
 - **Following:** back and a big title; a white account block (email, Sign out, and a lavender "My business" row); "Their updates" (the stories row) and "You follow" (result cards). Signed out: a state view with Sign in.
-- **My business:** the listing as a mint block when verified (white otherwise), a tonal "Edit listing" button, then a white "This month" block: four grey tiles (profile views, WhatsApp taps, calls, followers) with the figure in `display` and its name under it, the month at the end of the title; no chart. Then one white block each for Updates (compose, count of 5, posted updates with an in-place delete confirmation), Offer (the profile's offer block as a preview, or the form with 1 to 7 day pills) and Sponsor line. Not verified: a lavender block saying posting opens after verification, with a "Send proof" button when no proof is waiting. No listing: a state view with "List your business" and a link to Suggest.
+- **My business:** the listing as a mint block when verified (white otherwise), tonal "Edit listing" and "Print a poster" buttons, the Available now block (for every owner, verified or not), then a white "This month" block: four grey tiles (profile views, WhatsApp taps, calls, followers) with the figure in `display` and its name under it, the month at the end of the title; no chart. Then one white block each for Updates (compose, count of 5, posted updates with an in-place delete confirmation), Offer (the profile's offer block as a preview, or the form with 1 to 7 day pills) and Sponsor line. Not verified: a lavender block saying posting opens after verification, with a "Send proof" button when no proof is waiting. No listing: a state view with "List your business" and a link to Suggest.
 - **List your business** (`join.tsx`): a back arrow; the lavender intro block (shop icon, title, one sentence); the business form. After sending: a state view saying the listing is live without the badge and what happens to the proof, then "Go to My business". Reached from My business and from a quiet text link at the bottom of Home (sign-in first).
 - **Edit listing** (`business-edit.tsx`): back and a `headline` title, then the business form filled in; saving sends only what changed and returns to My business.
-- **Assistant** (`assist.tsx`): back and the assistant's name; a white typing field (big type, tall until something is asked, the keyboard-microphone hint inside it until then); a 56 dp `primary` Send button; then the answer: example sentences (nothing asked yet), "Looking…", an error with Try again, or the answer blocks above. Results show notes, the summary block, a white "Read aloud" button (`expo-speech`), the top three assistant cards and "See all N". No results: "Nobody found yet" with "Search wider" and "Tell us who you need" (Suggest).
+- **Assistant** (`assist.tsx`): back and the assistant's name; a white typing field (big type, tall until something is asked); a row of two 56 dp buttons, `tonal` Speak (microphone) and `primary` Send (Send alone where there is no speech module). While listening the field gets an ink edge and a lavender microphone disc with "Listening…" at its top, the heard words fill in under it, and the row becomes one `primary` "Stop and send" button; a microphone problem is a plain note line under the buttons; then the answer: example sentences (nothing asked yet), "Looking…", an error with Try again, or the answer blocks above. Results show notes, the summary block, a white "Read aloud" button (`expo-speech`), the top three assistant cards and "See all N". No results: "Nobody found yet" with "Search wider" and "Tell us who you need" (Suggest).
 - **Suggest:** a back arrow; a lavender block with the icon, the title and one sentence; then the questions as grey pill fields (52 dp, the note is a block), labels set in to line up with the typed text, the edge turning ink on focus and red on an error; the ink button stays docked above the keyboard.
 
 ## Right-to-left

@@ -360,6 +360,10 @@ export const size = {
   /** The QR code on the share sticker, and the white margin around it (the scanner's quiet zone). */
   qr: 196,
   qrQuietZone: 16,
+  /** The printable poster: its height as a share of its width (A4 is 297 / 210), and
+   *  the QR code's width as a share of the poster's width. */
+  posterRatio: 1.414,
+  posterQrShare: 0.46,
   /** The grab handle at the top of a bottom sheet. */
   sheetHandleW: 36,
   sheetHandleH: 4,
