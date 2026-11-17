@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { useI18n } from '@/i18n';
-import { makeStyles, opacity, radius, size, space, useTheme, type ColorTokens } from '@/theme';
+import { makeStyles, opacity, press, radius, size, space, useTheme, type ColorTokens } from '@/theme';
 
 import { Txt } from './Txt';
 
@@ -82,6 +82,7 @@ export function Button({
         v.bg ? { backgroundColor: colors[pressed ? v.pressed : v.bg] } : null,
         !v.bg && pressed ? { backgroundColor: colors[v.pressed] } : null,
         v.border ? { borderWidth: size.lineMid, borderColor: colors[v.border] } : null,
+        pressed ? styles.pressed : null,
         disabled ? styles.disabled : null,
         style,
       ]}
@@ -130,6 +131,9 @@ const useStyles = makeStyles(() => ({
   },
   label: {
     flexShrink: 1,
+  },
+  pressed: {
+    transform: [{ scale: press.scale }],
   },
   disabled: {
     opacity: opacity.disabled,

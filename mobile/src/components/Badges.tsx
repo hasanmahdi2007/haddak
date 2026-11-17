@@ -107,15 +107,18 @@ export function CommunityLabel() {
   );
 }
 
-/** Founding member: an outlined pill with a medal. Quiet, so it never competes with Verified. */
+/**
+ * Founding member: a medal and the words, with no pill around them. Quiet on purpose,
+ * so it never competes with Verified (one fewer box on a busy card).
+ */
 export function FoundingBadge() {
   const { colors } = useTheme();
   const { s, row } = useI18n();
   const styles = useStyles();
   return (
-    <View style={[styles.pill, styles.founding, { flexDirection: row }]} accessible accessibilityLabel={s.badges.founding}>
-      <Award color={colors.text} size={size.star} strokeWidth={size.stroke} />
-      <Txt role="caption" color="text" style={styles.pillText}>
+    <View style={[styles.founding, { flexDirection: row }]} accessible accessibilityLabel={s.badges.founding}>
+      <Award color={colors.textMuted} size={size.iconSmall} strokeWidth={size.stroke} />
+      <Txt role="caption" color="textMuted" style={styles.pillText}>
         {s.badges.founding}
       </Txt>
     </View>
@@ -198,11 +201,12 @@ const useStyles = makeStyles((c) => ({
   },
   hired: {
     alignSelf: 'flex-start',
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.primarySoft,
   },
   founding: {
-    borderWidth: size.lineMid,
-    borderColor: c.outline,
+    minHeight: size.badge,
+    alignItems: 'center',
+    gap: space.xs,
   },
   featured: {
     backgroundColor: c.accent,

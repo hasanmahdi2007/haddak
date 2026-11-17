@@ -16,7 +16,7 @@ import { StoriesStrip } from '@/components/StoriesRow';
 import { Txt } from '@/components/Txt';
 import { useI18n } from '@/i18n';
 import { requireSignIn, signOut, useAuth } from '@/lib/auth';
-import { makeStyles, radius, size, space, useTheme } from '@/theme';
+import { elevation, makeStyles, radius, size, space, useTheme } from '@/theme';
 
 interface Loaded {
   feed: StoryGroup[];
@@ -47,7 +47,7 @@ export default function FollowingScreen() {
       <StatusBar style={dark ? 'light' : 'dark'} />
       <View style={[styles.column, styles.bar, { flexDirection: row }]}>
         <IconButton icon={BackIcon} label={s.common.back} onPress={goBack} />
-        <Txt role="display" accessibilityRole="header" numberOfLines={1} style={styles.title}>
+        <Txt role="headline" accessibilityRole="header" numberOfLines={1} style={styles.title}>
           {s.account.title}
         </Txt>
       </View>
@@ -294,9 +294,10 @@ const useStyles = makeStyles((c) => ({
   // A white tile: the email and Sign out on one line, My business under it as a lavender block.
   account: {
     backgroundColor: c.surface,
-    borderRadius: radius.sheet,
+    borderRadius: radius.lg,
     padding: space.sm,
     gap: space.sm,
+    boxShadow: elevation.card,
   },
   accountTop: {
     alignItems: 'center',
@@ -310,7 +311,7 @@ const useStyles = makeStyles((c) => ({
     minHeight: size.touch + space.xxl,
     paddingHorizontal: space.md,
     paddingVertical: space.md,
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
     backgroundColor: c.accent,
     overflow: 'hidden',
   },

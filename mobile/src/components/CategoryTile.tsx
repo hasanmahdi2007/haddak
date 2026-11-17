@@ -2,7 +2,7 @@ import { ArrowUpLeft, ArrowUpRight, ChevronLeft, ChevronRight } from 'lucide-rea
 import { Pressable, View } from 'react-native';
 
 import { useI18n } from '@/i18n';
-import { makeStyles, opacity, radius, size, space, useTheme, type ColorTokens } from '@/theme';
+import { elevation, makeStyles, press, radius, size, space, useTheme, type ColorTokens } from '@/theme';
 
 import { CategoryIcon } from './CategoryIcon';
 import { Txt } from './Txt';
@@ -54,8 +54,11 @@ export function CategoryTile({ icon, label, tone, grow = 1, hasChildren, onPress
       ]}
     >
       <View style={[styles.top, { flexDirection: row }]}>
-        <CategoryIcon icon={icon} color={colors.primary} size={size.tileIcon} />
-        <Arrow color={colors.textSubtle} size={size.icon} strokeWidth={size.stroke} />
+        {/* The icon sits in a pale purple well, the one touch of colour on a white tile. */}
+        <View style={styles.iconWell}>
+          <CategoryIcon icon={icon} color={colors.primary} size={size.iconLarge} />
+        </View>
+        <Arrow color={colors.textSubtle} size={size.iconSmall} strokeWidth={size.lineBold} />
       </View>
       {/* A long single word (Dermatologist) shrinks a little instead of breaking in the middle. */}
       <Txt role="action" color={fg} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.85}>
@@ -65,18 +68,29 @@ export function CategoryTile({ icon, label, tone, grow = 1, hasChildren, onPress
   );
 }
 
-const useStyles = makeStyles(() => ({
+const useStyles = makeStyles((c) => ({
   tile: {
     minWidth: 0,
     minHeight: size.tile,
     borderRadius: radius.lg,
-    padding: space.lg,
+    padding: space.md + space.xs,
     gap: space.md,
     justifyContent: 'space-between',
+    // Clips the ripple to the rounded corners; the shadow is drawn outside and is not cut.
     overflow: 'hidden',
+    boxShadow: elevation.card,
   },
   pressed: {
-    opacity: opacity.pressed,
+    backgroundColor: c.surfaceInset,
+    transform: [{ scale: press.scale }],
+  },
+  iconWell: {
+    width: size.tileIconBox,
+    height: size.tileIconBox,
+    borderRadius: radius.md,
+    backgroundColor: c.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   top: {
     alignItems: 'flex-start',

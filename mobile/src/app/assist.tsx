@@ -48,7 +48,7 @@ import {
   useAssist,
 } from '@/lib/useAssist';
 import { useVoice, type VoiceProblem } from '@/lib/useVoice';
-import { makeStyles, opacity, radius, size, space, type as typeScale, useTheme } from '@/theme';
+import { elevation, makeStyles, opacity, radius, size, space, type as typeScale, useTheme } from '@/theme';
 
 // Web only: the field shows focus itself, so the browser's ring is turned off.
 const NO_FOCUS_RING = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : null;
@@ -720,6 +720,7 @@ const useStyles = makeStyles((c) => ({
     borderColor: c.surface,
     padding: space.md,
     gap: space.sm,
+    boxShadow: elevation.card,
   },
   fieldListening: {
     borderColor: c.primary,
@@ -766,6 +767,7 @@ const useStyles = makeStyles((c) => ({
     borderRadius: radius.lg,
     padding: space.xl,
     gap: space.md,
+    boxShadow: elevation.card,
   },
   looking: {
     alignItems: 'center',
@@ -790,6 +792,7 @@ const useStyles = makeStyles((c) => ({
     paddingStart: space.lg,
     paddingEnd: space.xs,
     paddingVertical: space.xxs,
+    boxShadow: elevation.card,
   },
   askedTap: {
     flex: 1,
@@ -798,7 +801,7 @@ const useStyles = makeStyles((c) => ({
     justifyContent: 'center',
   },
   askedMic: {
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.surfaceInset,
   },
   // The summary and its notes, kept tight together.
   head: {
@@ -836,7 +839,7 @@ const useStyles = makeStyles((c) => ({
     justifyContent: 'center',
   },
   readButtonPressed: {
-    backgroundColor: c.surfaceTintStrong,
+    backgroundColor: c.surfaceInset,
   },
   quietNote: {
     alignItems: 'flex-start',

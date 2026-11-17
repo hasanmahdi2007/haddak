@@ -114,7 +114,7 @@ export default function PosterScreen() {
       <StatusBar style={dark ? 'light' : 'dark'} />
       <View style={[styles.column, styles.bar, { flexDirection: row }]}>
         <IconButton icon={BackIcon} label={s.common.back} onPress={goBack} />
-        <Txt role="display" accessibilityRole="header" numberOfLines={1} style={styles.flex}>
+        <Txt role="headline" accessibilityRole="header" numberOfLines={1} style={styles.flex}>
           {s.poster.title}
         </Txt>
       </View>

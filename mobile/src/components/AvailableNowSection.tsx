@@ -5,7 +5,7 @@ import { api, ApiError, type AvailableHours, type OwnProvider } from '@/api';
 import { useI18n } from '@/i18n';
 import type { Strings } from '@/i18n/en';
 import { to12Hour } from '@/lib/hours';
-import { makeStyles, opacity, radius, size, space } from '@/theme';
+import { elevation, makeStyles, opacity, radius, size, space } from '@/theme';
 
 import { AvailableTag } from './Badges';
 import { Notice } from './Field';
@@ -157,9 +157,10 @@ const useStyles = makeStyles((c) => ({
   // The same white block as the other sections of My business.
   section: {
     backgroundColor: c.surface,
-    borderRadius: radius.sheet,
+    borderRadius: radius.lg,
     padding: space.lg,
     gap: space.lg,
+    boxShadow: elevation.card,
   },
   head: {
     gap: space.xxs,
@@ -186,7 +187,7 @@ const useStyles = makeStyles((c) => ({
     flex: 1,
     minHeight: size.segment + space.xs,
     borderRadius: radius.pill,
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.surfaceInset,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: space.sm,

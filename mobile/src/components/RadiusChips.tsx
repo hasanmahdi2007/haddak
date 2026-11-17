@@ -56,8 +56,9 @@ export function RadiusChips({ value, onChange, style }: Props) {
 }
 
 const useStyles = makeStyles((c) => ({
+  // White on the lavender ground, like every other control that sits on it.
   track: {
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.surface,
     borderRadius: radius.pill,
     padding: space.xxs,
     gap: space.xxs,
@@ -76,6 +77,6 @@ const useStyles = makeStyles((c) => ({
     backgroundColor: c.primary,
   },
   segmentPressed: {
-    backgroundColor: c.surfaceTintStrong,
+    backgroundColor: c.surfaceInset,
   },
 }));

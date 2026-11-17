@@ -72,7 +72,7 @@ const useStyles = makeStyles((c) => ({
     paddingStart: space.md,
     paddingEnd: space.xs + space.xxs,
     borderRadius: radius.pill,
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.surface,
     overflow: 'hidden',
   },
   pillOn: {

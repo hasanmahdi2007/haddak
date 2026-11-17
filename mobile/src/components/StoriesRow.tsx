@@ -136,7 +136,7 @@ export function StoriesStrip({ title, groups, onOpen, style }: StripProps) {
 const useStyles = makeStyles((c) => ({
   section: {
     gap: space.md,
-    marginTop: space.sm,
+    marginTop: space.md,
   },
   scroller: {
     marginHorizontal: -space.lg,

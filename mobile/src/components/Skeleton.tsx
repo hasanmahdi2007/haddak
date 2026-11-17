@@ -47,7 +47,7 @@ export function Skeleton({ width = '100%', height, round = radius.sm, style }: P
   return (
     <Animated.View
       style={[
-        { width, height, borderRadius: round, backgroundColor: colors.surfaceTintStrong, opacity: pulse },
+        { width, height, borderRadius: round, backgroundColor: colors.surfaceTint, opacity: pulse },
         style,
       ]}
     />

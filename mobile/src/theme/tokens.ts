@@ -6,8 +6,10 @@
 export interface ColorTokens {
   /** Page ground. */
   background: string;
-  /** Raised content and insets: docks, the facts strip inside a card, the map card. */
+  /** White: every card, tile and block that sits on the ground (with `elevation.card`). */
   surface: string;
+  /** Faint lavender inset inside a white card: the facts strip, stat tiles, today's hours. */
+  surfaceInset: string;
   /** Soft grey: cards, tiles, fields, control tracks. */
   surfaceTint: string;
   /** Stronger grey: pressed surfaces, skeleton blocks, the "Not verified" pill. */
@@ -19,6 +21,8 @@ export interface ColorTokens {
   onPrimary: string;
   /** Text and icons that sit on a grey surface as a quiet action. */
   onPrimarySoft: string;
+  /** Pale purple well behind a primary icon: category tiles, section icons. */
+  primarySoft: string;
 
   /** Mint: the trust colour. Verified, "Open now", positive marks. Only ever a fill, with `onMint` on it. */
   mint: string;
@@ -37,6 +41,8 @@ export interface ColorTokens {
   hero: string;
   onHero: string;
   onHeroMuted: string;
+  /** See-through white for quiet controls inside the hero block (location, search by name). */
+  heroControl: string;
 
   text: string;
   textMuted: string;
@@ -45,6 +51,8 @@ export interface ColorTokens {
 
   /** Dividers and muted fills. */
   border: string;
+  /** Hairlines inside a white card (between the facts, between reviews). */
+  divider: string;
   /** Control boundaries (3:1 against the ground). */
   outline: string;
 
@@ -82,7 +90,8 @@ export interface ColorTokens {
 /** Light theme: near-white ground, soft grey blocks, ink for text and actions, mint for trust, lavender as the accent. */
 export const lightColors: ColorTokens = {
   background: '#E5E1F5',
-  surface: '#FAF9FE',
+  surface: '#FFFFFF',
+  surfaceInset: '#F3F1FA',
   surfaceTint: '#D7D2EE',
   surfaceTintStrong: '#C2BCE0',
 
@@ -90,6 +99,7 @@ export const lightColors: ColorTokens = {
   primaryPressed: '#5B48BF',
   onPrimary: '#FFFFFF',
   onPrimarySoft: '#1B1C2F',
+  primarySoft: '#ECE8FC',
 
   mint: '#A4F5A6',
   onMint: '#1B1C2F',
@@ -103,12 +113,14 @@ export const lightColors: ColorTokens = {
   hero: '#B2A1FF',
   onHero: '#1B1C2F',
   onHeroMuted: '#2F3046',
+  heroControl: 'rgba(255, 255, 255, 0.55)',
 
   text: '#1B1C2F',
   textMuted: '#4A4C60',
   textSubtle: '#585A6E',
 
   border: '#C2BCE0',
+  divider: '#E7E3F3',
   outline: '#77738F',
 
   rating: '#B97A00',
@@ -137,6 +149,7 @@ export const lightColors: ColorTokens = {
 export const darkColors: ColorTokens = {
   background: '#12131F',
   surface: '#2A2C44',
+  surfaceInset: '#232539',
   surfaceTint: '#1D1E32',
   surfaceTintStrong: '#3A3C57',
 
@@ -144,6 +157,7 @@ export const darkColors: ColorTokens = {
   primaryPressed: '#D0D2CF',
   onPrimary: '#1B1C2F',
   onPrimarySoft: '#FAFEFF',
+  primarySoft: '#35325A',
 
   mint: '#A4F5A6',
   onMint: '#1B1C2F',
@@ -157,12 +171,14 @@ export const darkColors: ColorTokens = {
   hero: '#2A2C44',
   onHero: '#FFFFFF',
   onHeroMuted: '#C9CBDA',
+  heroControl: 'rgba(255, 255, 255, 0.10)',
 
   text: '#F3F5F4',
   textMuted: '#BBBDCB',
   textSubtle: '#9C9EB0',
 
   border: '#34364D',
+  divider: '#34364D',
   outline: '#7F8198',
 
   rating: '#F2BE4A',
@@ -207,20 +223,20 @@ export interface TypeStyle {
 /** Type roles. Sizes are scalable (sp on Android): never pass allowFontScaling={false}. */
 export const type = {
   /** The question on Home. */
-  display: { fontFamily: fonts.title, fontSize: 30, lineHeight: 40 },
+  display: { fontFamily: fonts.title, fontSize: 30, lineHeight: 38 },
   /** The biggest words: a short update in the story viewer, the discount figure of an offer. */
   poster: { fontFamily: fonts.title, fontSize: 38, lineHeight: 48 },
-  /** Screen titles, provider name. */
-  headline: { fontFamily: fonts.title, fontSize: 24, lineHeight: 34 },
-  /** Card names, section titles. */
-  title: { fontFamily: fonts.titleMedium, fontSize: 19, lineHeight: 28 },
+  /** Screen and section titles. */
+  headline: { fontFamily: fonts.title, fontSize: 22, lineHeight: 30 },
+  /** Card names, titles inside a card. */
+  title: { fontFamily: fonts.titleMedium, fontSize: 18, lineHeight: 26 },
   /** Reading text. */
   body: { fontFamily: fonts.body, fontSize: 15, lineHeight: 24 },
   bodyStrong: { fontFamily: fonts.bodyMedium, fontSize: 15, lineHeight: 24 },
   /** Buttons and chips. */
   action: { fontFamily: fonts.bodyStrong, fontSize: 15, lineHeight: 22 },
   /** Facts on cards: rating, distance, price. */
-  data: { fontFamily: fonts.bodyMedium, fontSize: 14, lineHeight: 22 },
+  data: { fontFamily: fonts.bodyMedium, fontSize: 14, lineHeight: 20 },
   /** Supporting lines, tile labels. */
   label: { fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 20 },
   /** Smallest text: badge labels, dates. */
@@ -255,10 +271,10 @@ export const space = {
 export const radius = {
   /** Small tags. */
   sm: 8,
-  /** Thumbnails, the icon block on a tile, the facts strip. */
-  md: 14,
+  /** Thumbnails, the icon well on a tile, insets inside a card. */
+  md: 12,
   /** Tiles, cards, fact blocks. */
-  lg: 24,
+  lg: 20,
   /** The ink block on Home and the top corners of the profile sheet. */
   sheet: 28,
   /** Buttons, fields, chips, segmented controls. */
@@ -288,8 +304,8 @@ export const size = {
   /** Icon on a category tile. */
   tileIcon: 28,
   /** Category tile minimum height. */
-  tile: 112,
-  /** The lavender block behind a tile icon. */
+  tile: 104,
+  /** The pale purple well behind a tile icon. */
   tileIconBox: 44,
   /** The mint "you are here" disc in the location line. */
   pin: 28,
@@ -373,6 +389,22 @@ export const size = {
   photoTile: 96,
   /** An "HH:MM" field in the opening-hours editor. */
   timeField: 84,
+} as const;
+
+/**
+ * The one elevation system. White cards lift off the lavender ground with two soft,
+ * ink-tinted layers (a tight contact shadow and a wide ambient one); only the card
+ * that floats over the map uses the deeper `float`. Used through the `boxShadow`
+ * style, which React Native draws on Android, iOS and web alike.
+ */
+export const elevation = {
+  card: '0px 1px 2px rgba(27, 28, 47, 0.05), 0px 4px 14px rgba(27, 28, 47, 0.06)',
+  float: '0px 8px 24px rgba(27, 28, 47, 0.20)',
+} as const;
+
+/** Pressed controls shrink a touch: feedback you can see on every platform. */
+export const press = {
+  scale: 0.98,
 } as const;
 
 /** Durations in milliseconds. Motion only marks a state change. */

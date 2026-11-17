@@ -71,8 +71,9 @@ const useStyles = makeStyles((c) => ({
     gap: space.md,
     paddingHorizontal: space.xl,
     paddingVertical: space.md,
-    borderRadius: radius.lg,
-    backgroundColor: c.surfaceTint,
+    // An inset inside a white block: the faint lavender, a smaller radius than the block around it.
+    borderRadius: radius.md,
+    backgroundColor: c.surfaceInset,
     overflow: 'hidden',
   },
   words: {

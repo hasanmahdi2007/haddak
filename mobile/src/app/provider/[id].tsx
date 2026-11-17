@@ -58,7 +58,7 @@ import { DAY_KEYS, dayKeyOf, to12Hour } from '@/lib/hours';
 import { useLocation } from '@/lib/location';
 import { requireSignIn, useAuth } from '@/lib/auth';
 import { useAsync } from '@/lib/useAsync';
-import { makeStyles, motion, opacity, radius, size, space, useTheme } from '@/theme';
+import { elevation, makeStyles, motion, opacity, radius, size, space, useTheme } from '@/theme';
 
 function galleryHeightFor(width: number, hasPhotos: boolean): number {
   return Math.round(width * (hasPhotos ? size.galleryRatio : size.galleryRatioEmpty));
@@ -600,7 +600,7 @@ export default function ProviderScreen() {
               </View>
               {provider.distance_m !== null ? (
                 <>
-                  <View style={styles.fact} accessible>
+                  <View style={[styles.fact, styles.factDivided]} accessible>
                     <View style={[styles.factValue, { flexDirection: row }]}>
                       <MapPin color={colors.primary} size={size.iconSmall} strokeWidth={size.stroke} />
                       <Txt role="title">{distance(provider.distance_m)}</Txt>
@@ -611,7 +611,7 @@ export default function ProviderScreen() {
                   </View>
                 </>
               ) : null}
-              <View style={[styles.fact, styles.factWide]} accessible>
+              <View style={[styles.fact, styles.factWide, styles.factDivided]} accessible>
                 <View style={[styles.factValue, { flexDirection: row }]}>
                   <Banknote color={colors.primary} size={size.iconSmall} strokeWidth={size.stroke} />
                   <Txt role="title" numberOfLines={2} style={styles.factText} content>
@@ -737,7 +737,7 @@ export default function ProviderScreen() {
               label={s.provider.directions}
               accessibilityLabel={f(s.provider.directionsLabel, { name: provider.name })}
               icon={Navigation}
-              variant="tonal"
+              variant="white"
               compact
               onPress={() => void directions(provider)}
               style={styles.actionPrimary}
@@ -821,10 +821,11 @@ const useStyles = makeStyles((c) => ({
     gap: space.md,
   },
   hero: {
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.surface,
     borderRadius: radius.lg,
     padding: space.xl,
     gap: space.xs,
+    boxShadow: elevation.card,
   },
   heroVerified: {
     backgroundColor: c.mint,
@@ -857,7 +858,7 @@ const useStyles = makeStyles((c) => ({
     overflow: 'hidden',
   },
   following: {
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.surface,
   },
   trust: {
     alignItems: 'center',
@@ -905,9 +906,9 @@ const useStyles = makeStyles((c) => ({
     paddingVertical: space.sm,
     borderRadius: radius.md,
   },
-  // Today: a lighter band inside the card, heavier text and the word "Today".
+  // Today: a faint lavender band inside the white card, heavier text and the word "Today".
   hoursToday: {
-    backgroundColor: c.surface,
+    backgroundColor: c.surfaceInset,
   },
   hoursDay: {
     flex: 1,
@@ -918,20 +919,25 @@ const useStyles = makeStyles((c) => ({
     alignItems: 'center',
     gap: space.xs,
   },
+  // The three facts share one white card, split by hairlines: one box instead of three.
   facts: {
-    gap: space.sm,
+    backgroundColor: c.surface,
+    borderRadius: radius.lg,
+    paddingVertical: space.lg,
+    boxShadow: elevation.card,
   },
-  // Each fact is its own grey block.
   fact: {
     flex: 1,
     minWidth: 0,
-    backgroundColor: c.surfaceTint,
-    borderRadius: radius.lg,
     paddingHorizontal: space.sm,
-    paddingVertical: space.lg,
     alignItems: 'center',
     justifyContent: 'center',
     gap: space.xxs,
+  },
+  // borderStart follows the reading direction, so the hairline mirrors in Arabic.
+  factDivided: {
+    borderStartWidth: size.hairline,
+    borderColor: c.divider,
   },
   factWide: {
     flex: 1.5,
@@ -940,7 +946,7 @@ const useStyles = makeStyles((c) => ({
     marginTop: space.xs,
     paddingHorizontal: space.sm,
     borderRadius: radius.pill,
-    backgroundColor: c.surface,
+    backgroundColor: c.primarySoft,
   },
   factValue: {
     alignItems: 'center',
@@ -951,12 +957,13 @@ const useStyles = makeStyles((c) => ({
   factText: {
     flexShrink: 1,
   },
-  // Each section is a card: a soft grey block.
+  // Each section is a white card with the one soft shadow.
   section: {
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.surface,
     borderRadius: radius.lg,
     padding: space.lg,
     gap: space.sm,
+    boxShadow: elevation.card,
   },
   sectionTitle: {
     flex: 1,
@@ -973,6 +980,8 @@ const useStyles = makeStyles((c) => ({
   },
   dock: {
     backgroundColor: c.background,
+    borderTopWidth: size.hairline,
+    borderTopColor: c.divider,
     paddingHorizontal: space.md,
     paddingTop: space.md,
   },

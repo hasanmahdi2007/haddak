@@ -30,7 +30,7 @@ import { useFavourites } from '@/lib/favourites';
 import { useLocation } from '@/lib/location';
 import { DEFAULT_RADIUS, type RadiusM } from '@/lib/radius';
 import { VOICE_AVAILABLE } from '@/lib/useVoice';
-import { makeStyles, opacity, radius, size, space, type as typeScale, useTheme } from '@/theme';
+import { elevation, makeStyles, opacity, press, radius, size, space, type as typeScale, useTheme } from '@/theme';
 
 /** Limits of the search endpoint's `q` parameter (docs/API.md). */
 const NAME_MIN = 2;
@@ -209,9 +209,10 @@ export default function HomeScreen() {
                   accessibilityRole="button"
                   accessibilityHint={s.home.fallbackHint}
                   onPress={location.retry}
-                  hitSlop={space.md}
+                  hitSlop={{ top: space.sm, bottom: space.sm, left: space.xs, right: space.xs }}
+                  style={({ pressed }) => [styles.heroChip, pressed ? styles.heroChipPressed : null]}
                 >
-                  <Txt role="label" color="onHero" style={styles.underline}>
+                  <Txt role="label" color="onHero">
                     {s.home.useMyLocation}
                   </Txt>
                 </Pressable>
@@ -319,11 +320,14 @@ export default function HomeScreen() {
               <Pressable
                 accessibilityRole="button"
                 onPress={() => setNameOpen(true)}
-                hitSlop={space.md}
-                style={[styles.nameToggle, { flexDirection: row, alignSelf: alignStart }]}
+                style={({ pressed }) => [
+                  styles.nameToggle,
+                  { flexDirection: row, alignSelf: alignStart },
+                  pressed ? styles.heroChipPressed : null,
+                ]}
               >
                 <Search color={colors.onHero} size={size.iconSmall} strokeWidth={size.lineBold} />
-                <Txt role="label" color="onHero" style={styles.underline}>
+                <Txt role="label" color="onHero">
                   {s.home.searchPlaceholder}
                 </Txt>
               </Pressable>
@@ -411,7 +415,7 @@ export default function HomeScreen() {
                   accessibilityLabel={s.home.searchAll}
                   onPress={() => search()}
                   android_ripple={{ color: colors.surfaceTintStrong }}
-                  style={({ pressed }) => [styles.everyone, { flexDirection: row }, pressed ? styles.dim : null]}
+                  style={({ pressed }) => [styles.everyone, { flexDirection: row }, pressed ? styles.everyonePressed : null]}
                 >
                   <View style={styles.everyoneText}>
                     <Txt role="action">{s.home.everyone}</Txt>
@@ -485,7 +489,7 @@ const useStyles = makeStyles((c) => ({
     justifyContent: 'center',
   },
   language: {
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.surface,
     borderRadius: radius.pill,
     paddingHorizontal: space.lg,
     paddingVertical: space.sm,
@@ -500,7 +504,9 @@ const useStyles = makeStyles((c) => ({
   hero: {
     backgroundColor: c.hero,
     borderRadius: radius.sheet,
-    padding: space.xl,
+    paddingHorizontal: space.xl,
+    paddingTop: space.xxl,
+    paddingBottom: space.lg,
     gap: space.md,
   },
   locationRow: {
@@ -520,8 +526,16 @@ const useStyles = makeStyles((c) => ({
   locationText: {
     flexShrink: 1,
   },
-  underline: {
-    textDecorationLine: 'underline',
+  // Quiet controls inside the lavender block: see-through white pills, never underlined links.
+  heroChip: {
+    minHeight: size.badge + space.sm,
+    justifyContent: 'center',
+    paddingHorizontal: space.md,
+    borderRadius: radius.pill,
+    backgroundColor: c.heroControl,
+  },
+  heroChipPressed: {
+    backgroundColor: c.surface,
   },
   // "Ask Jarak AI": a white block as tall as two lines of big text, with the ink arrow at its end.
   ask: {
@@ -535,9 +549,11 @@ const useStyles = makeStyles((c) => ({
     paddingEnd: space.md,
     marginTop: space.xs,
     overflow: 'hidden',
+    boxShadow: elevation.card,
   },
   askPressed: {
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.surfaceInset,
+    transform: [{ scale: press.scale }],
   },
   // Split entry: the text part carries its own padding so the whole of it is the tap area.
   askSplit: {
@@ -571,6 +587,9 @@ const useStyles = makeStyles((c) => ({
     alignItems: 'center',
     gap: space.sm,
     minHeight: size.touch,
+    paddingHorizontal: space.lg,
+    borderRadius: radius.pill,
+    backgroundColor: c.heroControl,
   },
   field: {
     alignItems: 'center',
@@ -619,8 +638,10 @@ const useStyles = makeStyles((c) => ({
   radiusChips: {
     flex: 1,
   },
+  // More air above a section title than below it.
   sectionTitle: {
-    marginTop: space.sm,
+    marginTop: space.md,
+    marginBottom: -space.xs,
   },
   levelHeader: {
     alignItems: 'center',
@@ -633,20 +654,25 @@ const useStyles = makeStyles((c) => ({
     flex: 1,
   },
   grid: {
-    gap: space.sm + space.xxs,
+    gap: space.md,
   },
   gridRow: {
-    gap: space.sm + space.xxs,
+    gap: space.md,
   },
   // "Everyone nearby": a wide grey block with an ink arrow button.
   everyone: {
     alignItems: 'center',
     gap: space.md,
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.surface,
     borderRadius: radius.lg,
-    paddingVertical: space.md,
+    paddingVertical: space.lg,
     paddingHorizontal: space.lg,
     overflow: 'hidden',
+    boxShadow: elevation.card,
+  },
+  everyonePressed: {
+    backgroundColor: c.surfaceInset,
+    transform: [{ scale: press.scale }],
   },
   everyoneText: {
     flex: 1,

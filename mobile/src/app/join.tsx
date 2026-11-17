@@ -99,7 +99,7 @@ export default function JoinScreen() {
         {bar}
         <View style={[styles.column, styles.loading]} accessible accessibilityLabel={s.join.title}>
           <Skeleton height={space.huge * 3} round={radius.sheet} />
-          <Skeleton height={space.huge * 5} round={radius.sheet} />
+          <Skeleton height={space.huge * 5} round={radius.lg} />
         </View>
       </View>
     );

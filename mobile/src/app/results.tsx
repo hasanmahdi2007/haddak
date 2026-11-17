@@ -19,7 +19,7 @@ import { useLocation } from '@/lib/location';
 import { formatPrice } from '@/lib/price';
 import { parseRadius, radiusPhrase, widerRadius, type RadiusM } from '@/lib/radius';
 import { useAsync } from '@/lib/useAsync';
-import { makeStyles, radius, size, space, useTheme } from '@/theme';
+import { elevation, makeStyles, radius, size, space, useTheme } from '@/theme';
 
 type ViewMode = 'list' | 'map';
 
@@ -44,9 +44,10 @@ function CardSkeleton() {
       <View style={[styles.skeletonTop, { flexDirection: row }]}>
         <Skeleton width={size.thumb} height={size.thumb} round={radius.md} />
         <View style={styles.skeletonLines}>
-          <Skeleton width="70%" height={space.xl} />
-          <Skeleton width="50%" height={space.lg} />
-          <Skeleton width="30%" height={space.lg} />
+          {/* Shaped like the card: name, "category · area", then the Verified pill. */}
+          <Skeleton width="70%" height={space.lg + space.xxs} round={radius.pill} />
+          <Skeleton width="45%" height={space.md} round={radius.pill} />
+          <Skeleton width={size.thumb} height={size.badge} round={radius.pill} style={styles.skeletonPill} />
         </View>
       </View>
       <View style={styles.skeletonFacts} />
@@ -430,9 +431,9 @@ const useStyles = makeStyles((c) => ({
     flex: 1,
     minWidth: 0,
   },
-  // List / Map: a grey pill track, like the distance control.
+  // List / Map: a white pill track, like the distance control.
   switch: {
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.surface,
     borderRadius: radius.pill,
     padding: space.xxs,
     gap: space.xxs,
@@ -474,7 +475,7 @@ const useStyles = makeStyles((c) => ({
     overflow: 'hidden',
   },
   extraFilterOff: {
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.surface,
   },
   list: {
     paddingHorizontal: space.lg,
@@ -495,15 +496,19 @@ const useStyles = makeStyles((c) => ({
     paddingHorizontal: space.xs,
   },
   restHead: {
-    marginTop: space.md,
+    marginTop: space.lg,
     paddingHorizontal: space.xs,
   },
   skeletonCard: {
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.surface,
     borderRadius: radius.lg,
-    padding: space.sm + space.xxs,
-    gap: space.sm + space.xxs,
+    padding: space.md,
+    gap: space.md,
     marginBottom: space.md,
+    boxShadow: elevation.card,
+  },
+  skeletonPill: {
+    marginTop: space.xs,
   },
   skeletonTop: {
     gap: space.md,
@@ -516,6 +521,6 @@ const useStyles = makeStyles((c) => ({
   skeletonFacts: {
     height: space.xxl + space.lg,
     borderRadius: radius.md,
-    backgroundColor: c.surface,
+    backgroundColor: c.surfaceInset,
   },
 }));

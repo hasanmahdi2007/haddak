@@ -24,7 +24,7 @@ import type { Strings } from '@/i18n/en';
 import { useCategories } from '@/lib/categories';
 import { useLocation } from '@/lib/location';
 import { cleanPhone, PHONE_EXAMPLE, PHONE_PATTERN, showPhone } from '@/lib/phone';
-import { makeStyles, radius, size, space, useTheme } from '@/theme';
+import { elevation, makeStyles, radius, size, space, useTheme } from '@/theme';
 
 import { Button } from './Button';
 import { CategoryPicker } from './CategoryPicker';
@@ -593,9 +593,10 @@ const useStyles = makeStyles((c) => ({
   },
   section: {
     backgroundColor: c.surface,
-    borderRadius: radius.sheet,
+    borderRadius: radius.lg,
     padding: space.lg,
     gap: space.xl,
+    boxShadow: elevation.card,
   },
   sectionHead: {
     gap: space.xxs,

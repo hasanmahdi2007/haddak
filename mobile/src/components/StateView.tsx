@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import { View } from 'react-native';
 
 import { useI18n } from '@/i18n';
-import { makeStyles, radius, size, space, useTheme } from '@/theme';
+import { elevation, makeStyles, radius, size, space, useTheme } from '@/theme';
 
 import { Button, type ButtonVariant } from './Button';
 import { TextLink } from './TextLink';
@@ -24,7 +24,7 @@ interface Props {
 
 /**
  * Empty, error and "coming soon" states: what happened, why, and one way forward.
- * The icon sits on a lavender disc with a small mint dot;
+ * The purple icon sits on a white disc lifted by the card shadow, with a small mint dot;
  * an error swaps both for the error colours.
  */
 export function StateView({
@@ -45,7 +45,7 @@ export function StateView({
     <View style={styles.wrap} accessibilityRole={alert ? 'alert' : undefined}>
       <View style={[styles.disc, alert ? styles.discAlert : null]}>
         <Icon
-          color={alert ? colors.onDangerSoft : colors.onAccent}
+          color={alert ? colors.onDangerSoft : colors.primary}
           size={size.stateIcon}
           strokeWidth={size.stroke}
         />
@@ -80,12 +80,14 @@ const useStyles = makeStyles((c) => ({
     width: size.stateDisc,
     height: size.stateDisc,
     borderRadius: radius.pill,
-    backgroundColor: c.accent,
+    backgroundColor: c.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    boxShadow: elevation.card,
   },
   discAlert: {
     backgroundColor: c.dangerSoft,
+    boxShadow: 'none',
   },
   dot: {
     position: 'absolute',
@@ -95,7 +97,7 @@ const useStyles = makeStyles((c) => ({
     borderRadius: radius.pill,
     backgroundColor: c.mint,
     borderWidth: size.lineBold,
-    borderColor: c.background,
+    borderColor: c.surface,
   },
   text: {
     gap: space.xs,

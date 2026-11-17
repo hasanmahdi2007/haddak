@@ -10,7 +10,7 @@ import { StateView } from '@/components/StateView';
 import { Txt } from '@/components/Txt';
 import { useI18n } from '@/i18n';
 import { type Favourite, useFavourites } from '@/lib/favourites';
-import { makeStyles, radius, size, space, useTheme } from '@/theme';
+import { elevation, makeStyles, radius, size, space, useTheme } from '@/theme';
 
 /** One saved provider: the open-profile button, and beside it the heart that removes it. */
 function SavedCard({ item, onOpen, onRemove }: { item: Favourite; onOpen: () => void; onRemove: () => void }) {
@@ -67,7 +67,7 @@ export default function SavedScreen() {
       <StatusBar style={dark ? 'light' : 'dark'} />
       <View style={[styles.column, styles.bar, { flexDirection: row }]}>
         <IconButton icon={BackIcon} label={s.common.back} onPress={goBack} />
-        <Txt role="display" accessibilityRole="header" numberOfLines={1} style={styles.title}>
+        <Txt role="headline" accessibilityRole="header" numberOfLines={1} style={styles.title}>
           {s.saved.title}
         </Txt>
       </View>
@@ -136,9 +136,10 @@ const useStyles = makeStyles((c) => ({
   // The same grey block as a result card, in one short row.
   card: {
     alignItems: 'center',
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.surface,
     borderRadius: radius.lg,
     overflow: 'hidden',
+    boxShadow: elevation.card,
   },
   open: {
     flex: 1,
@@ -148,7 +149,7 @@ const useStyles = makeStyles((c) => ({
     padding: space.md,
   },
   pressed: {
-    backgroundColor: c.surfaceTintStrong,
+    backgroundColor: c.surfaceInset,
   },
   thumb: {
     width: size.thumb,

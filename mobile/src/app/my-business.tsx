@@ -20,7 +20,7 @@ import { useI18n } from '@/i18n';
 import type { Strings } from '@/i18n/en';
 import { requireSignIn, useAuth } from '@/lib/auth';
 import { timeAgo } from '@/lib/time';
-import { makeStyles, opacity, radius, size, space, useTheme } from '@/theme';
+import { elevation, makeStyles, opacity, radius, size, space, useTheme } from '@/theme';
 
 /** Limits from docs/API.md ("Stories and banners", "sponsor_hook"). */
 const STORY_TEXT_MAX = 280;
@@ -158,9 +158,9 @@ export default function MyBusinessScreen() {
   } else if (!signedIn || load.status === 'loading') {
     body = (
       <View style={styles.page} accessible accessibilityLabel={s.business.title}>
-        <Skeleton height={space.huge * 2} round={radius.sheet} />
-        <Skeleton height={space.huge * 4} round={radius.sheet} />
-        <Skeleton height={space.huge * 3} round={radius.sheet} />
+        <Skeleton height={space.huge * 2} round={radius.lg} />
+        <Skeleton height={space.huge * 4} round={radius.lg} />
+        <Skeleton height={space.huge * 3} round={radius.lg} />
       </View>
     );
   } else if (load.status === 'none') {
@@ -192,7 +192,7 @@ export default function MyBusinessScreen() {
       <StatusBar style={dark ? 'light' : 'dark'} />
       <View style={[styles.column, styles.bar, { flexDirection: row }]}>
         <IconButton icon={BackIcon} label={s.common.back} onPress={goBack} />
-        <Txt role="display" accessibilityRole="header" numberOfLines={1} style={styles.flex}>
+        <Txt role="headline" accessibilityRole="header" numberOfLines={1} style={styles.flex}>
           {s.business.title}
         </Txt>
       </View>
@@ -206,18 +206,25 @@ export default function MyBusinessScreen() {
           >
             <View style={[styles.column, styles.page]}>
               <Header own={load.own} />
-              <Button
-                label={s.join.editListing}
-                icon={Pencil}
-                variant="tonal"
-                onPress={() => router.push('/business-edit')}
-              />
-              <Button
-                label={s.business.poster}
-                icon={Printer}
-                variant="tonal"
-                onPress={() => router.push({ pathname: '/poster/[slug]', params: { slug: load.own.slug } })}
-              />
+              {/* The two quiet actions share one row as white pills, under the listing they act on. */}
+              <View style={[styles.headerActions, { flexDirection: row }]}>
+                <Button
+                  label={s.join.editListing}
+                  icon={Pencil}
+                  variant="white"
+                  compact
+                  onPress={() => router.push('/business-edit')}
+                  style={styles.headerAction}
+                />
+                <Button
+                  label={s.business.poster}
+                  icon={Printer}
+                  variant="white"
+                  compact
+                  onPress={() => router.push({ pathname: '/poster/[slug]', params: { slug: load.own.slug } })}
+                  style={styles.headerAction}
+                />
+              </View>
               {/* Open to every owner, verified or not: it only says "I can come now". */}
               <AvailableNowSection own={load.own} onSaved={setOwn} />
               <StatsSection own={load.own} version={version} />
@@ -907,8 +914,15 @@ const useStyles = makeStyles((c) => ({
     alignItems: 'center',
     gap: space.lg,
     padding: space.lg,
-    borderRadius: radius.sheet,
+    borderRadius: radius.lg,
     backgroundColor: c.surface,
+    boxShadow: elevation.card,
+  },
+  headerActions: {
+    gap: space.sm,
+  },
+  headerAction: {
+    flex: 1,
   },
   headerVerified: {
     backgroundColor: c.mint,
@@ -928,7 +942,7 @@ const useStyles = makeStyles((c) => ({
     alignItems: 'flex-start',
     gap: space.lg,
     padding: space.xl,
-    borderRadius: radius.sheet,
+    borderRadius: radius.lg,
     backgroundColor: c.accent,
   },
   lockedIcon: {
@@ -943,7 +957,7 @@ const useStyles = makeStyles((c) => ({
     alignSelf: 'flex-start',
     marginTop: space.sm,
   },
-  // Two figures to a row; each is a grey tile inside the white block.
+  // Two figures to a row; each is a faint lavender inset inside the white block.
   stats: {
     flexWrap: 'wrap',
     gap: space.sm,
@@ -953,15 +967,16 @@ const useStyles = makeStyles((c) => ({
     flexBasis: '40%',
     gap: space.xxs,
     padding: space.lg,
-    borderRadius: radius.lg,
-    backgroundColor: c.surfaceTint,
+    borderRadius: radius.md,
+    backgroundColor: c.surfaceInset,
   },
   // Each part of the business is one white block on the lavender ground.
   section: {
     backgroundColor: c.surface,
-    borderRadius: radius.sheet,
+    borderRadius: radius.lg,
     padding: space.lg,
     gap: space.lg,
+    boxShadow: elevation.card,
   },
   sectionHead: {
     gap: space.xxs,
@@ -1004,10 +1019,10 @@ const useStyles = makeStyles((c) => ({
   list: {
     gap: space.sm,
   },
-  // A posted update: a soft lavender-grey block inside the white one.
+  // A posted update: a faint lavender inset inside the white block.
   story: {
-    backgroundColor: c.surfaceTint,
-    borderRadius: radius.lg,
+    backgroundColor: c.surfaceInset,
+    borderRadius: radius.md,
     padding: space.md,
     gap: space.sm,
   },

@@ -5,7 +5,7 @@ import { AccessibilityInfo, Pressable, View } from 'react-native';
 import { api, type ProviderDetail, type Review } from '@/api';
 import { useI18n } from '@/i18n';
 import { requireSignIn, useAuth } from '@/lib/auth';
-import { makeStyles, opacity, radius, size, space, useTheme } from '@/theme';
+import { elevation, makeStyles, opacity, radius, size, space, useTheme } from '@/theme';
 
 import { HiredBadge } from './Badges';
 import { Button } from './Button';
@@ -334,10 +334,11 @@ const useStyles = makeStyles((c) => ({
     flex: 1,
   },
   section: {
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.surface,
     borderRadius: radius.lg,
     padding: space.lg,
     gap: space.md,
+    boxShadow: elevation.card,
   },
   summary: {
     alignItems: 'center',
@@ -350,7 +351,7 @@ const useStyles = makeStyles((c) => ({
     gap: space.xxs,
   },
   mine: {
-    backgroundColor: c.surface,
+    backgroundColor: c.surfaceInset,
     borderRadius: radius.md,
     padding: space.lg,
     gap: space.sm,
@@ -376,7 +377,7 @@ const useStyles = makeStyles((c) => ({
   },
   divider: {
     borderTopWidth: size.hairline,
-    borderTopColor: c.border,
+    borderTopColor: c.divider,
     paddingTop: space.md,
   },
   skeleton: {
@@ -389,7 +390,7 @@ const useStyles = makeStyles((c) => ({
   quiet: {
     minHeight: size.touch,
     borderRadius: radius.pill,
-    backgroundColor: c.surface,
+    backgroundColor: c.surfaceInset,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: space.xl,

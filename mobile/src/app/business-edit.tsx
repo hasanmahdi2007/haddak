@@ -88,8 +88,8 @@ export default function BusinessEditScreen() {
   } else if (load.status === 'loading' || !signedIn) {
     body = (
       <View style={styles.loading} accessible accessibilityLabel={s.join.editTitle}>
-        <Skeleton height={space.huge * 5} round={radius.sheet} />
-        <Skeleton height={space.huge * 4} round={radius.sheet} />
+        <Skeleton height={space.huge * 5} round={radius.lg} />
+        <Skeleton height={space.huge * 4} round={radius.lg} />
       </View>
     );
   }

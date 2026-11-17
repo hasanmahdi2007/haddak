@@ -4,7 +4,7 @@ import { Pressable, View } from 'react-native';
 import type { Coordinates, ProviderSummary } from '@/api';
 import { useI18n } from '@/i18n';
 import type { RadiusM } from '@/lib/radius';
-import { fonts, makeStyles, radius, size, space, useTheme } from '@/theme';
+import { elevation, fonts, makeStyles, radius, size, space, useTheme } from '@/theme';
 
 import { FeaturedTag, NotVerifiedBadge, VerifiedBadge } from './Badges';
 import { OpenStatus } from './OpenStatus';
@@ -482,10 +482,10 @@ const useStyles = makeStyles((c) => ({
     padding: space.md,
     gap: space.md,
     alignItems: 'center',
-    boxShadow: `0px 8px 24px ${c.shadow}`,
+    boxShadow: elevation.float,
   },
   dockPressed: {
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.surfaceInset,
   },
   dockThumb: {
     width: size.dockThumb,

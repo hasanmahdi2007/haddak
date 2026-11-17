@@ -4,7 +4,7 @@ import { Pressable, View } from 'react-native';
 import type { ProviderSummary } from '@/api';
 import { useI18n } from '@/i18n';
 import { providerPrice } from '@/lib/price';
-import { makeStyles, radius, size, space, useTheme } from '@/theme';
+import { elevation, makeStyles, radius, size, space, useTheme } from '@/theme';
 
 import { AvailableTag, NotVerifiedBadge, VerifiedBadge } from './Badges';
 import { Button } from './Button';
@@ -152,7 +152,8 @@ const useStyles = makeStyles((c) => ({
     backgroundColor: c.surface,
     borderRadius: radius.lg,
     padding: space.md,
-    gap: space.sm,
+    gap: space.md,
+    boxShadow: elevation.card,
   },
   top: {
     gap: space.md,
@@ -160,7 +161,7 @@ const useStyles = makeStyles((c) => ({
     overflow: 'hidden',
   },
   topPressed: {
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.surfaceInset,
   },
   thumb: {
     width: size.thumb,
@@ -179,13 +180,13 @@ const useStyles = makeStyles((c) => ({
     rowGap: space.xs,
     marginTop: space.xxs,
   },
-  // A grey strip inside the white block (the result card's white strip, turned around).
+  // A faint lavender strip inside the white block, the same as on a result card.
   facts: {
     flexWrap: 'wrap',
     alignItems: 'center',
     columnGap: space.lg,
     rowGap: space.xs,
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.surfaceInset,
     borderRadius: radius.md,
     paddingHorizontal: space.md,
     paddingVertical: space.sm,

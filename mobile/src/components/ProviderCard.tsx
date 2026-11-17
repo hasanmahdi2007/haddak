@@ -3,7 +3,7 @@ import { Pressable, View } from 'react-native';
 
 import type { ProviderSummary } from '@/api';
 import { useI18n } from '@/i18n';
-import { makeStyles, opacity, radius, size, space, useTheme } from '@/theme';
+import { elevation, makeStyles, opacity, press, radius, size, space, useTheme } from '@/theme';
 
 import {
   AvailableTag,
@@ -34,11 +34,11 @@ interface Props {
 }
 
 /**
- * One search result: a soft grey block with no outline.
+ * One search result: a white card lifted off the ground by the one soft shadow.
  * Top: photo, name, "category · area", then the trust line. A verified provider
  * gets the mint Verified pill; one that is not gets the grey "Not verified" pill,
  * and "Listed by the community" when nobody has claimed the listing.
- * Bottom: a white strip that keeps rating, distance and price in the same three
+ * Bottom: a faint lavender strip that keeps rating, distance and price in the same three
  * columns on every card, so a list can be compared at a glance.
  *
  * Sponsored (paid, shown above the results): the same card as a solid lavender
@@ -98,7 +98,7 @@ export function ProviderCard({ provider, onPress, onOpenStory, plain = false }: 
         else onPress();
       }}
       onPress={onPress}
-      android_ripple={{ color: colors.surfaceTintStrong }}
+      android_ripple={{ color: colors.surfaceTint }}
       style={({ pressed }) => [
         styles.card,
         pressed ? styles.pressed : null,
@@ -155,7 +155,7 @@ export function ProviderCard({ provider, onPress, onOpenStory, plain = false }: 
         </View>
       </View>
 
-      <View style={[styles.facts, { flexDirection: row }]}>
+      <View style={[styles.facts, sponsored ? styles.factsOnAccent : null, { flexDirection: row }]}>
         <View style={[styles.fact, styles.factRating, { flexDirection: row }]}>
           <Rating rating={provider.avg_rating} count={provider.review_count} />
         </View>
@@ -187,19 +187,22 @@ export function ProviderCard({ provider, onPress, onOpenStory, plain = false }: 
 
 const useStyles = makeStyles((c) => ({
   card: {
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.surface,
     borderRadius: radius.lg,
-    padding: space.sm + space.xxs,
-    gap: space.sm + space.xxs,
+    padding: space.md,
+    gap: space.md,
     overflow: 'hidden',
+    boxShadow: elevation.card,
   },
   pressed: {
-    backgroundColor: c.surfaceTintStrong,
+    backgroundColor: c.surfaceInset,
+    transform: [{ scale: press.scale }],
   },
   sponsored: {
     backgroundColor: c.accent,
   },
   sponsoredPressed: {
+    backgroundColor: c.accent,
     opacity: opacity.pressed,
   },
   top: {
@@ -226,15 +229,18 @@ const useStyles = makeStyles((c) => ({
     alignItems: 'center',
     columnGap: space.sm,
     rowGap: space.xs,
-    marginTop: space.xs,
+    marginTop: space.sm,
   },
-  // The white strip inside the grey block.
+  // The faint lavender strip inside the white card (white on the lavender sponsored card).
   facts: {
-    backgroundColor: c.surface,
+    backgroundColor: c.surfaceInset,
     borderRadius: radius.md,
     paddingHorizontal: space.md,
     paddingVertical: space.sm,
     gap: space.sm,
+  },
+  factsOnAccent: {
+    backgroundColor: c.surface,
   },
   fact: {
     alignItems: 'center',
