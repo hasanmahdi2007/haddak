@@ -164,10 +164,15 @@ export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider
                   name={provider.name}
                   verified={provider.verified}
                   featured={provider.featured}
+                  sponsored={provider.sponsored === true}
                   selected={isSelected}
                 />
               ) : (
-                <ProviderDot verified={provider.verified} featured={provider.featured} />
+                <ProviderDot
+                  verified={provider.verified}
+                  featured={provider.featured}
+                  sponsored={provider.sponsored === true}
+                />
               )}
             </Marker>
           );

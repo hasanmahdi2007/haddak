@@ -9,10 +9,11 @@ import { makeStyles, radius, size, space, useTheme } from '@/theme';
 import { Txt } from './Txt';
 
 /**
- * A provider's running offer on their profile: a deep lavender block (the colour
+ * A provider's running offer on their profile: a deep purple block (the colour
  * of the primary buttons, with white words) carrying the title, one sentence and
- * when it ends. The discount, when there is one, is the big figure on a white
- * block at the end; without it a tag icon takes its place.
+ * when it ends. The discount, when there is one, is the big figure on a tangerine
+ * block at the end (the signature colour, with dark words); without it a tag icon
+ * on the same tangerine square takes its place.
  */
 export function OfferBlock({ banner }: { banner: Banner }) {
   const { colors } = useTheme();
@@ -53,16 +54,16 @@ export function OfferBlock({ banner }: { banner: Banner }) {
       {discount !== null ? (
         <View style={styles.figure}>
           {/* The figure stays left-to-right ("20%") in Arabic too. */}
-          <Txt role="poster" center ltr numberOfLines={1} adjustsFontSizeToFit>
+          <Txt role="poster" color="onSignature" center ltr numberOfLines={1} adjustsFontSizeToFit>
             {discount}%
           </Txt>
-          <Txt role="label" color="textMuted" center>
+          <Txt role="label" color="onSignature" center>
             {s.offer.off}
           </Txt>
         </View>
       ) : (
         <View style={styles.mark}>
-          <Tag color={colors.text} size={size.iconLarge} strokeWidth={size.lineBold} />
+          <Tag color={colors.onSignature} size={size.iconLarge} strokeWidth={size.lineBold} />
         </View>
       )}
     </View>
@@ -94,7 +95,7 @@ const useStyles = makeStyles((c) => ({
     minHeight: size.offerFigure,
     paddingHorizontal: space.md,
     borderRadius: radius.lg - space.xs,
-    backgroundColor: c.surface,
+    backgroundColor: c.signature,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -102,7 +103,7 @@ const useStyles = makeStyles((c) => ({
     width: size.touch,
     height: size.touch,
     borderRadius: radius.md,
-    backgroundColor: c.surface,
+    backgroundColor: c.signature,
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'flex-start',

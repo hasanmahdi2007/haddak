@@ -33,6 +33,7 @@ import { api, type ProviderDetail, type ProviderSummary, type Understood, type U
 import { AssistCard } from '@/components/AssistCard';
 import { Button } from '@/components/Button';
 import { IconButton } from '@/components/IconButton';
+import { JarakMark } from '@/components/JarakMark';
 import { Txt } from '@/components/Txt';
 import { useI18n } from '@/i18n';
 import { useCategories } from '@/lib/categories';
@@ -496,6 +497,7 @@ export default function AssistScreen() {
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <View style={[styles.column, styles.bar, { flexDirection: row }]}>
         <IconButton icon={BackIcon} label={s.common.back} onPress={goBack} />
+        <JarakMark style={styles.barMark} />
         <Txt role="headline" accessibilityRole="header" numberOfLines={1} style={styles.barTitle}>
           {s.assist.title}
         </Txt>
@@ -698,6 +700,10 @@ const useStyles = makeStyles((c) => ({
     paddingStart: space.xs,
     paddingEnd: space.lg,
     paddingVertical: space.xs,
+  },
+  // A little air between the tangerine Jarak AI mark and the name.
+  barMark: {
+    marginEnd: space.xs,
   },
   barTitle: {
     flex: 1,

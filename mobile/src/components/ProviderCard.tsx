@@ -38,11 +38,11 @@ interface Props {
  * Top: photo, name, "category · area", then the trust line. A verified provider
  * gets the mint Verified pill; one that is not gets the grey "Not verified" pill,
  * and "Listed by the community" when nobody has claimed the listing.
- * Bottom: a faint lavender strip that keeps rating, distance and price in the same three
+ * Bottom: a faint inset strip that keeps rating, distance and price in the same three
  * columns on every card, so a list can be compared at a glance.
  *
  * Sponsored (paid, shown above the results): the same card as a solid lavender
- * block, with a small "Sponsored" label and one line written by the sponsor.
+ * block, with a small tangerine "Sponsored" pill and one line written by the sponsor.
  * Text on lavender is dark in both themes.
  *
  * A provider with an update gets a ring around the photo (StoryRing), and one
@@ -107,7 +107,7 @@ export function ProviderCard({ provider, onPress, onOpenStory, plain = false }: 
       ]}
     >
       <View style={[styles.top, { flexDirection: row }]}>
-        {/* The ring is ink on the lavender card, where a lavender ring would not show. */}
+        {/* The ring is ink on the lavender sponsored card, tangerine everywhere else. */}
         <Pressable
           disabled={!canOpenStory}
           onPress={onOpenStory}
@@ -118,7 +118,7 @@ export function ProviderCard({ provider, onPress, onOpenStory, plain = false }: 
             active={hasStory}
             box={size.thumb}
             round={radius.md}
-            tone={sponsored ? 'ink' : 'accent'}
+            tone={sponsored ? 'ink' : 'signature'}
           >
             <Photo uri={provider.cover_photo_url} fallbackIcon={provider.category.icon} style={styles.thumb} />
           </StoryRing>
@@ -231,7 +231,7 @@ const useStyles = makeStyles((c) => ({
     rowGap: space.xs,
     marginTop: space.sm,
   },
-  // The faint lavender strip inside the white card (white on the lavender sponsored card).
+  // The faint inset strip inside the white card (white on the lavender sponsored card).
   facts: {
     backgroundColor: c.surfaceInset,
     borderRadius: radius.md,

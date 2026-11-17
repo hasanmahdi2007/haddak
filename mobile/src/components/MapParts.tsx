@@ -223,6 +223,8 @@ interface PinProps {
   verified: boolean;
   featured: boolean;
   selected: boolean;
+  /** Paid to appear first: the round mark gets the tangerine signature. */
+  sponsored?: boolean;
 }
 
 /**
@@ -232,6 +234,8 @@ interface PinProps {
  * - Verified: white pill, ink edge, a mint disc with a check before the name.
  * - Not verified: grey pill, grey edge, an empty grey ring and a muted name.
  * - Featured (paid): the pill is lavender.
+ * - Sponsored (paid): the round mark is tangerine (a tangerine ring around the
+ *   mint disc when the provider is also verified, so trust still reads first).
  * - Selected: the pill fills ink and grows a little.
  *
  * It sits in a box at least 48 dp high so it is easy to tap; the tip is at the
@@ -239,7 +243,7 @@ interface PinProps {
  * because a map marker is turned into a picture and those are the most reliable
  * things to turn into one.
  */
-export function ProviderPin({ name, verified, featured, selected }: PinProps) {
+export function ProviderPin({ name, verified, featured, selected, sponsored = false }: PinProps) {
   const { colors } = useTheme();
   const { row } = useI18n();
   const styles = useStyles();
@@ -269,6 +273,7 @@ export function ProviderPin({ name, verified, featured, selected }: PinProps) {
             styles.pinDisc,
             { width: disc, height: disc },
             verified ? styles.pinDiscVerified : styles.pinDiscPlain,
+            sponsored ? (verified ? styles.discSponsoredRing : styles.discSponsored) : null,
           ]}
         >
           {verified ? (
@@ -294,10 +299,11 @@ export function ProviderPin({ name, verified, featured, selected }: PinProps) {
 /**
  * A pin that has no room for its name: the round mark alone, centred on the
  * position. Verified: a mint disc with a check and an ink edge. Not verified:
- * a grey disc with a grey ring. Featured (paid): the disc is lavender.
+ * a grey disc with a grey ring. Featured (paid): the disc is lavender. Sponsored
+ * (paid): the disc is tangerine, or the mint disc gets a tangerine ring when verified.
  * Tapping it selects the provider, which shows the name.
  */
-export function ProviderDot({ verified, featured }: Pick<PinProps, 'verified' | 'featured'>) {
+export function ProviderDot({ verified, featured, sponsored = false }: Pick<PinProps, 'verified' | 'featured' | 'sponsored'>) {
   const { colors } = useTheme();
   const styles = useStyles();
   return (
@@ -306,6 +312,7 @@ export function ProviderDot({ verified, featured }: Pick<PinProps, 'verified' | 
         style={[
           styles.dot,
           featured ? styles.dotFeatured : verified ? styles.dotVerified : styles.dotPlain,
+          sponsored ? (verified ? styles.discSponsoredRing : styles.discSponsored) : null,
         ]}
       >
         {verified ? (
@@ -439,6 +446,16 @@ const useStyles = makeStyles((c) => ({
   },
   pinName: {
     fontFamily: fonts.bodyStrong,
+  },
+  // Sponsored marks: a tangerine disc with a dark edge, or a tangerine ring around the mint check.
+  discSponsored: {
+    backgroundColor: c.signature,
+    borderWidth: size.lineMid,
+    borderColor: c.onSignature,
+  },
+  discSponsoredRing: {
+    borderWidth: size.lineBold,
+    borderColor: c.signature,
   },
   // A clear box a little larger than the mark, so a finger finds it.
   dotBox: {

@@ -442,7 +442,7 @@ export default function ProviderScreen() {
                       active
                       box={size.avatarLarge}
                       round={radius.md}
-                      tone={provider.verified ? 'ink' : 'accent'}
+                      tone={provider.verified ? 'ink' : 'signature'}
                     >
                       <Photo
                         uri={provider.cover_photo_url}

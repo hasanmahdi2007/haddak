@@ -8,7 +8,7 @@ export interface ColorTokens {
   background: string;
   /** White: every card, tile and block that sits on the ground (with `elevation.card`). */
   surface: string;
-  /** Faint lavender inset inside a white card: the facts strip, stat tiles, today's hours. */
+  /** Faint neutral inset inside a white card: the facts strip, stat tiles, today's hours. */
   surfaceInset: string;
   /** Soft grey: cards, tiles, fields, control tracks. */
   surfaceTint: string;
@@ -28,16 +28,27 @@ export interface ColorTokens {
   mint: string;
   onMint: string;
 
-  /** Lavender: the accent. Category icon blocks, Featured, decorative blocks. Only ever a fill, with `onAccent` on it. */
+  /** Soft lavender: the accent. Featured, the sponsored card, intro blocks. Only ever a fill, with `onAccent` on it. */
   accent: string;
   accentSoft: string;
   onAccent: string;
-  /** Deeper lavender for lines that must be seen on a map: the search circle. */
+  /** Deeper purple for lines that must be seen on a map: the search circle. */
   accentStrong: string;
-  /** See-through lavender: the inside of the search circle. */
+  /** See-through purple: the inside of the search circle. */
   accentWash: string;
 
-  /** The ink block on Home (a lighter ink in the dark theme, so it still reads as a block). */
+  /**
+   * "Haddak Tangerine", the signature. It marks Haddak's special moments only:
+   * the Jarak AI mark, Sponsored, the offer figure, "Available now", the story ring.
+   * Always a fill or an icon colour, never body text on white (it is 2.6:1 there).
+   */
+  signature: string;
+  /** A pale tangerine wash for a background behind the signature. */
+  signatureSoft: string;
+  /** Dark ink for words and icons on a `signature` fill (AA on it). */
+  onSignature: string;
+
+  /** The soft lavender block at the top of Home (a lighter ink in the dark theme, so it still reads as a block). */
   hero: string;
   onHero: string;
   onHeroMuted: string;
@@ -87,41 +98,51 @@ export interface ColorTokens {
   qrInk: string;
 }
 
-/** Light theme: near-white ground, soft grey blocks, ink for text and actions, mint for trust, lavender as the accent. */
+/**
+ * Light theme: a cool near-white ground, white cards, neutral grey fields, a deep purple for
+ * actions, mint for trust, soft lavender for the Home block and paid marks, tangerine as the signature.
+ * Contrast (checked 2026-11-17): text 11:1 or more on every fill; textMuted 5.2:1 and
+ * textSubtle 5.0:1 on the strongest grey, 4.6:1 or more on lavender; white on primary 6:1;
+ * onSignature on signature 6.8:1; outline 3.2:1 or more on every grey.
+ */
 export const lightColors: ColorTokens = {
-  background: '#E5E1F5',
+  background: '#F6F5FA',
   surface: '#FFFFFF',
-  surfaceInset: '#F3F1FA',
-  surfaceTint: '#D7D2EE',
-  surfaceTintStrong: '#C2BCE0',
+  surfaceInset: '#F2F1F7',
+  surfaceTint: '#ECEBF2',
+  surfaceTintStrong: '#DEDCE8',
 
-  primary: '#6F5BD6',
-  primaryPressed: '#5B48BF',
+  primary: '#5F52C7',
+  primaryPressed: '#4D41AE',
   onPrimary: '#FFFFFF',
   onPrimarySoft: '#1B1C2F',
-  primarySoft: '#ECE8FC',
+  primarySoft: '#ECE9FB',
 
-  mint: '#A4F5A6',
+  mint: '#B4EEBE',
   onMint: '#1B1C2F',
 
-  accent: '#B2A1FF',
-  accentSoft: '#C0C4FF',
+  accent: '#D8D0FA',
+  accentSoft: '#E4E0F5',
   onAccent: '#1B1C2F',
-  accentStrong: '#6F5BD6',
-  accentWash: 'rgba(178, 161, 255, 0.24)',
+  accentStrong: '#5F52C7',
+  accentWash: 'rgba(95, 82, 199, 0.12)',
 
-  hero: '#B2A1FF',
+  signature: '#FF7A45',
+  signatureSoft: '#FFE8DC',
+  onSignature: '#2A1306',
+
+  hero: '#E6E0FB',
   onHero: '#1B1C2F',
-  onHeroMuted: '#2F3046',
-  heroControl: 'rgba(255, 255, 255, 0.55)',
+  onHeroMuted: '#44465A',
+  heroControl: 'rgba(255, 255, 255, 0.72)',
 
   text: '#1B1C2F',
-  textMuted: '#4A4C60',
+  textMuted: '#55576A',
   textSubtle: '#585A6E',
 
-  border: '#C2BCE0',
-  divider: '#E7E3F3',
-  outline: '#77738F',
+  border: '#DEDCE8',
+  divider: '#ECEBF2',
+  outline: '#7A788F',
 
   rating: '#B97A00',
 
@@ -167,6 +188,10 @@ export const darkColors: ColorTokens = {
   onAccent: '#1B1C2F',
   accentStrong: '#B2A1FF',
   accentWash: 'rgba(178, 161, 255, 0.20)',
+
+  signature: '#FF7A45',
+  signatureSoft: '#4A2A1C',
+  onSignature: '#2A1306',
 
   hero: '#2A2C44',
   onHero: '#FFFFFF',
@@ -309,6 +334,8 @@ export const size = {
   tileIconBox: 44,
   /** The mint "you are here" disc in the location line. */
   pin: 28,
+  /** The tangerine square with a sparkle that marks Jarak AI (Home entry, the assistant's bar). */
+  jarakMark: 28,
   /** Thumbnail on a provider card. */
   thumb: 84,
   /** Visible height of a compact control: a segment, a filter chip (touch target is still 48 through hitSlop). */
@@ -367,7 +394,7 @@ export const size = {
   avatarLarge: 60,
   /** Progress segments at the top of the story viewer. */
   storyBar: 4,
-  /** The lavender block that carries an offer's discount figure. */
+  /** The tangerine block that carries an offer's discount figure. */
   offerFigure: 92,
   /** Widest the content column grows on tablets and web. */
   maxContent: 560,
@@ -392,7 +419,7 @@ export const size = {
 } as const;
 
 /**
- * The one elevation system. White cards lift off the lavender ground with two soft,
+ * The one elevation system. White cards lift off the near-white ground with two soft,
  * ink-tinted layers (a tight contact shadow and a wide ambient one); only the card
  * that floats over the map uses the deeper `float`. Used through the `boxShadow`
  * style, which React Native draws on Android, iOS and web alike.

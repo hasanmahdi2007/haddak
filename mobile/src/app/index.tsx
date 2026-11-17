@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Category } from '@/api';
 import { CategoryTile, type TileTone } from '@/components/CategoryTile';
 import { IconButton } from '@/components/IconButton';
+import { JarakMark } from '@/components/JarakMark';
 import { RadiusChips } from '@/components/RadiusChips';
 import { Skeleton } from '@/components/Skeleton';
 import { StateView } from '@/components/StateView';
@@ -187,7 +188,7 @@ export default function HomeScreen() {
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + space.xxl }]}
       >
         <View style={[styles.column, styles.stack]}>
-          {/* The lavender block, kept calm: the question, where the search is centred, the assistant, search by name. */}
+          {/* The soft lavender hero block, kept calm: the question, where the search is centred, the assistant, search by name. */}
           <View style={styles.hero}>
             <Txt role="display" color="onHero" accessibilityRole="header">
               {s.home.question}
@@ -233,7 +234,12 @@ export default function HomeScreen() {
                   onPressOut={() => setAskPressed(false)}
                   style={styles.askOpen}
                 >
-                  <Txt role="headline">{s.assist.name}</Txt>
+                  <View style={[styles.askTitle, { flexDirection: row }]}>
+                    <JarakMark />
+                    <Txt role="headline" style={styles.askName}>
+                      {s.assist.name}
+                    </Txt>
+                  </View>
                   <Txt role="bodyLarge" color="textMuted">
                     {s.assist.hintVoice}
                   </Txt>
@@ -259,7 +265,12 @@ export default function HomeScreen() {
                 style={({ pressed }) => [styles.ask, { flexDirection: row }, pressed ? styles.askPressed : null]}
               >
                 <View style={styles.askText}>
-                  <Txt role="headline">{s.assist.name}</Txt>
+                  <View style={[styles.askTitle, { flexDirection: row }]}>
+                    <JarakMark />
+                    <Txt role="headline" style={styles.askName}>
+                      {s.assist.name}
+                    </Txt>
+                  </View>
                   <Txt role="bodyLarge" color="textMuted">
                     {s.assist.hint}
                   </Txt>
@@ -575,6 +586,14 @@ const useStyles = makeStyles((c) => ({
     flex: 1,
     minWidth: 0,
   },
+  // The tangerine Jarak AI mark, then the name.
+  askTitle: {
+    alignItems: 'center',
+    gap: space.sm,
+  },
+  askName: {
+    flexShrink: 1,
+  },
   askGo: {
     width: size.buttonLarge,
     height: size.buttonLarge,
@@ -591,18 +610,20 @@ const useStyles = makeStyles((c) => ({
     borderRadius: radius.pill,
     backgroundColor: c.heroControl,
   },
+  // A white pill field inside the soft lavender block (the near-white ground would barely show on it).
   field: {
     alignItems: 'center',
     minHeight: size.button,
-    backgroundColor: c.background,
+    backgroundColor: c.surface,
     borderRadius: radius.pill,
     borderWidth: size.lineBold,
-    borderColor: c.background,
+    borderColor: c.surface,
     paddingHorizontal: space.xs,
     marginTop: space.sm,
   },
+  // The edge turns purple on focus: mint on the pale field would be too faint to see.
   fieldFocused: {
-    borderColor: c.mint,
+    borderColor: c.primary,
   },
   fieldInput: {
     ...typeScale.body,

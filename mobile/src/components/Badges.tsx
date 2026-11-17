@@ -31,8 +31,9 @@ export function VerifiedBadge({ decorative = false }: { decorative?: boolean }) 
 
 /**
  * "Available now": the owner said they can take a job right away (it turns
- * itself off after 2, 4 or 8 hours). Mint like the other positive marks, with a
- * lightning icon instead of the check, so it never reads as Verified.
+ * itself off after 2, 4 or 8 hours). A tangerine pill (the signature colour, one
+ * of Haddak's special moments) with a lightning icon, so it never reads as the
+ * mint Verified mark.
  */
 export function AvailableTag({ decorative = false }: { decorative?: boolean }) {
   const { colors } = useTheme();
@@ -40,12 +41,12 @@ export function AvailableTag({ decorative = false }: { decorative?: boolean }) {
   const styles = useStyles();
   return (
     <View
-      style={[styles.pill, styles.verified, { flexDirection: row }]}
+      style={[styles.pill, styles.signature, { flexDirection: row }]}
       accessible={!decorative}
       accessibilityLabel={decorative ? undefined : s.badges.availableNow}
     >
-      <Zap color={colors.onMint} size={size.iconSmall} strokeWidth={size.lineBold} fill={colors.onMint} />
-      <Txt role="caption" color="onMint" style={styles.pillText}>
+      <Zap color={colors.onSignature} size={size.iconSmall} strokeWidth={size.lineBold} fill={colors.onSignature} />
+      <Txt role="caption" color="onSignature" style={styles.pillText}>
         {s.badges.availableNow}
       </Txt>
     </View>
@@ -143,8 +144,8 @@ export function FeaturedTag() {
 
 /**
  * Sponsored means the provider paid to appear first, and the label says so.
- * An ink pill with lavender text, made to sit on the lavender sponsored card;
- * on a profile it is the same pill on the page.
+ * A tangerine pill (the signature colour) with dark words; it reads on the
+ * lavender sponsored card and on the page alike.
  */
 export function SponsoredTag({ decorative = false }: { decorative?: boolean }) {
   const { s } = useI18n();
@@ -155,7 +156,7 @@ export function SponsoredTag({ decorative = false }: { decorative?: boolean }) {
       accessible={!decorative}
       accessibilityLabel={decorative ? undefined : s.results.sponsoredLabel}
     >
-      <Txt role="caption" color="accent" style={styles.pillText}>
+      <Txt role="caption" color="onSignature" style={styles.pillText}>
         {s.results.sponsored}
       </Txt>
     </View>
@@ -164,8 +165,8 @@ export function SponsoredTag({ decorative = false }: { decorative?: boolean }) {
 
 /**
  * A provider's running offer, on a result card: an ink pill with a tag icon and
- * the offer's title. Ink, so it is not mistaken for the mint Verified mark or
- * the lavender paid labels.
+ * the offer's title. Purple, so it is not mistaken for the mint Verified mark or
+ * the tangerine Sponsored and Available now pills beside it.
  */
 export function OfferTag({ title }: { title: string }) {
   const { colors } = useTheme();
@@ -212,9 +213,12 @@ const useStyles = makeStyles((c) => ({
     backgroundColor: c.accent,
     paddingHorizontal: space.md,
   },
-  // Always ink with lavender text, in the dark theme too (it sits on lavender).
+  // The signature fills: Sponsored and Available now. Dark words on tangerine (6.8:1).
+  signature: {
+    backgroundColor: c.signature,
+  },
   sponsored: {
-    backgroundColor: c.onAccent,
+    backgroundColor: c.signature,
     paddingHorizontal: space.md,
   },
   offer: {
