@@ -23,9 +23,9 @@ interface Props {
 
 /**
  * One of the assistant's top three: a white block made for people who rarely use a
- * phone. Bigger words than a result card, the facts spelled out in a grey strip, and
- * the two ways to reach the person as full-width 56 dp buttons: WhatsApp first, then Call.
- * The photo and name open the profile.
+ * phone. Compact, so two whole cards fit on the first screen under the question:
+ * photo, name and trust marks, the facts in a slim grey strip, then WhatsApp and Call
+ * side by side as 56 dp buttons (WhatsApp first). The photo and name open the profile.
  */
 export function AssistCard({ provider, onOpen, onWhatsApp, onCall, busy = null }: Props) {
   const { colors } = useTheme();
@@ -61,10 +61,10 @@ export function AssistCard({ provider, onOpen, onWhatsApp, onCall, busy = null }
       >
         <Photo uri={provider.cover_photo_url} fallbackIcon={provider.category.icon} style={styles.thumb} />
         <View style={styles.main}>
-          <Txt role="headline" numberOfLines={2} content>
+          <Txt role="title" numberOfLines={2} content>
             {provider.name}
           </Txt>
-          <Txt role="bodyLarge" color="textMuted" numberOfLines={2}>
+          <Txt role="body" color="textMuted" numberOfLines={1}>
             {place}
           </Txt>
           <View style={[styles.badges, { flexDirection: row }]}>
@@ -115,26 +115,32 @@ export function AssistCard({ provider, onOpen, onWhatsApp, onCall, busy = null }
         </View>
       </View>
 
-      <View style={styles.actions}>
+      {/* Side by side to save height; each is still a 56 dp target. While the number
+          is fetched the tapped one shows a spinner (its screen-reader label says why). */}
+      <View style={[styles.actions, { flexDirection: row }]}>
         <Button
-          label={busy === 'whatsapp' ? s.assist.contactLoading : s.assist.whatsapp}
-          accessibilityLabel={f(s.provider.whatsappLabel, { name: provider.name })}
+          label={s.assist.whatsapp}
+          accessibilityLabel={
+            busy === 'whatsapp' ? s.assist.contactLoading : f(s.provider.whatsappLabel, { name: provider.name })
+          }
           icon={MessageCircle}
           variant="whatsapp"
           large
           loading={busy === 'whatsapp'}
           disabled={busy !== null}
           onPress={onWhatsApp}
+          style={styles.action}
         />
         <Button
-          label={busy === 'call' ? s.assist.contactLoading : s.assist.call}
-          accessibilityLabel={f(s.provider.callLabel, { name: provider.name })}
+          label={s.assist.call}
+          accessibilityLabel={busy === 'call' ? s.assist.contactLoading : f(s.provider.callLabel, { name: provider.name })}
           icon={Phone}
           variant="tonal"
           large
           loading={busy === 'call'}
           disabled={busy !== null}
           onPress={onCall}
+          style={styles.action}
         />
       </View>
     </View>
@@ -146,7 +152,7 @@ const useStyles = makeStyles((c) => ({
     backgroundColor: c.surface,
     borderRadius: radius.lg,
     padding: space.md,
-    gap: space.md,
+    gap: space.sm,
   },
   top: {
     gap: space.md,
@@ -171,18 +177,18 @@ const useStyles = makeStyles((c) => ({
     alignItems: 'center',
     columnGap: space.md,
     rowGap: space.xs,
-    marginTop: space.xs,
+    marginTop: space.xxs,
   },
   // A grey strip inside the white block (the result card's white strip, turned around).
   facts: {
     flexWrap: 'wrap',
     alignItems: 'center',
-    columnGap: space.xl,
-    rowGap: space.sm,
+    columnGap: space.lg,
+    rowGap: space.xs,
     backgroundColor: c.surfaceTint,
     borderRadius: radius.md,
-    paddingHorizontal: space.lg,
-    paddingVertical: space.md,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
   },
   fact: {
     alignItems: 'center',
@@ -193,5 +199,8 @@ const useStyles = makeStyles((c) => ({
   },
   actions: {
     gap: space.sm,
+  },
+  action: {
+    flex: 1,
   },
 }));

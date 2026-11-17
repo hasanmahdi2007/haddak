@@ -4,7 +4,9 @@ import {
   ArrowLeft,
   ArrowRight,
   Info,
+  List,
   Mic,
+  Pencil,
   Phone,
   Send,
   Siren,
@@ -64,6 +66,10 @@ export default function AssistScreen() {
   const [initial] = useState(() => (params.text ?? '').slice(0, TEXT_MAX).trim());
   const autoAsk = initial.length >= TEXT_MIN;
   const [text, setText] = useState(initial);
+  // The question last sent, shown in the compact bar once there is an answer.
+  const [asked, setAsked] = useState(initial);
+  // After an answer the big field folds into one line; Edit opens it again.
+  const [editing, setEditing] = useState(false);
   const { phase, details, run, ask, retry, fetchDetail } = useAssist(autoAsk);
   const [busy, setBusy] = useState<{ id: string; type: 'whatsapp' | 'call' } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -76,6 +82,7 @@ export default function AssistScreen() {
     Speech.stop();
     setSpeaking(false);
     setNotice(null);
+    setEditing(false);
     Keyboard.dismiss();
     ask(next);
   }
@@ -84,6 +91,7 @@ export default function AssistScreen() {
     const trimmed = words.trim();
     if (trimmed.length < TEXT_MIN) return;
     setText(words);
+    setAsked(trimmed);
     start({ kind: 'text', text: trimmed });
   };
 
@@ -101,6 +109,16 @@ export default function AssistScreen() {
     Keyboard.dismiss();
     setText('');
     void voice.start();
+  }
+
+  // Once something is asked, the question is a one-line bar, unless the person is
+  // changing it (Edit) or speaking (the heard words fill the big field).
+  const compact = phase.status !== 'idle' && !editing && !voice.listening;
+
+  function edit() {
+    // A failed microphone round may have emptied the field: start from the last question.
+    if (text.trim().length === 0) setText(asked);
+    setEditing(true);
   }
 
   const listenStarted = useRef(false);
@@ -241,13 +259,60 @@ export default function AssistScreen() {
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const canSend = text.trim().length >= TEXT_MIN;
   const comma = language === 'ar' ? '، ' : ', ';
-  /** A short note in plain words: the place was not found, or we looked further. */
+  /** A note in plain words: a microphone problem. */
   const note = (words: string) => (
     <View style={[styles.note, { flexDirection: row }]}>
       <Info color={colors.textMuted} size={size.icon} strokeWidth={size.stroke} />
       <Txt role="bodyLarge" style={styles.noteText}>
         {words}
       </Txt>
+    </View>
+  );
+
+  /** One short muted line under the summary: the place was not found, or we looked further. */
+  const quietNote = (words: string) => (
+    <View key={words} style={[styles.quietNote, { flexDirection: row }]}>
+      <Info color={colors.textMuted} size={size.iconSmall} strokeWidth={size.stroke} style={styles.quietIcon} />
+      <Txt role="body" color="textMuted" style={styles.noteText}>
+        {words}
+      </Txt>
+    </View>
+  );
+
+  /**
+   * The summary ("Plumber · near you · 1 km") as one compact lavender row that opens the
+   * full list, with Read aloud as a small white disc at its end when there is something to read.
+   */
+  const summaryRow = (u: Understood, summary: string, spoken: string[] | null) => (
+    <View style={[styles.summary, { flexDirection: row }]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={f(s.assist.summaryLabel, { summary })}
+        onPress={() => openResults(u)}
+        android_ripple={{ color: colors.accentSoft }}
+        style={({ pressed }) => [styles.summaryTap, { flexDirection: row }, pressed ? styles.summaryPressed : null]}
+      >
+        <Txt role="title" color="onAccent" numberOfLines={2} style={styles.noteText}>
+          {summary}
+        </Txt>
+        <ForwardIcon color={colors.onAccent} size={size.icon} strokeWidth={size.lineBold} />
+      </Pressable>
+      {spoken ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={speaking ? s.assist.stopReading : s.assist.readAloud}
+          accessibilityState={{ selected: speaking }}
+          onPress={() => readAloud(spoken)}
+          android_ripple={{ color: colors.surfaceTintStrong, borderless: true }}
+          style={({ pressed }) => [styles.readButton, pressed ? styles.readButtonPressed : null]}
+        >
+          {speaking ? (
+            <Square color={colors.onPrimarySoft} size={size.icon} strokeWidth={size.lineBold} />
+          ) : (
+            <Volume2 color={colors.onPrimarySoft} size={size.icon} strokeWidth={size.lineBold} />
+          )}
+        </Pressable>
+      ) : null}
     </View>
   );
 
@@ -345,36 +410,19 @@ export default function AssistScreen() {
     const summary = response.summary ?? '';
     const top = items.slice(0, TOP);
 
-    const summaryBlock = (
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={f(s.assist.summaryLabel, { summary })}
-        onPress={() => openResults(u)}
-        android_ripple={{ color: colors.accentSoft }}
-        style={({ pressed }) => [styles.summary, { flexDirection: row }, pressed ? styles.summaryPressed : null]}
-      >
-        <View style={styles.summaryText}>
-          <Txt role="title" color="onAccent">
-            {summary}
-          </Txt>
-          <Txt role="body" color="onAccent">
-            {s.assist.summaryHint}
-          </Txt>
-        </View>
-        <View style={styles.summaryGo}>
-          <ForwardIcon color={colors.onPrimary} size={size.icon} strokeWidth={size.lineBold} />
-        </View>
-      </Pressable>
+    /** The summary with its notes tight under it, as one group. */
+    const head = (spoken: string[] | null) => (
+      <View style={styles.head}>
+        {summaryRow(u, summary, spoken)}
+        {notes.map(quietNote)}
+      </View>
     );
 
     if (items.length === 0) {
       const wider = widerRadius(radiusM);
       return (
         <View style={styles.stack}>
-          {notes.map((line) => (
-            <View key={line}>{note(line)}</View>
-          ))}
-          {summaryBlock}
+          {head(null)}
           <View style={styles.block}>
             <Txt role="headline" accessibilityRole="header">
               {s.assist.emptyTitle}
@@ -413,20 +461,10 @@ export default function AssistScreen() {
 
     return (
       <View style={styles.stack}>
-        {notes.map((line) => (
-          <View key={line}>{note(line)}</View>
-        ))}
-        {summaryBlock}
-        <Button
-          label={speaking ? s.assist.stopReading : s.assist.readAloud}
-          icon={speaking ? Square : Volume2}
-          variant="white"
-          large
-          onPress={() => readAloud(spoken)}
-        />
+        {head(spoken)}
         {notice ? (
           <View style={styles.notice} accessibilityRole="alert">
-            <Txt role="bodyLarge" color="onDangerSoft">
+            <Txt role="body" color="onDangerSoft">
               {notice}
             </Txt>
           </View>
@@ -442,7 +480,13 @@ export default function AssistScreen() {
           />
         ))}
         {total > TOP ? (
-          <Button label={plural(s.assist.seeAll, total)} variant="white" large onPress={() => openResults(u)} />
+          <Button
+            label={plural(s.assist.seeAll, total)}
+            icon={List}
+            variant="white"
+            large
+            onPress={() => openResults(u)}
+          />
         ) : null}
       </View>
     );
@@ -462,81 +506,118 @@ export default function AssistScreen() {
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + space.huge }]}
       >
         <View style={[styles.column, styles.page]}>
-          {/* The question: a big white field, then Speak and Send. */}
-          <View style={[styles.field, voice.listening ? styles.fieldListening : null]}>
-            {voice.listening ? (
-              // While listening: a clear sign at the top of the field; the words fill in under it.
-              <View style={[styles.listeningHead, { flexDirection: row }]} accessibilityLiveRegion="polite" accessible>
-                <View style={styles.listeningDisc}>
-                  <Mic color={colors.onAccent} size={size.iconLarge} strokeWidth={size.lineBold} />
-                </View>
-                <View style={styles.noteText}>
-                  <Txt role="headline">{s.assist.listening}</Txt>
-                  <Txt role="bodyLarge" color="textMuted">
-                    {s.assist.listeningBody}
-                  </Txt>
-                </View>
-              </View>
-            ) : null}
-            <View style={[styles.fieldTop, { flexDirection: row }]}>
-              <TextInput
-                value={text}
-                onChangeText={setText}
-                editable={!voice.listening}
-                multiline
-                autoFocus={!autoAsk && !autoListen}
-                maxLength={TEXT_MAX}
-                placeholder={s.assist.placeholder}
-                placeholderTextColor={colors.textSubtle}
-                accessibilityLabel={s.assist.inputLabel}
-                accessibilityHint={s.assist.hint}
-                // The keyboard's Enter key sends, the way people expect in a chat.
-                returnKeyType="send"
-                enterKeyHint="send"
-                submitBehavior="blurAndSubmit"
-                onSubmitEditing={() => send()}
-                selectionColor={colors.accentStrong}
-                textAlignVertical="top"
-                // Tall while nothing is asked yet; once there is an answer it shrinks, so the answer starts higher.
-                style={[
-                  styles.input,
-                  phase.status === 'idle' ? styles.inputTall : null,
-                  NO_FOCUS_RING,
-                  { textAlign, writingDirection },
-                ]}
-              />
-              {text.length > 0 && !voice.listening ? (
-                <IconButton icon={X} label={s.assist.clear} onPress={() => setText('')} color={colors.textMuted} />
-              ) : null}
-            </View>
-          </View>
-          {voice.listening ? (
-            <Button label={s.assist.stopListening} icon={Square} large onPress={voice.stop} />
-          ) : (
-            <View style={[styles.actions, { flexDirection: row }]}>
-              {/* Only in a build with the speech module: Expo Go and the web never show it. */}
+          {compact ? (
+            // After an answer: the question as one white line, with the microphone and Edit.
+            <View style={[styles.askedBar, { flexDirection: row }]}>
+              {/* Tapping the words also opens them; screen readers use the Edit button. */}
+              <Pressable
+                onPress={edit}
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={styles.askedTap}
+              >
+                <Txt role="bodyLarge" numberOfLines={1} content>
+                  {asked}
+                </Txt>
+              </Pressable>
               {voice.available ? (
-                <Button
-                  label={s.assist.speak}
-                  accessibilityHint={s.assist.speakHint}
+                <IconButton
                   icon={Mic}
-                  variant="tonal"
-                  large
-                  disabled={phase.status === 'loading'}
+                  label={s.assist.speak}
                   onPress={listen}
-                  style={styles.action}
+                  color={colors.onPrimarySoft}
+                  style={styles.askedMic}
                 />
               ) : null}
               <Button
-                label={s.assist.send}
-                accessibilityHint={canSend ? undefined : s.assist.sendHint}
-                icon={Send}
-                large
-                disabled={!canSend || phase.status === 'loading'}
-                onPress={() => send()}
-                style={styles.action}
+                label={s.assist.edit}
+                accessibilityLabel={f(s.assist.editLabel, { text: asked })}
+                icon={Pencil}
+                variant="tonal"
+                compact
+                onPress={edit}
               />
             </View>
+          ) : (
+            <>
+            {/* The question: a big white field, then Speak and Send. */}
+            <View style={[styles.field, voice.listening ? styles.fieldListening : null]}>
+              {voice.listening ? (
+                // While listening: a clear sign at the top of the field; the words fill in under it.
+                <View style={[styles.listeningHead, { flexDirection: row }]} accessibilityLiveRegion="polite" accessible>
+                  <View style={styles.listeningDisc}>
+                    <Mic color={colors.onAccent} size={size.iconLarge} strokeWidth={size.lineBold} />
+                  </View>
+                  <View style={styles.noteText}>
+                    <Txt role="headline">{s.assist.listening}</Txt>
+                    <Txt role="bodyLarge" color="textMuted">
+                      {s.assist.listeningBody}
+                    </Txt>
+                  </View>
+                </View>
+              ) : null}
+              <View style={[styles.fieldTop, { flexDirection: row }]}>
+                <TextInput
+                  value={text}
+                  onChangeText={setText}
+                  editable={!voice.listening}
+                  multiline
+                  // On arrival with nothing asked, and when Edit opens the field again.
+                  autoFocus={editing || (!autoAsk && !autoListen)}
+                  maxLength={TEXT_MAX}
+                  placeholder={s.assist.placeholder}
+                  placeholderTextColor={colors.textSubtle}
+                  accessibilityLabel={s.assist.inputLabel}
+                  accessibilityHint={s.assist.hint}
+                  // The keyboard's Enter key sends, the way people expect in a chat.
+                  returnKeyType="send"
+                  enterKeyHint="send"
+                  submitBehavior="blurAndSubmit"
+                  onSubmitEditing={() => send()}
+                  selectionColor={colors.accentStrong}
+                  textAlignVertical="top"
+                  // Tall while nothing is asked yet; once there is an answer it shrinks, so the answer starts higher.
+                  style={[
+                    styles.input,
+                    phase.status === 'idle' ? styles.inputTall : null,
+                    NO_FOCUS_RING,
+                    { textAlign, writingDirection },
+                  ]}
+                />
+                {text.length > 0 && !voice.listening ? (
+                  <IconButton icon={X} label={s.assist.clear} onPress={() => setText('')} color={colors.textMuted} />
+                ) : null}
+              </View>
+            </View>
+            {voice.listening ? (
+              <Button label={s.assist.stopListening} icon={Square} large onPress={voice.stop} />
+            ) : (
+              <View style={[styles.actions, { flexDirection: row }]}>
+                {/* Only in a build with the speech module: Expo Go and the web never show it. */}
+                {voice.available ? (
+                  <Button
+                    label={s.assist.speak}
+                    accessibilityHint={s.assist.speakHint}
+                    icon={Mic}
+                    variant="tonal"
+                    large
+                    disabled={phase.status === 'loading'}
+                    onPress={listen}
+                    style={styles.action}
+                  />
+                ) : null}
+                <Button
+                  label={s.assist.send}
+                  accessibilityHint={canSend ? undefined : s.assist.sendHint}
+                  icon={Send}
+                  large
+                  disabled={!canSend || phase.status === 'loading'}
+                  onPress={() => send()}
+                  style={styles.action}
+                />
+              </View>
+            )}
+            </>
           )}
           {voice.problem ? (
             <View style={styles.stack} accessibilityLiveRegion="polite">
@@ -626,7 +707,7 @@ const useStyles = makeStyles((c) => ({
     paddingTop: space.sm,
   },
   page: {
-    gap: space.lg,
+    gap: space.md,
   },
   stack: {
     gap: space.md,
@@ -699,32 +780,72 @@ const useStyles = makeStyles((c) => ({
     flex: 1,
     minWidth: 0,
   },
-  // The summary: a lavender block, the whole of it a button to the full list.
+  // The question after an answer: one white pill line, with the microphone and Edit at its end.
+  askedBar: {
+    alignItems: 'center',
+    gap: space.xs,
+    minHeight: size.buttonLarge,
+    backgroundColor: c.surface,
+    borderRadius: radius.pill,
+    paddingStart: space.lg,
+    paddingEnd: space.xs,
+    paddingVertical: space.xxs,
+  },
+  askedTap: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: size.touch,
+    justifyContent: 'center',
+  },
+  askedMic: {
+    backgroundColor: c.surfaceTint,
+  },
+  // The summary and its notes, kept tight together.
+  head: {
+    gap: space.sm,
+  },
+  // The summary: one lavender row that opens the full list, Read aloud at its end.
   summary: {
     alignItems: 'center',
-    gap: space.md,
+    gap: space.xs,
+    minHeight: size.buttonLarge,
     backgroundColor: c.accent,
     borderRadius: radius.lg,
-    paddingVertical: space.lg,
-    paddingStart: space.xl,
-    paddingEnd: space.lg,
+    paddingStart: space.lg,
+    paddingEnd: space.xs,
+    paddingVertical: space.xs,
     overflow: 'hidden',
+  },
+  summaryTap: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: size.touch,
+    alignItems: 'center',
+    gap: space.sm,
+    borderRadius: radius.md,
   },
   summaryPressed: {
     opacity: opacity.pressed,
   },
-  summaryText: {
-    flex: 1,
-    minWidth: 0,
-    gap: space.xxs,
-  },
-  summaryGo: {
+  readButton: {
     width: size.touch,
     height: size.touch,
     borderRadius: radius.pill,
-    backgroundColor: c.primary,
+    backgroundColor: c.surface,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  readButtonPressed: {
+    backgroundColor: c.surfaceTintStrong,
+  },
+  quietNote: {
+    alignItems: 'flex-start',
+    gap: space.xs + space.xxs,
+    paddingHorizontal: space.sm,
+  },
+  // Lines the small icon up with the first line of 24 dp text.
+  quietIcon: {
+    marginTop: space.xs,
   },
   emergency: {
     backgroundColor: c.dangerSoft,
