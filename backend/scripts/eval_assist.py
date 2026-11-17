@@ -3,6 +3,7 @@
     python scripts/eval_assist.py            # runs every phrase against the REAL model
     python scripts/eval_assist.py --limit 10 # only the first 10
     python scripts/eval_assist.py --model claude-sonnet-5-5
+    python scripts/eval_assist.py --route    # model routing by script, as in production
     python scripts/eval_assist.py --check    # only checks the phrases file (free, no API)
 
 THIS SPENDS REAL MONEY (well under $1 a run with Haiku 5.5). It refuses to
@@ -42,7 +43,12 @@ from seed import CATEGORIES  # noqa: E402  (the same categories as the dev datab
 
 from app.config import settings  # noqa: E402
 from app.models import Category  # noqa: E402
-from app.services.assist.ai_client import AIUnavailable, Usage, ask_model  # noqa: E402
+from app.services.assist.ai_client import (  # noqa: E402
+    AIUnavailable,
+    Usage,
+    ask_model,
+    choose_model,
+)
 from app.services.assist.budget import cost_usd  # noqa: E402
 from app.services.assist.normalize import normalize_text  # noqa: E402
 from app.services.assist.prompt import build_system_prompt  # noqa: E402
@@ -137,6 +143,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--limit", type=int, help="only the first N phrases")
     parser.add_argument("--model", help="override ASSIST_MODEL for this run")
+    parser.add_argument(
+        "--route",
+        action="store_true",
+        help="route by script like production (ASSIST_MODEL_ARABIZI for Arabizi)",
+    )
     parser.add_argument("--check", action="store_true", help="check the file only, no API")
     args = parser.parse_args()
 
@@ -155,6 +166,8 @@ def main() -> None:
         sys.exit(1)
     if args.model:
         settings.assist_model = args.model
+    if not args.route:
+        settings.assist_model_arabizi = ""  # one model for everything
 
     system_prompt = build_system_prompt(categories)
     right = defaultdict(int)
@@ -162,11 +175,17 @@ def main() -> None:
     misses = []
     usage_sum = Usage()
     cost = Decimal(0)
+    # Per style ("arabizi", "ar", "en", "fr", "mixed"): phrases, kind+category right.
+    style_total = defaultdict(int)
+    style_right = defaultdict(int)
+    model_count = defaultdict(int)
 
     for phrase in phrases:
         expect = phrase["expect"]
+        model = choose_model(phrase["text"])
+        model_count[model] += 1
         try:
-            reply = ask_model(system_prompt, phrase["text"])
+            reply = ask_model(system_prompt, phrase["text"], model)
             result = clean_ai_result(reply.result, known_slugs)
             usage = reply.usage
         except AIUnavailable as error:
@@ -176,13 +195,15 @@ def main() -> None:
         usage_sum.output_tokens += usage.output_tokens
         usage_sum.cache_read_tokens += usage.cache_read_tokens
         usage_sum.cache_write_tokens += usage.cache_write_tokens
-        cost += cost_usd(settings.assist_model, usage)
+        cost += cost_usd(model, usage)
 
         kind_ok = result is not None and (
             result.kind == expect["kind"] or result.kind in expect.get("also_ok_kinds", [])
         )
+        style_total[phrase["style"]] += 1
         total["kind"] += 1
         right["kind"] += kind_ok
+        phrase_ok = kind_ok
         if result is not None and not kind_ok:
             misses.append(f"#{phrase['id']} {phrase['text']!r}: kind {result.kind}")
 
@@ -196,13 +217,19 @@ def main() -> None:
             actual = getattr(result, name) if result is not None else None
             ok = kind_ok and field_is_right(name, expect[name], actual, expect)
             right[name] += ok
+            if name == "category_slugs":
+                phrase_ok = phrase_ok and ok
             if kind_ok and not ok:
                 misses.append(
                     f"#{phrase['id']} {phrase['text']!r}: {name} = {actual!r}, "
                     f"expected {expect[name]!r}"
                 )
+        style_right[phrase["style"]] += bool(phrase_ok)
 
-    print(f"\nModel: {settings.assist_model}, {len(phrases)} phrases\n")
+    models = settings.assist_model + (
+        f" + {settings.assist_model_arabizi} for Arabizi" if args.route else ""
+    )
+    print(f"\nModel: {models}, {len(phrases)} phrases\n")
     print(f"{'field':<16}{'right':>8}{'of':>6}{'score':>9}")
     for name in ["kind", *SETTING_FIELDS]:
         if total[name]:
@@ -215,6 +242,17 @@ def main() -> None:
         f"{usage_sum.cache_read_tokens} cache read, {usage_sum.cache_write_tokens} cache write"
     )
     print(f"Cost: ${cost:.4f}")
+
+    print("\nBy style (kind and categories both right):")
+    for style in sorted(style_total):
+        print(
+            f"  {style:<8}{style_right[style]:>4} of {style_total[style]:<4}"
+            f"{style_right[style] / style_total[style]:>6.0%}"
+        )
+    print("\nPhrases per model:")
+    for model, count in model_count.items():
+        print(f"  {model:<20}{count:>4}  {count / len(phrases):>5.0%}")
+    print(f"\nEstimated cost per 1,000 searches: ${cost / len(phrases) * 1000:.2f}")
 
 
 if __name__ == "__main__":

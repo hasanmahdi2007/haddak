@@ -17,6 +17,7 @@ import anthropic
 from pydantic import BaseModel
 
 from app.config import settings
+from app.services.assist.normalize import detect_script
 
 logger = logging.getLogger("haddak.assist")
 
@@ -159,14 +160,22 @@ def usage_from(response) -> Usage:
     )
 
 
-def ask_model(system_prompt: str, user_text: str) -> AIReply:
+def choose_model(text: str) -> str:
+    """Model routing by script: Arabizi goes to ASSIST_MODEL_ARABIZI when it
+    is set, everything else (and Arabizi when it is empty) to ASSIST_MODEL."""
+    if settings.assist_model_arabizi.strip() and detect_script(text) == "arabizi":
+        return settings.assist_model_arabizi.strip()
+    return settings.assist_model
+
+
+def ask_model(system_prompt: str, user_text: str, model: str | None = None) -> AIReply:
     """Send one sentence; return the parsed answer or raise AIUnavailable.
 
     The system prompt carries a cache marker: it is the same on every request
     (rules + category list, no timestamps), so after the first request the
     API reads it from its prompt cache at a tenth of the price.
     """
-    model = settings.assist_model
+    model = model or settings.assist_model
     request = {
         "model": model,
         "max_tokens": MAX_TOKENS,

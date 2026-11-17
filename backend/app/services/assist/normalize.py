@@ -115,3 +115,53 @@ def skeleton(word: str) -> str:
     if not canonical.isascii() or NUMBER_WORD.match(canonical):
         return ""
     return "".join(ch for ch in canonical if ch not in SKELETON_DROP)
+
+
+# ---------------------------------------------------------------------------
+# Which script is the sentence in? (used to choose the AI model)
+# ---------------------------------------------------------------------------
+
+# A digit used as an Arabic letter, touching Latin letters: "7ada", "ma3ajim".
+DIGIT_IN_WORD = re.compile(r"[a-z][235679]|[235679][a-z]|[a-z]8[a-z]|^8[a-z]|[a-z]8$")
+# Numbers with a unit are not Arabizi: "20k", "15usd", "2nd", "5km".
+NUMBER_WITH_UNIT = re.compile(r"^\d+(k|usd|lbp|eur|m|km|h|hr|hrs|min|st|nd|rd|th|d|pm)$")
+# Lebanese Arabizi words with no digits. A few also exist in French or
+# Spanish ("ma", "el"), so one such word alone is not enough (see below).
+ARABIZI_TOKENS = {
+    "baddi", "badde", "bade", "bde", "badna", "baddak", "baddek", "shu", "shou", "sho",
+    "kif", "kifak", "fi", "ma", "hayda", "hayde", "ktir", "kteer", "hala2", "halla2",
+    "halla", "hallaq", "el", "w", "bel", "lal", "hon", "hek", "shi", "mish", "aktar",
+    "wen", "wein", "mni7", "mnih", "kaman", "ya3ni", "yaani", "inshallah", "habibi",
+}  # fmt: skip
+# Without a digit, at least this many such words are needed.
+MIN_ARABIZI_TOKENS = 2
+
+
+def detect_script(text: str) -> str:
+    """ "arabic", "arabizi" or "latin" (English, French, anything else).
+
+    - arabic: most of the letters are Arabic letters;
+    - arabizi: Latin letters with a digit used as a letter inside a word
+      ("7ada", "3am", "2arib"), or at least 2 common Lebanese Arabizi words
+      ("baddi", "shu", "kif"...), so plain English is not caught;
+    - latin: everything else.
+    A sentence of Arabic words and Arabizi words follows its larger part.
+    """
+    arabic_letters = sum(1 for ch in text if "؀" <= ch <= "ۿ" and ch.isalpha())
+    latin_letters = sum(1 for ch in text if ch.isascii() and ch.isalpha())
+    if arabic_letters > latin_letters:
+        return "arabic"
+
+    # Plain spelling only: "baddé" -> "badde", punctuation -> space.
+    words = normalize_text(text).split()
+    marked = 0
+    for word in words:
+        if not word.isascii() or NUMBER_WITH_UNIT.match(word):
+            continue
+        if DIGIT_IN_WORD.search(word):
+            return "arabizi"
+        if word in ARABIZI_TOKENS:
+            marked += 1
+    if marked >= MIN_ARABIZI_TOKENS:
+        return "arabizi"
+    return "latin"

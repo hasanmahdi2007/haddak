@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     # The cheapest model on purpose (the founder's choice). Switch to
     # "claude-sonnet-5-5" only if the phrase test shows Haiku misses too much.
     assist_model: str = "claude-haiku-5-5"
+    # Model for Arabizi sentences (Lebanese Arabic in Latin letters), which
+    # Haiku misreads more often. Empty = no routing, ASSIST_MODEL for all.
+    assist_model_arabizi: str = "claude-sonnet-5-5"
     # AI requests per IP per day. Requests answered without the AI do not count.
     assist_daily_limit: int = 30
     # Spending cap per calendar month (UTC), in US dollars.

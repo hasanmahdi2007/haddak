@@ -36,7 +36,14 @@ from app.schemas import (
     UnderstoodIn,
 )
 from app.services import provider_views
-from app.services.assist.ai_client import AIOption, AIResult, AIUnavailable, Usage, ask_model
+from app.services.assist.ai_client import (
+    AIOption,
+    AIResult,
+    AIUnavailable,
+    Usage,
+    ask_model,
+    choose_model,
+)
 from app.services.assist.budget import budget_reached, cost_usd, daily_limit_reached
 from app.services.assist.cache import get_cached, save_cached
 from app.services.assist.keywords import understand as understand_keywords
@@ -497,9 +504,11 @@ def assist_from_text(db: Session, body: AssistIn, client_ip: str) -> AssistOut:
         return answer_without_ai(db, body, categories, hashed, normalized)
 
     # 4. Ask the AI.
-    model = settings.assist_model
+    # The model depends on the script (Arabizi may get a stronger one). The
+    # cache key above does not: the same sentence gives the same answer.
+    model = choose_model(text)
     try:
-        reply = ask_model(build_system_prompt(categories), text)
+        reply = ask_model(build_system_prompt(categories), text, model)
     except AIUnavailable as error:
         # The reason never contains the key or the user's text.
         logger.warning("assistant AI request failed: %s", error)

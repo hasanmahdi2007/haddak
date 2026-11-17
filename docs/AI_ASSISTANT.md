@@ -41,7 +41,7 @@ The AI never sees the user's location, name, email or any provider data. It sees
 | Remembered answers: same normalised sentence → stored settings | on | `assist_cache` table |
 | Requests per IP per day | 30 | `ASSIST_DAILY_LIMIT` |
 | Spending cap per calendar month | $10 | `ASSIST_MONTHLY_BUDGET_USD` |
-| Model | `claude-haiku-5-5` (cheapest; the founder asked for low cost). Switch to `claude-sonnet-5-5` only if the phrase test shows Haiku misses too much. | `ASSIST_MODEL` |
+| Model | `claude-haiku-5-5` for English, French and Arabic script (cheapest). Arabizi goes to `claude-sonnet-5-5` (model routing, below). | `ASSIST_MODEL`, `ASSIST_MODEL_ARABIZI` (empty = no routing) |
 | No key, cap reached, daily allowance used, or AI error | free keyword fallback (below); `unavailable` only when it finds no category, then the app falls back to normal search | backend |
 
 Every AI request is logged with its token counts and cost (`assist_log`), with no user id.
@@ -95,7 +95,21 @@ Code: `backend/app/services/assist/` (`normalize.py`, `prompt.py`, `ai_client.py
 
 ### Running the phrase test
 
-`backend/evals/assist_phrases.jsonl` has 102 phrases (Lebanese Arabic, Arabizi, English, French, mixed) using only seed category slugs. `python scripts/eval_assist.py --check` checks the file for free. `python scripts/eval_assist.py` (optionally `--limit N`, `--model claude-sonnet-5-5`) calls the real model, prints the score per field, the misses, total tokens and cost. It refuses to run without `ANTHROPIC_API_KEY`. Not run yet.
+`backend/evals/assist_phrases.jsonl` has 102 phrases (Lebanese Arabic, Arabizi, English, French, mixed) using only seed category slugs. `python scripts/eval_assist.py --check` checks the file for free. `python scripts/eval_assist.py` (optionally `--limit N`, `--model claude-sonnet-5-5`) calls the real model, prints the score per field, the misses, total tokens and cost. It refuses to run without `ANTHROPIC_API_KEY`. Add `--route` to route by script like production.
+
+### Model routing by script (2026-11-17)
+
+Haiku misreads Arabizi (Lebanese Arabic in Latin letters) more often, Sonnet costs 20x more per token. So plain code picks the model per sentence, no extra library: `detect_script(text)` in `normalize.py` returns `arabic` (mostly Arabic letters), `arabizi` (a digit used as a letter inside a word such as `7ada`, `3am`, `2arib`; or at least 2 common Lebanese Arabizi words such as `baddi`, `shu`, `kif`, `ktir`; "20k" or "15usd" do not count) or `latin` (English, French). `choose_model()` in `ai_client.py` sends `arabizi` to `ASSIST_MODEL_ARABIZI` when it is set and everything else to `ASSIST_MODEL`. The keyword path still runs first and is unchanged. The chosen model is written to `assist_log.model` and costed with its own prices (Sonnet 5.5: $2 in, $10 out, $0.10 cache read per million tokens). The cache key is the normalised sentence only, not the model.
+
+Phrase test, 213 phrases (`eval_assist.py`):
+
+| Run | Categories right | Cost per 213 phrases |
+|---|---|---|
+| Haiku only | 85% | $0.027 |
+| Sonnet only | 97% | $0.457 |
+| Routed (`--route`) | 94% (kind 98%) | $0.262, about $1.23 per 1,000 AI searches |
+
+Routed, kind and categories both right, per style: Arabic 27/27, Arabizi 97/104 (93%), English 37/39 (95%), French 13/13, mixed 28/30 (93%). 112 of 213 phrases (53%) went to Sonnet; the test set is Arabizi-heavy (104 of 213 phrases plus mixed ones), real traffic should send less. Cache hits and exact matches cost nothing, so real cost per 1,000 searches is lower.
 
 ## Later (not version 1)
 

@@ -103,6 +103,8 @@ def fake_ai(monkeypatch) -> FakeMessages:
     fake = FakeClient()
     monkeypatch.setattr(settings, "anthropic_api_key", "test-key-not-real")
     monkeypatch.setattr(settings, "assist_model", "claude-haiku-5-5")
+    # No routing unless a test turns it on.
+    monkeypatch.setattr(settings, "assist_model_arabizi", "")
     monkeypatch.setattr("app.services.assist.ai_client.get_client", lambda: fake)
     return fake.messages
 
@@ -224,6 +226,35 @@ def test_models_that_refuse_disabled_thinking_get_only_low_effort(client, db, fa
 
     assert "thinking" not in fake_ai.calls[0]
     assert fake_ai.calls[0]["output_config"] == {"effort": "low"}
+
+
+def test_arabizi_goes_to_the_arabizi_model_and_is_logged(client, db, fake_ai, monkeypatch):
+    monkeypatch.setattr(settings, "assist_model_arabizi", "claude-sonnet-5-5")
+    make_category(db, "plumber")
+
+    ask(client, "baddé sankari 2arib")
+    ask(client, "I need a plumber near me")
+
+    assert [call["model"] for call in fake_ai.calls] == ["claude-sonnet-5-5", "claude-haiku-5-5"]
+    assert [log.model for log in logs(db)] == ["claude-sonnet-5-5", "claude-haiku-5-5"]
+    # Sonnet costs more than Haiku for the same tokens.
+    first, second = logs(db)
+    assert first.cost_usd > second.cost_usd
+
+
+def test_empty_arabizi_model_means_no_routing(client, db, fake_ai):
+    make_category(db, "plumber")
+    ask(client, "baddé sankari 2arib")
+    assert fake_ai.calls[0]["model"] == "claude-haiku-5-5"
+
+
+def test_cache_key_does_not_depend_on_the_model(client, db, fake_ai, monkeypatch):
+    monkeypatch.setattr(settings, "assist_model_arabizi", "claude-sonnet-5-5")
+    make_category(db, "plumber")
+    ask(client, "baddé sankari 2arib")
+    monkeypatch.setattr(settings, "assist_model_arabizi", "")
+    ask(client, "baddé sankari 2arib")
+    assert len(fake_ai.calls) == 1  # the second came from the cache
 
 
 # ---------- checking the AI's answer ----------
