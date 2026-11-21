@@ -1,7 +1,7 @@
 # Runtime dependencies (exact versions so every machine installs the same thing).
-fastapi==0.163.0
+fastapi==0.164.0
 uvicorn[standard]==0.54.0
-SQLAlchemy==2.1.8
+SQLAlchemy==2.1.9
 psycopg[binary]==3.3.9
 GeoAlchemy2==0.21.0
 pydantic==2.14.3
@@ -12,6 +12,6 @@ PyJWT[crypto]==2.15.1
 # do not ship their own.
 tzdata==2026.6
 # Official Claude API SDK, used only by the assistant (POST /assist).
-anthropic==2.8.0
+anthropic==2.10.0
 # Crash reports (app/error_tracking.py); off unless SENTRY_DSN is set.
 sentry-sdk==2.75.0
