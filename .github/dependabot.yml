@@ -1,39 +1,60 @@
-# Dependabot opens a pull request when a dependency has a new version or a
-# security fix. The checks in .github/workflows run on each one, so merging
-# is safe once they pass. Grouped into one pull request per ecosystem per week
-# to keep the noise low for a solo founder.
+# Dependabot opens pull requests for new dependency versions and security
+# fixes. The checks in .github/workflows run on each one, so merging is safe
+# once they are green. To keep the noise low for a solo founder:
+# - one grouped pull request per ecosystem;
+# - no major upgrades (they change how a tool works and need a deliberate
+#   upgrade, not a bot): TypeScript, ESLint, Python itself, Expo's SDK and
+#   React Native move only when we choose to, with `npx expo install --fix`.
+# Security fixes still come through, whatever the version.
 version: 2
 updates:
   - package-ecosystem: pip
     directory: /backend
     schedule:
       interval: weekly
+    open-pull-requests-limit: 2
     groups:
       backend:
         patterns: ["*"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: npm
     directory: /mobile
     schedule:
       interval: weekly
+    open-pull-requests-limit: 2
     groups:
-      # Expo pins its own package versions; let `npx expo install --fix` move
-      # those together with an SDK upgrade instead of one by one.
-      mobile-minor-and-patch:
-        update-types: ["minor", "patch"]
-        exclude-patterns: ["expo*", "react", "react-native", "react-dom"]
+      mobile:
+        patterns: ["*"]
     ignore:
-      - dependency-name: "expo*"
+      - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      # Expo pins these for each SDK; a minor bump on its own can break the build.
+      - dependency-name: "react"
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-minor"]
       - dependency-name: "react-native"
-        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: "expo"
+        update-types: ["version-update:semver-minor"]
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
 
   - package-ecosystem: docker
     directory: /backend
     schedule:
       interval: monthly
+    ignore:
+      # Python 3.12 → 3.13+ is a deliberate upgrade (requirements and tests
+      # first); only patch releases of the base image come automatically.
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
