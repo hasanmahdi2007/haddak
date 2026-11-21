@@ -90,6 +90,11 @@ class Settings(BaseSettings):
     @field_validator("database_url")
     @classmethod
     def use_psycopg3_driver(cls, value: str) -> str:
+        # Forgive the usual copy-paste extras in a hosting dashboard: spaces,
+        # a line break, quotes, or the whole "DATABASE_URL=..." line.
+        value = value.strip().strip("\"'").strip()
+        if value.upper().startswith("DATABASE_URL="):
+            value = value[len("DATABASE_URL=") :].strip().strip("\"'")
         # Hosting providers hand out URLs starting with "postgresql://" or
         # "postgres://". SQLAlchemy would then look for the old psycopg2
         # driver, so we point it at psycopg version 3, which is what we install.
@@ -117,6 +122,12 @@ def production_problems(settings: Settings) -> list[str]:
         return []
 
     problems = []
+    # Checked here, with a message that never repeats the value (it holds a password).
+    if not settings.database_url.startswith("postgresql+psycopg://"):
+        problems.append(
+            "DATABASE_URL is not a database address: it must start with postgresql://"
+            " (paste only the value, without the name, quotes or other text)"
+        )
     if not is_real_secret(settings.admin_api_key):
         problems.append("ADMIN_API_KEY is empty or still a placeholder")
     if settings.supabase_jwks_url.strip() == "":

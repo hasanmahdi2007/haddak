@@ -5,7 +5,13 @@ from collections.abc import Iterator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-from app.config import settings
+from app.config import check_startup_settings, settings
+
+# Here and not only in main.py: the container first runs the migrations, which
+# open the database through this module, so a bad setting (a mangled
+# DATABASE_URL, a missing secret) is reported by name instead of a deep
+# SQLAlchemy traceback.
+check_startup_settings(settings)
 
 engine = create_engine(
     settings.database_url,

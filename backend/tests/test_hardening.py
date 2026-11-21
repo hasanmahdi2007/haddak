@@ -429,3 +429,31 @@ def test_fake_clock_is_installed_for_every_test(clock):
 
     assert isinstance(limiter.clock, FakeClock)
     assert limiter.clock is clock
+
+
+@pytest.mark.parametrize(
+    "pasted",
+    [
+        "  postgresql://u:p@host:5432/db?sslmode=require\n",
+        '"postgresql://u:p@host:5432/db?sslmode=require"',
+        "DATABASE_URL=postgresql://u:p@host:5432/db?sslmode=require",
+    ],
+)
+def test_database_url_forgives_copy_paste_extras(pasted):
+    assert Settings(database_url=pasted).database_url == (
+        "postgresql+psycopg://u:p@host:5432/db?sslmode=require"
+    )
+
+
+def test_a_broken_database_url_is_named_without_repeating_it():
+    problems = production_problems(
+        Settings(
+            environment="production",
+            database_url="haddak_api secretpassword",
+            admin_api_key="real-admin-key",
+            supabase_jwks_url="https://x/jwks.json",
+            assist_quota_secret="real-quota-secret",
+        )
+    )
+    assert any("DATABASE_URL" in problem for problem in problems)
+    assert not any("secretpassword" in problem for problem in problems)
