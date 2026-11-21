@@ -8,7 +8,7 @@ when something goes wrong. Architecture and reasons: `SYSTEM_DESIGN.md` §6.
 
 | Piece | Where | State |
 |---|---|---|
-| Database | Supabase project `ginifqwdlqkbsptiahun`, Postgres 17, region Seoul (`ap-northeast-2`) | **Done (2026-11-21).** Extensions in `extensions`, role `haddak_api`, all migrations applied, OpenStreetMap listings imported, Security Advisor clean. |
+| Database | Supabase project `ginifqwdlqkbsptiahun`, Postgres 17, region Seoul (`ap-northeast-2`) | **Done (2026-11-21).** Extensions in `extensions`, role `haddak_api`, migrations up to 0015, OpenStreetMap listings imported, `supabase/delete_auth_user.sql` and `supabase/storage_setup.sql` applied, Security Advisor clean. |
 | Sign-in, photo storage | The same Supabase project | Working. Emails still come from Supabase's own sender until SMTP is set (step 2). |
 | API | Render, region Singapore, Docker, from `render.yaml` | Ready; needs the founder's Render account (step 1). The image was built and run against the live database on 2026-11-21. |
 | Android app | Expo EAS Build, profiles in `mobile/eas.json` | Ready; needs the founder's Expo account (step 4). |
@@ -32,8 +32,13 @@ without the passphrase.
    - `DATABASE_URL`: copy it from `backend/.env.production`.
    - `ANTHROPIC_API_KEY`: from console.anthropic.com (leave empty to run
      Jarak on the free keyword search only).
+   - `CONTACT_EMAIL`: the Haddak Gmail address from step 2. It is shown on
+     `/privacy`, `/terms` and `/delete-account` (Google Play needs a contact).
+   - `SENTRY_DSN`: optional, see step 5. Leave empty for now if you like.
 4. **Apply.** The first build takes a few minutes. When it is live, open
    `https://haddak-api.onrender.com/api/v1/health`: it must say `{"status":"ok"}`.
+   Then run the full outside check from the `backend` folder:
+   `python scripts/smoke_test.py https://haddak-api.onrender.com` (all `ok`).
 5. If Render gave the service a different address (the name was taken),
    tell Claude: it changes `EXPO_PUBLIC_API_URL` in `mobile/eas.json` and the
    Supabase URLs in step 2.
@@ -88,14 +93,41 @@ For Google Play later: `eas build -p android --profile production` makes the
 `.aab` file the Play Console wants ($25 developer account, then a 14-day
 closed test with at least 12 testers before the public release).
 
+### 5. Hear about problems first, about 10 minutes
+
+1. **Uptime check:** GitHub → repository → Settings → Secrets and variables →
+   Actions → **Variables** tab → New repository variable: name `API_URL`,
+   value `https://haddak-api.onrender.com`. `.github/workflows/uptime.yml` then
+   checks the live API every 30 minutes and GitHub emails you when it fails.
+2. **Crash reports (optional, free):** sign up at sentry.io (Developer plan),
+   create a project of type **FastAPI**, copy its DSN, and paste it into
+   Render → haddak-api → Environment as `SENTRY_DSN`. Render redeploys by itself.
+
+### 6. Google Play, when the test APK works
+
+1. Developer account at play.google.com/console ($25 once; identity check).
+2. Create the app; store listing in Arabic and English.
+3. **Privacy policy URL:** `https://haddak-api.onrender.com/privacy`.
+4. **Data safety form** (what the app collects), matching `/privacy`: email
+   address (account), approximate and precise location (used for search, not
+   stored), user content (reviews, photos), app interactions (follows, hire
+   checks), device id (install id, hashed). Encrypted in transit: yes.
+   Users can request deletion: yes.
+5. **Account deletion URL:** `https://haddak-api.onrender.com/delete-account`.
+6. Content rating questionnaire; target audience 13+.
+7. `eas build -p android --profile production`, upload the `.aab` to a
+   **closed test**, invite at least 12 testers, keep them opted in for 14
+   days, then apply for production.
+
 ## Every deploy after that
 
 Push to `main`. GitHub runs the checks (`.github/workflows/`); if they pass,
 Render builds the image, the container runs `alembic upgrade head`, then
 starts. Watch it under Render → haddak-api → Events / Logs.
 
-**After each deploy:** open `/api/v1/health`, search once in the app, and
-glance at the logs for errors.
+**After each deploy:** run `python scripts/smoke_test.py https://haddak-api.onrender.com`
+(the uptime check runs the same thing every 30 minutes), search once in the
+app, and glance at the logs for errors.
 
 **Migrations must not break the running version.** During a deploy the old
 container serves requests while the new one migrates. So: add columns as
@@ -144,5 +176,5 @@ users pay about 150 ms per request. A project in Frankfurt (`eu-central-1`),
 with Render in Frankfurt, would cut that to about 60 ms. Moving now is cheap:
 there are no real accounts yet. It means a new Supabase project (free), then
 Claude repeats what was done on 2026-11-21 (extensions, `haddak_api` role,
-migrations, import) and updates `SUPABASE_JWKS_URL`, the app's Supabase URL
+migrations, import, `supabase/storage_setup.sql`, `supabase/delete_auth_user.sql`) and updates `SUPABASE_JWKS_URL`, the app's Supabase URL
 and key, `render.yaml`'s region and the storage bucket.

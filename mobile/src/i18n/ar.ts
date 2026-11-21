@@ -373,6 +373,23 @@ export const ar: Strings = {
     myBusinessHint: 'نزّل أخبار وعروض',
     signOut: 'اطلع من الحساب',
     signedOut: 'طلعت من الحساب',
+    settings: 'الحساب والخصوصية',
+  },
+
+  settings: {
+    title: 'الحساب والخصوصية',
+    privacyPolicy: 'سياسة الخصوصية',
+    terms: 'شروط الاستعمال',
+    deleteTitle: 'امحِ حسابي',
+    deleteBody: 'بيمحي بريدك، تقييماتك، متابعاتك وأجوبتك، وصفحة شغلك وصورها إذا عندك. ما في رجعة.',
+    deleteAction: 'امحِ حسابي',
+    confirmTitle: 'أكيد بدك تمحي حسابك؟',
+    confirmBody: 'كل شي مذكور بينمحى هلّق وما بيرجع.',
+    confirmAction: 'امحِ نهائياً',
+    cancel: 'خلّي حسابي',
+    close: 'سكّر',
+    deleted: 'انمحى حسابك',
+    failed: 'ما قدرنا نمحي حسابك. تأكّد من الإنترنت وجرّب مرة تانية.',
   },
 
   join: {

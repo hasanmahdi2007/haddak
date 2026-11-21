@@ -4,6 +4,7 @@ import { type ComponentRef, useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -29,6 +30,7 @@ import {
   useAuth,
   verifyCode,
 } from '@/lib/auth';
+import { legalUrl } from '@/lib/links';
 import { makeStyles, radius, size, space, useTheme } from '@/theme';
 
 const CODE_LENGTH = 6;
@@ -320,6 +322,11 @@ export default function SignInScreen() {
                     {s.auth.privacy}
                   </Txt>
                 </View>
+                <TextLink
+                  label={s.settings.privacyPolicy}
+                  onPress={() => void Linking.openURL(legalUrl('privacy'))}
+                  style={styles.policyLink}
+                />
               </>
             ) : (
               <View style={styles.codeBlock}>
@@ -476,6 +483,11 @@ const useStyles = makeStyles((c) => ({
   },
   ltr: {
     writingDirection: 'ltr',
+  },
+  policyLink: {
+    alignSelf: 'flex-start',
+    marginTop: -space.md,
+    marginHorizontal: space.md,
   },
   privacy: {
     alignItems: 'flex-start',

@@ -45,3 +45,9 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+      # Shown on /privacy, /terms and /delete-account (Google Play needs a contact).
+      - key: CONTACT_EMAIL
+        sync: false
+      # Sentry crash reports; leave empty to turn them off.
+      - key: SENTRY_DSN
+        sync: false

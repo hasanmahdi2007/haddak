@@ -23,3 +23,15 @@ export function directionsUrl(lat: number, lng: number): string {
 export function shareUrl(slug: string): string {
   return `https://haddak.app/p/${encodeURIComponent(slug)}`;
 }
+
+/** The live API, which also serves the privacy policy and terms. */
+const PRODUCTION_API = 'https://haddak-api.onrender.com';
+
+/**
+ * <api>/privacy, /terms or /delete-account (backend/app/legal_pages.py).
+ * In mock mode there is no API of our own, so the live pages are used.
+ */
+export function legalUrl(page: 'privacy' | 'terms' | 'delete-account'): string {
+  const base = (process.env.EXPO_PUBLIC_API_URL ?? '').trim() || PRODUCTION_API;
+  return `${base.replace(/\/+$/, '')}/${page}`;
+}

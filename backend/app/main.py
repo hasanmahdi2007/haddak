@@ -17,6 +17,8 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings, check_startup_settings, settings
 from app.db import get_db
+from app.error_tracking import init_error_tracking
+from app.legal_pages import router as legal_pages_router
 from app.request_limits import BodySizeLimit
 from app.request_logging import configure_logging, log_requests
 from app.routers import (
@@ -36,6 +38,7 @@ from app.routers import (
 # Stops here with a clear error if production is misconfigured.
 check_startup_settings(settings)
 configure_logging()
+init_error_tracking(settings)
 
 
 def docs_urls(current: Settings) -> dict[str, str | None]:
@@ -50,6 +53,24 @@ def docs_urls(current: Settings) -> dict[str, str | None]:
 app = FastAPI(title="Haddak API", version="1.0.0", **docs_urls(settings))
 
 app.middleware("http")(log_requests)
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """Headers every response gets. Pages that need more (admin, sign-in
+    bridge, legal pages) set their own on top.
+
+    - nosniff: a browser never guesses a JSON answer is a script or page.
+    - HSTS (production only, where Render serves HTTPS): browsers refuse
+      plain http to this host for a year, so nobody on the café Wi-Fi can
+      downgrade the connection.
+    """
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    if settings.is_production():
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+    return response
+
 
 # CORS only matters for web pages on OTHER domains calling this API. The
 # phone app is not a web page, and the admin page is served from this same
@@ -128,6 +149,11 @@ AUTH_OPEN_HEADERS = {
 @app.get("/auth/open", include_in_schema=False)
 def auth_open_page() -> FileResponse:
     return FileResponse(AUTH_OPEN_PAGE, media_type="text/html", headers=AUTH_OPEN_HEADERS)
+
+
+# ---------- privacy policy, terms, account deletion (outside /api/v1) ----------
+
+app.include_router(legal_pages_router)
 
 
 # ---------- the API ----------

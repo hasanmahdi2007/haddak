@@ -15,6 +15,7 @@ from app.models import Category, ContactEvent, Provider
 from app.rate_limit import limit_writes
 from app.schemas import AvailableIn, OwnProvider, ProviderCreate, ProviderStats, ProviderUpdate
 from app.services import provider_views
+from app.services.account_deletion import delete_account
 from app.services.contact_stats import current_month_start
 from app.services.geo import point_for_storage
 from app.services.hire_checks import confirmed_hires
@@ -226,3 +227,14 @@ def get_my_stats(db: Session = Depends(get_db), user_id: uuid.UUID = Depends(get
         calls=counts.get("call", 0),
         confirmed_hires=confirmed_hires(db, provider.id),
     )
+
+
+@router.delete("/me", status_code=204, dependencies=[Depends(limit_writes)])
+def delete_my_account(
+    db: Session = Depends(get_db), user_id: uuid.UUID = Depends(get_current_user_id)
+):
+    """Delete my account and everything Haddak keeps about me (see
+    app/services/account_deletion.py). Cannot be undone. Answers 204 again if
+    called twice: there is simply nothing left to delete."""
+    delete_account(db, user_id)
+    return Response(status_code=204)

@@ -13,6 +13,7 @@ import { ProviderCard } from '@/components/ProviderCard';
 import { Skeleton } from '@/components/Skeleton';
 import { StateView } from '@/components/StateView';
 import { StoriesStrip } from '@/components/StoriesRow';
+import { TextLink } from '@/components/TextLink';
 import { Txt } from '@/components/Txt';
 import { useI18n } from '@/i18n';
 import { requireSignIn, signOut, useAuth } from '@/lib/auth';
@@ -160,6 +161,7 @@ function SignedIn() {
         </View>
         <Chevron color={colors.onAccent} size={size.icon} strokeWidth={size.stroke} />
       </Pressable>
+      <TextLink label={s.account.settings} onPress={() => router.push('/account')} style={styles.settings} />
     </View>
   );
 
@@ -304,6 +306,10 @@ const useStyles = makeStyles((c) => ({
     gap: space.md,
     paddingHorizontal: space.sm,
     paddingTop: space.xs,
+  },
+  // Quiet, under the big My business button.
+  settings: {
+    alignSelf: 'center',
   },
   business: {
     alignItems: 'center',

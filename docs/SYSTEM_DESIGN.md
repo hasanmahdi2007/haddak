@@ -109,7 +109,7 @@ Known limits in version 1: the per-minute rate limiter lives in the API's memory
 
 ## 6. Hosting plan
 
-The database is live on Supabase (migrated, locked, OpenStreetMap listings imported, 2026-11-21); the API is ready to deploy on Render from `render.yaml`. The step-by-step runbook is **`docs/DEPLOY.md`**. Prices are from memory and change; check each provider's pricing page before paying.
+The database is live on Supabase (migrated, locked, OpenStreetMap listings imported, 2026-11-21); the API is ready to deploy on Render from `render.yaml`. The step-by-step runbook is **`docs/DEPLOY.md`**. Prices were checked on 2026-11-21 and change; check each provider's pricing page before paying.
 
 | Piece | Where | Cost to start | Notes |
 |---|---|---|---|
@@ -119,14 +119,24 @@ The database is live on Supabase (migrated, locked, OpenStreetMap listings impor
 | iPhone app | Later | $99/year | Same codebase. |
 | Domain `haddak.app` | Any registrar | About $15/year | Needed for share links (`haddak.app/p/<code>`) and the QR stickers. Not registered yet. |
 | Map display | Google Maps SDK through `react-native-maps` | $0 | Needs a Google Cloud account with a card on file. Providers drop their own pin, so no geocoding or Places charges. |
+| Jarak AI | Anthropic API | About $1.2 per 1,000 AI searches (eval, 2026-11-20) | Capped in code at $1 a day and $10 a month (`ASSIST_*_BUDGET_USD`); over the cap the free keyword search answers. |
+| Crash reports | Sentry, Developer plan | $0 (5,000 errors a month) | Optional (`SENTRY_DSN`). |
+| Builds | Expo EAS, Free plan | $0 (30 builds a month, low priority) | Starter $19/month only if waiting for builds becomes a problem. |
+| Sign-in emails | Gmail SMTP | $0 (about 500 a day) | A transactional email service only when sign-ups pass that. |
 
-Expected total once live: about $30–40 a month, close to $0 while building.
+Expected total: $0 a month while testing (free tiers, $25 once for Google Play); about $32–45 a month once real users depend on it (Supabase Pro $25 + Render Starter $7 + AI up to $10 + domain about $1).
 
 **Deploy flow.** Push to `main` → GitHub Actions runs lint and tests → the host builds the Docker image from `backend/Dockerfile` → on start the container runs `alembic upgrade head` (applies any new migration) and then starts the API. Render deploys only after the GitHub checks pass (`autoDeployTrigger: checksPass`). Configuration is by environment variable (all listed in `render.yaml`): `DATABASE_URL`, `SUPABASE_JWKS_URL`, `ADMIN_API_KEY`, `ASSIST_QUOTA_SECRET`, `ANTHROPIC_API_KEY`, `CORS_ORIGINS`, `ENVIRONMENT=production`. **`TRUST_PROXY=true` is required on any host with a proxy in front (Render, Railway, Fly.io):** without it every user appears as the proxy's address, so all per-IP limits, including the assistant's 100-a-day IP allowance, would be shared by the whole app. On Supabase, `postgis` and `pg_trgm` live in the `extensions` schema, and the backend connects as its own role `haddak_api` (not `postgres`): it owns Haddak's tables, is not a superuser, cannot read Supabase's `auth` or `storage` schemas, and has `statement_timeout` 30 s and `idle_in_transaction_session_timeout` 60 s, so a runaway query or a forgotten transaction cannot hold the database. It connects through Supabase's session pooler (IPv4; the direct address is IPv6 only). Supabase's Security Advisor shows no warnings for our tables (the only notes are "RLS enabled, no policy", which is the intended lock).
 
 **Environments.** Local (Docker database, development token script) and production. A separate staging environment is not worth the cost until there is a second developer.
 
 **Backups.** Supabase's paid plan keeps daily backups. Until then `.github/workflows/backup.yml` runs `pg_dump` every Monday, encrypts it (the repository is public) and keeps it 30 days as a workflow artifact. Restoring is in `DEPLOY.md`, "Backups"; a restore was tested on 2026-11-21.
+
+**Knowing when it breaks.** Crash reports go to Sentry when `SENTRY_DSN` is set (`app/error_tracking.py`; errors only, no IP, query string, body or auth headers). `.github/workflows/uptime.yml` runs `backend/scripts/smoke_test.py` against the live API every 30 minutes once the repository variable `API_URL` is set; a red run emails the founder. Run the same script by hand after every deploy.
+
+**Speed and region.** A search makes about seven database round trips (pool ping, begin, four queries, end). Measured on 2026-11-21 from Lebanon straight to the Seoul database: about 2.5 s per search. From Render Singapore (about 80 ms to Seoul) it is about 0.6 s of database time; with the API and database both in Frankfurt it would be under 0.05 s, plus about 60 ms from Lebanon. This is the main reason to move to Frankfurt before launch.
+
+**Account deletion and policies.** `DELETE /api/v1/me` and the in-app "Account and privacy" screen delete everything about a user (Google Play requirement); `/privacy`, `/terms` and `/delete-account` are served by the API.
 
 **Checks on every push** (`.github/workflows/`): backend lint, formatting, known-vulnerability audit of the dependencies (`pip-audit`) and the full test suite against Postgres 17 + PostGIS (the version Supabase runs); mobile type check and lint. Dependabot opens weekly update pull requests (`.github/dependabot.yml`); GitHub secret scanning with push protection blocks a commit that contains a key.
 

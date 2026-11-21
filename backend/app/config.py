@@ -80,6 +80,13 @@ class Settings(BaseSettings):
     # Any long random string; changing it only resets today's counts.
     assist_quota_secret: str = ""
 
+    # ----- Operations -----
+    # Sentry crash reports (app/error_tracking.py). Empty = off.
+    sentry_dsn: str = ""
+    # The address shown on /privacy, /terms and /delete-account
+    # (app/legal_pages.py). Google Play requires a way to reach the developer.
+    contact_email: str = ""
+
     @field_validator("database_url")
     @classmethod
     def use_psycopg3_driver(cls, value: str) -> str:

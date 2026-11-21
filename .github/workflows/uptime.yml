@@ -1,0 +1,35 @@
+# Checks the live API from outside every 30 minutes, the way the app uses it
+# (backend/scripts/smoke_test.py). A failed run turns red and GitHub emails
+# you, so you hear the server is down before users tell you.
+#
+# Does nothing until the repository variable API_URL is set
+# (Settings → Secrets and variables → Actions → Variables), for example
+# https://haddak-api.onrender.com. See docs/DEPLOY.md.
+#
+# Note: GitHub pauses scheduled workflows in a repository with no activity for
+# 60 days; it emails you first, and one click turns it back on.
+name: uptime
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: vars.API_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check the live API
+        # Passed through env, not pasted into the command, so the value can never run as shell code.
+        env:
+          API_URL: ${{ vars.API_URL }}
+        run: python backend/scripts/smoke_test.py "$API_URL"

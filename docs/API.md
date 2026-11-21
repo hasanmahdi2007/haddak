@@ -273,6 +273,7 @@ Limits: `name` 1 to 100 characters, `area_name` up to 100, `note` up to 500; `ph
 | `GET /providers/{id}/reviews/mine` | My review of this provider as a `Review`, or `null` if I have not written one. 404 if the provider is unknown or rejected. |
 | `PUT /providers/{id}/reviews/mine` | Create or update my review. Body `{"rating": 1-5, "comment": "…", "author_name": "…"}`. Returns `Review`. 403 on own profile. |
 | `DELETE /providers/{id}/reviews/mine` | Remove my review. 204. |
+| `DELETE /me` | Delete my account and everything kept about me: my reviews (ratings recalculated), follows, hire checks, claims, my business profile with its stories, offer and contact counts, and my Supabase sign-in account. One transaction; 204, also when called again. The app deletes my files in Storage (my own folder in both buckets) with my session **before** calling this. Rate limited like other writes. Google Play requires in-app deletion. |
 | `GET /me/provider` | `OwnProvider`, or 404 if the user has no profile. |
 | `POST /me/provider` | Create my profile. Body below. Returns 201 `OwnProvider`. `status` is `"pending"` if a `verification_doc_url` was sent, otherwise `"unverified"`; the profile is listed publicly either way. 409 if one exists. |
 | `PATCH /me/provider` | Update any of the create fields. Returns `OwnProvider`. Status rules below. |
@@ -454,6 +455,16 @@ Write routes are limited per client IP, in the API process's memory (no extra se
 - Every route: a request body over 64 KB gets 413 `{"detail": "Request body is too large."}`.
 
 Requests are counted before the login token is checked, so failed attempts use the allowance too. Behind a hosting proxy the client IP is read from `X-Forwarded-For`, counting `PROXY_HOPS` entries from the right so a client cannot fake it.
+
+## Web pages (outside `/api/v1`)
+
+| Path | What |
+|---|---|
+| `/privacy` | Privacy policy, Arabic then English. The Google Play listing links here. |
+| `/terms` | Terms of use. |
+| `/delete-account` | How to delete an account, in the app or by email (Google Play asks for a web link). |
+
+Static HTML from `backend/app/static/legal/`, no scripts. The contact address comes from `CONTACT_EMAIL`; when it is empty the pages point to the in-app routes instead. The app opens them from "Account and privacy" and from sign-in.
 
 ## Admin page
 

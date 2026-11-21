@@ -695,6 +695,9 @@ export function createMockApi(
         myReviews.delete(providerId);
       }),
 
+    // Mock mode keeps nothing on a server, so there is nothing to delete.
+    deleteMyAccount: () => respondAuth(() => undefined),
+
     // Not used by any screen yet.
     createMyProvider: (input) =>
       respondAuth(() => {

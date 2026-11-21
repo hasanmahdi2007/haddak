@@ -45,7 +45,7 @@ export class UploadError extends Error {
   }
 }
 
-const BUCKETS: Record<UploadKind, string> = {
+export const BUCKETS: Record<UploadKind, string> = {
   photo: 'provider-photos',
   proof: 'verification-docs',
 };

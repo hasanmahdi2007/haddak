@@ -7,11 +7,11 @@ What has been built, how it was checked, and what is still open. Newest entry fi
 | Area | State |
 |---|---|
 | Project docs | Written: PROJECT, V1_SCOPE, SCHEMA, API, SYSTEM_DESIGN, TASKS, this log |
-| GitHub | Private repo https://github.com/hasanmahdi2007/haddak, CI running |
-| Local database | Postgres 16 + PostGIS in Docker, port 5433, seeded |
-| Backend | All version 1 endpoints built and tested (449 tests), plus assistant, prices, places, hire checks and "Available now"; Docker image ready; migrations up to 0008 |
+| GitHub | Public repo https://github.com/hasanmahdi2007/haddak; CI (backend, mobile), weekly encrypted backup, uptime check, Dependabot |
+| Database | Local: Postgres + PostGIS in Docker, seeded. Production: Supabase (Seoul), migrations up to 0015, 3,002 OpenStreetMap listings |
+| Backend | All version 1 endpoints plus assistant, claims, account deletion and policy pages (693 tests); production image checked against the live database |
 | Mobile app | All version 1 screens built ("Pastel" design: ghost white, alice blue, vanilla and black, Urbanist; English and Arabic), plus sign-in, sign-up, stats, reviews, report, share/QR, stories, Jarak AI, hire checks, "Available now" and the poster. Checked in mock web builds; phone tests pending. Microphone needs a development build (in progress) |
-| Hosting | Not started (plan in `SYSTEM_DESIGN.md` section 6) |
+| Hosting | Database live; API ready for Render; waits on the founder's accounts (`DEPLOY.md`) |
 
 ## Validation benchmark (from `PROJECT.md`)
 
@@ -24,6 +24,15 @@ The app is judged in the first area by this, not by code:
 Current: 0 real providers (app not released). Seed data only.
 
 ## Log
+
+### 2026-11-21 — What Google Play and a live service need: account deletion, policies, monitoring
+
+**Why:** Google Play refuses apps with sign-up but no in-app account deletion, and wants a privacy policy link and a web page for deletion. And once real people use it, the founder must hear about crashes and downtime before users do.
+- **Delete my account:** `DELETE /api/v1/me` removes the user's reviews (recalculating those providers' ratings), follows, hire checks, claims, and their business profile with everything under it, then their Supabase sign-in account, all in one transaction. The sign-in account is deleted through `haddak_private.delete_auth_user(uuid)` (`supabase/delete_auth_user.sql`): a function that can delete exactly one `auth.users` row and that only `haddak_api` may call, instead of giving the server Supabase's all-powerful secret key. The app's new "Account and privacy" screen (from Following) deletes the user's own photos and proof files in Storage with their session, then calls the API, then signs out; a confirmation sheet comes first.
+- **Policies:** `/privacy`, `/terms`, `/delete-account`, Arabic first then English, written from what the code really stores (location never stored, assistant logs without user ids, install id kept only as a hash). Contact address from `CONTACT_EMAIL`. Linked from the app's account screen and sign-in.
+- **Operations:** optional Sentry crash reports that strip location, bodies and keys; `nosniff` on every response and HSTS in production; `scripts/smoke_test.py` (health, categories, a real search near Beirut, policy pages, admin locked, docs hidden, HSTS); `.github/workflows/uptime.yml` runs it every 30 minutes once `API_URL` is set; migration 0015 adds indexes for deletion and the two foreign keys the Performance Advisor listed.
+- **Measured:** the production image against the live database passed every smoke check except speed: a search from Lebanon took 2.2–3.2 s because each makes about seven round trips to Seoul. From Render Singapore that is about 0.6 s; in Frankfurt it would be well under 0.2 s. Moving to Frankfurt is the most valuable thing left before launch.
+- **Checked:** 693 backend tests, ruff, format; `tsc` and ESLint clean; deletion run on the live database as `haddak_api` against a throwaway sign-in account (gone afterwards); migration 0015 applied to production.
 
 ### 2026-11-21 — Production database live; ready to deploy
 

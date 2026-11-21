@@ -13,3 +13,5 @@ PyJWT[crypto]==2.15.1
 tzdata==2026.6
 # Official Claude API SDK, used only by the assistant (POST /assist).
 anthropic==2.8.0
+# Crash reports (app/error_tracking.py); off unless SENTRY_DSN is set.
+sentry-sdk==2.75.0

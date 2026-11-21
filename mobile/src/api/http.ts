@@ -178,6 +178,7 @@ export function createHttpApi(
       }),
     deleteMyReview: (providerId: string) =>
       request<void>(`/providers/${id(providerId)}/reviews/mine`, { method: 'DELETE', auth: true }),
+    deleteMyAccount: () => request<void>('/me', { method: 'DELETE', auth: true }),
     getMyProvider: () => request<OwnProvider>('/me/provider', { auth: true }),
     createMyProvider: (input: ProviderCreateInput) =>
       request<OwnProvider>('/me/provider', { method: 'POST', body: input, auth: true }),

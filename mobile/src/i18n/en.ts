@@ -369,6 +369,25 @@ export const en = {
     myBusinessHint: 'Post updates and offers',
     signOut: 'Sign out',
     signedOut: 'You are signed out',
+    settings: 'Account and privacy',
+  },
+
+  /** "Account and privacy" (src/app/account.tsx). */
+  settings: {
+    title: 'Account and privacy',
+    privacyPolicy: 'Privacy policy',
+    terms: 'Terms of use',
+    deleteTitle: 'Delete my account',
+    deleteBody:
+      'Deletes your email, reviews, follows and answers, and your business page and photos if you have them. This cannot be undone.',
+    deleteAction: 'Delete my account',
+    confirmTitle: 'Delete your account?',
+    confirmBody: 'Everything listed is deleted right away and cannot be brought back.',
+    confirmAction: 'Delete for good',
+    cancel: 'Keep my account',
+    close: 'Close',
+    deleted: 'Your account is deleted',
+    failed: "Couldn't delete your account. Check your connection and try again.",
   },
 
   /** "List your business" (src/app/join.tsx), "Edit listing" and the stats in My business. */

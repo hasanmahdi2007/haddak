@@ -448,6 +448,8 @@ export interface HaddakApi {
   /** 403 on my own listing. */
   upsertMyReview(providerId: string, input: ReviewInput): Promise<Review>;
   deleteMyReview(providerId: string): Promise<void>;
+  /** Deletes my account and everything kept about me. 204, also when called twice. */
+  deleteMyAccount(): Promise<void>;
   getMyProvider(): Promise<OwnProvider>;
   createMyProvider(input: ProviderCreateInput): Promise<OwnProvider>;
   updateMyProvider(input: ProviderUpdateInput): Promise<OwnProvider>;
