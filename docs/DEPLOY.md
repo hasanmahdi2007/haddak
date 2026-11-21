@@ -36,14 +36,14 @@ without the passphrase.
      `/privacy`, `/terms` and `/delete-account` (Google Play needs a contact).
    - `SENTRY_DSN`: optional, see step 5. Leave empty for now if you like.
 4. **Apply.** The first build takes a few minutes. When it is live, open
-   `https://haddak-api.onrender.com/api/v1/health`: it must say `{"status":"ok"}`.
+   `https://haddak-api-ub67.onrender.com/api/v1/health`: it must say `{"status":"ok"}`.
    Then run the full outside check from the `backend` folder:
-   `python scripts/smoke_test.py https://haddak-api.onrender.com` (all `ok`).
+   `python scripts/smoke_test.py https://haddak-api-ub67.onrender.com` (all `ok`).
 5. If Render gave the service a different address (the name was taken),
    tell Claude: it changes `EXPO_PUBLIC_API_URL` in `mobile/eas.json` and the
    Supabase URLs in step 2.
 6. `ADMIN_API_KEY` was made by Render: open the service → Environment to see
-   it. That is the key for `https://haddak-api.onrender.com/admin`.
+   it. That is the key for `https://haddak-api-ub67.onrender.com/admin`.
 
 The free plan sleeps after 15 minutes without requests, and the first
 request after that takes about a minute. Switch the plan to Starter ($7/month)
@@ -63,9 +63,9 @@ in Render before inviting real users.
    The email then shows a 6-digit code the user types in the app, which
    works on any phone and network without depending on the link.
 4. Supabase → Authentication → **URL Configuration** (after step 1):
-   - Site URL: `https://haddak-api.onrender.com/auth/open?app=haddak%3A%2F%2Fauth-callback`
+   - Site URL: `https://haddak-api-ub67.onrender.com/auth/open?app=haddak%3A%2F%2Fauth-callback`
      (replaces `http://localhost:3000`, the cause of "localhost:3000 isn't connected").
-   - Redirect URLs: add `https://haddak-api.onrender.com/auth/open**`.
+   - Redirect URLs: add `https://haddak-api-ub67.onrender.com/auth/open**`.
      Keep the `exp://**` and `http://192.168.*.*:8000/auth/open**` entries for development.
 
 ### 3. Turn on the weekly backup, about 2 minutes
@@ -97,7 +97,7 @@ closed test with at least 12 testers before the public release).
 
 1. **Uptime check:** GitHub → repository → Settings → Secrets and variables →
    Actions → **Variables** tab → New repository variable: name `API_URL`,
-   value `https://haddak-api.onrender.com`. `.github/workflows/uptime.yml` then
+   value `https://haddak-api-ub67.onrender.com`. `.github/workflows/uptime.yml` then
    checks the live API every 30 minutes and GitHub emails you when it fails.
 2. **Crash reports (optional, free):** sign up at sentry.io (Developer plan),
    create a project of type **FastAPI**, copy its DSN, and paste it into
@@ -107,13 +107,13 @@ closed test with at least 12 testers before the public release).
 
 1. Developer account at play.google.com/console ($25 once; identity check).
 2. Create the app; store listing in Arabic and English.
-3. **Privacy policy URL:** `https://haddak-api.onrender.com/privacy`.
+3. **Privacy policy URL:** `https://haddak-api-ub67.onrender.com/privacy`.
 4. **Data safety form** (what the app collects), matching `/privacy`: email
    address (account), approximate and precise location (used for search, not
    stored), user content (reviews, photos), app interactions (follows, hire
    checks), device id (install id, hashed). Encrypted in transit: yes.
    Users can request deletion: yes.
-5. **Account deletion URL:** `https://haddak-api.onrender.com/delete-account`.
+5. **Account deletion URL:** `https://haddak-api-ub67.onrender.com/delete-account`.
 6. Content rating questionnaire; target audience 13+.
 7. `eas build -p android --profile production`, upload the `.aab` to a
    **closed test**, invite at least 12 testers, keep them opted in for 14
@@ -125,7 +125,7 @@ Push to `main`. GitHub runs the checks (`.github/workflows/`); if they pass,
 Render builds the image, the container runs `alembic upgrade head`, then
 starts. Watch it under Render → haddak-api → Events / Logs.
 
-**After each deploy:** run `python scripts/smoke_test.py https://haddak-api.onrender.com`
+**After each deploy:** run `python scripts/smoke_test.py https://haddak-api-ub67.onrender.com`
 (the uptime check runs the same thing every 30 minutes), search once in the
 app, and glance at the logs for errors.
 

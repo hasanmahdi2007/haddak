@@ -4,7 +4,7 @@
 #
 # Does nothing until the repository variable API_URL is set
 # (Settings → Secrets and variables → Actions → Variables), for example
-# https://haddak-api.onrender.com. See docs/DEPLOY.md.
+# https://haddak-api-ub67.onrender.com. See docs/DEPLOY.md.
 #
 # Note: GitHub pauses scheduled workflows in a repository with no activity for
 # 60 days; it emails you first, and one click turns it back on.

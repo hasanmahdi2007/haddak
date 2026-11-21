@@ -32,7 +32,7 @@ Current: 0 real providers (app not released). Seed data only.
 - Data copied from Seoul with a data-only dump; categories and places come from the migrations and were checked identical first (same checksum). 3,002 listings, 196 with phones. All 16 tables owned by `haddak_api`, Row Level Security on, no grants to `anon`/`authenticated`.
 - Sign-in settings pushed with `supabase config push`: Site URL and redirect URLs (fixes "localhost:3000"), and **6-digit codes**: new projects default to 8 digits, which the app's code boxes would not have accepted. The email template must wait for custom SMTP (free-plan rule).
 - `render.yaml` (Frankfurt, new JWKS URL), `mobile/eas.json` and the local `.env` files point at Frankfurt; `backend/.env.production` now holds the Frankfurt values.
-- **Measured:** a search from a laptop in Lebanon, 0.8 s against Frankfurt instead of 2.5 s against Seoul. Account deletion tested on the new database with a throwaway sign-in account. The Render service (first deploy) passed every outside check.
+- **Measured:** a full search from Lebanon through the live Render server (Frankfurt, address `haddak-api-ub67.onrender.com` because the plain name was taken) takes 0.35–0.4 s, instead of about 2.5 s with the Seoul database; the server answers its health check in 12 ms. Account deletion tested on the new database with a throwaway sign-in account. The Render service (first deploy) passed every outside check.
 
 ### 2026-11-21 — What Google Play and a live service need: account deletion, policies, monitoring
 

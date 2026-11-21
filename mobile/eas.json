@@ -17,7 +17,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://haddak-api.onrender.com",
+        "EXPO_PUBLIC_API_URL": "https://haddak-api-ub67.onrender.com",
         "EXPO_PUBLIC_SUPABASE_URL": "https://wamwmhanxqvftrwqlyfh.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_IQNPwpXI3jI4MvOO5jt6Dw_d8jssb3H"
       }
@@ -28,7 +28,7 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://haddak-api.onrender.com",
+        "EXPO_PUBLIC_API_URL": "https://haddak-api-ub67.onrender.com",
         "EXPO_PUBLIC_SUPABASE_URL": "https://wamwmhanxqvftrwqlyfh.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_IQNPwpXI3jI4MvOO5jt6Dw_d8jssb3H"
       }

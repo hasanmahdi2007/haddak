@@ -25,7 +25,7 @@ export function shareUrl(slug: string): string {
 }
 
 /** The live API, which also serves the privacy policy and terms. */
-const PRODUCTION_API = 'https://haddak-api.onrender.com';
+const PRODUCTION_API = 'https://haddak-api-ub67.onrender.com';
 
 /**
  * <api>/privacy, /terms or /delete-account (backend/app/legal_pages.py).

@@ -1,6 +1,6 @@
 """Checks a running Haddak API from the outside, the way the app uses it.
 
-    python scripts/smoke_test.py https://haddak-api.onrender.com
+    python scripts/smoke_test.py https://haddak-api-ub67.onrender.com
     python scripts/smoke_test.py http://localhost:8000 --dev
 
 Run it after every deploy; .github/workflows/uptime.yml also runs it every
@@ -87,7 +87,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("base_url", help="for example https://haddak-api.onrender.com")
+    parser.add_argument("base_url", help="for example https://haddak-api-ub67.onrender.com")
     parser.add_argument(
         "--dev", action="store_true", help="a development server: skip production-only checks"
     )
