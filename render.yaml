@@ -9,10 +9,10 @@ services:
   - type: web
     name: haddak-api
     runtime: docker
-    # Singapore: the Render region closest to the Supabase database (Seoul,
-    # ap-northeast-2). Every request makes several database round trips, so
-    # the server must sit near the database, not near the users.
-    region: singapore
+    # Frankfurt: next to the Supabase database (eu-central-1) and about 60 ms
+    # from Lebanon. Every request makes several database round trips, so the
+    # server must sit near the database. A region cannot be changed later.
+    region: frankfurt
     # Free while testing (sleeps after 15 minutes without requests; the first
     # request then takes about a minute). Switch to "starter" ($7/month) once
     # real users depend on it.
