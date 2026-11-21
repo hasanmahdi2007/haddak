@@ -264,7 +264,7 @@ export default function MyBusinessScreen() {
   );
 }
 
-/** The listing itself: mint when verified (the trust colour), white otherwise. */
+/** The listing itself: an alice-blue block when verified (with the black Verified pill), white otherwise. */
 function Header({ own }: { own: OwnProvider }) {
   const { s, row, categoryName } = useI18n();
   const styles = useStyles();
@@ -273,10 +273,10 @@ function Header({ own }: { own: OwnProvider }) {
     <View style={[styles.header, verified ? styles.headerVerified : null, { flexDirection: row }]}>
       <Photo uri={own.cover_photo_url} fallbackIcon={own.category.icon} style={styles.headerPhoto} />
       <View style={styles.flexGap}>
-        <Txt role="headline" color={verified ? 'onMint' : 'text'} numberOfLines={2} content>
+        <Txt role="headline" color={verified ? 'onAccent' : 'text'} numberOfLines={2} content>
           {own.name}
         </Txt>
-        <Txt role="label" color={verified ? 'onMint' : 'textMuted'} numberOfLines={1}>
+        <Txt role="label" color={verified ? 'onAccent' : 'textMuted'} numberOfLines={1}>
           {`${categoryName(own.category)} · ${own.area_name}`}
         </Txt>
         <View style={[styles.badges, { flexDirection: row }]}>
@@ -328,11 +328,14 @@ type Feedback = { tone: 'error' | 'success'; text: string } | null;
 
 /**
  * This month's numbers (GET /me/provider/stats) and the follower count (from the
- * listing itself): four grey tiles with a figure and its name. No chart.
+ * listing itself): pastel tiles with a figure and its name, as in the founder's
+ * reference dashboard: alice blue, vanilla and white (outlined) in turn. No chart.
  */
 function StatsSection({ own, version }: { own: OwnProvider; version: number }) {
   const { s, row, language } = useI18n();
   const styles = useStyles();
+  // The tiles take alice blue, vanilla and white in turn.
+  const STAT_TONES = [styles.statAlice, styles.statVanilla, styles.statWhite];
   const [result, setResult] = useState<{ key: string; stats: ProviderStats | 'error' } | null>(null);
   const [attempt, setAttempt] = useState(0);
   const key = `${own.id}:${version}:${attempt}`;
@@ -380,10 +383,10 @@ function StatsSection({ own, version }: { own: OwnProvider; version: number }) {
         </>
       ) : null}
       <View style={[styles.stats, { flexDirection: row }]}>
-        {figures.map(([label, value]) => (
+        {figures.map(([label, value], i) => (
           <View
             key={label}
-            style={styles.stat}
+            style={[styles.stat, STAT_TONES[i % STAT_TONES.length]]}
             accessible
             accessibilityLabel={value === null ? label : `${label}: ${value}`}
           >
@@ -925,7 +928,7 @@ const useStyles = makeStyles((c) => ({
     flex: 1,
   },
   headerVerified: {
-    backgroundColor: c.mint,
+    backgroundColor: c.accent,
   },
   headerPhoto: {
     width: size.thumb,
@@ -957,7 +960,7 @@ const useStyles = makeStyles((c) => ({
     alignSelf: 'flex-start',
     marginTop: space.sm,
   },
-  // Two figures to a row; each is a faint lavender inset inside the white block.
+  // Two figures to a row; each a pastel tile inside the white block.
   stats: {
     flexWrap: 'wrap',
     gap: space.sm,
@@ -968,9 +971,19 @@ const useStyles = makeStyles((c) => ({
     gap: space.xxs,
     padding: space.lg,
     borderRadius: radius.md,
-    backgroundColor: c.surfaceInset,
   },
-  // Each part of the business is one white block on the lavender ground.
+  statAlice: {
+    backgroundColor: c.accent,
+  },
+  statVanilla: {
+    backgroundColor: c.signature,
+  },
+  // White on the white block, so it gets a light grey edge instead of a fill.
+  statWhite: {
+    borderWidth: size.hairline,
+    borderColor: c.border,
+  },
+  // Each part of the business is one white block on the ghost-white ground.
   section: {
     backgroundColor: c.surface,
     borderRadius: radius.lg,
@@ -999,16 +1012,19 @@ const useStyles = makeStyles((c) => ({
     flexWrap: 'wrap',
     gap: space.sm,
   },
+  // Outlined day chips; the chosen one solid black.
   day: {
     width: size.segment + space.xs,
     height: size.segment + space.xs,
     borderRadius: radius.pill,
-    backgroundColor: c.surfaceTint,
+    borderWidth: size.hairline,
+    borderColor: c.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dayChosen: {
     backgroundColor: c.primary,
+    borderColor: c.primary,
   },
   dim: {
     opacity: opacity.pressed,
@@ -1019,7 +1035,7 @@ const useStyles = makeStyles((c) => ({
   list: {
     gap: space.sm,
   },
-  // A posted update: a faint lavender inset inside the white block.
+  // A posted update: a faint grey inset inside the white block.
   story: {
     backgroundColor: c.surfaceInset,
     borderRadius: radius.md,

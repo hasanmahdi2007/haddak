@@ -23,8 +23,13 @@ NEW_CATEGORIES = [
     ("batteries-inverters", "Batteries & inverters", "بطاريات وإنفرتر", "car-battery", "power"),
     ("generator", "Generators", "موتير / مولّد", "bolt", "power"),
     ("solar-cleaning", "Solar panel cleaning", "تنظيف ألواح", "water", "power"),
-    ("appliance-repair", "Fridge & appliance repair", "تصليح براد وغسالة", "appliance",
-     "home-repair"),
+    (
+        "appliance-repair",
+        "Fridge & appliance repair",
+        "تصليح براد وغسالة",
+        "appliance",
+        "home-repair",
+    ),
     ("pharmacy", "Pharmacy", "صيدلية", "stethoscope", "doctors"),
 ]
 

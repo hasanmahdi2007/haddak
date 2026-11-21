@@ -19,7 +19,7 @@ interface Props {
  * small switch at the end. The switch is the one from the "Verified only"
  * filter (VerifiedFilter.tsx): off is a mid-grey track with an empty thumb at
  * the start; on is an ink track with a white thumb and a check at the end.
- * Mint is kept for trust, so the block itself stays grey.
+ * The block itself stays grey; the on state is the black track.
  *
  * The whole block is the touch target. To a screen reader it is a switch.
  */
@@ -71,7 +71,7 @@ const useStyles = makeStyles((c) => ({
     gap: space.md,
     paddingHorizontal: space.xl,
     paddingVertical: space.md,
-    // An inset inside a white block: the faint lavender, a smaller radius than the block around it.
+    // An inset inside a white block: the faint grey, a smaller radius than the block around it.
     borderRadius: radius.md,
     backgroundColor: c.surfaceInset,
     overflow: 'hidden',

@@ -7,7 +7,7 @@ import { makeStyles, radius, size, space, useTheme } from '@/theme';
 import { Txt } from './Txt';
 
 interface Props {
-  /** True (the default everywhere): only providers Haddak has checked. */
+  /** True: only providers Haddak has checked. Off by default since 2026-11-17 (everyone, verified first). */
   verifiedOnly: boolean;
   onChange: (verifiedOnly: boolean) => void;
 }
@@ -16,8 +16,8 @@ interface Props {
  * The verification filter: a pill with a fixed name, "Verified only", and a
  * small switch at its end. The name never changes; only the switch does.
  *
- * - On (the default): the pill is mint, the thumb sits at the end and carries a check.
- * - Off: the pill is grey, the thumb sits at the start and is empty.
+ * - On: the pill is solid black (the selected state), the thumb sits at the end and carries a check.
+ * - Off (the default): an outlined pill, the thumb sits at the start and is empty.
  *
  * The whole pill is the touch target. To a screen reader it is a switch named
  * "Verified only" that is on or off.
@@ -42,7 +42,7 @@ export function VerifiedFilter({ verifiedOnly, onChange }: Props) {
       android_ripple={{ color: colors.surfaceTintStrong }}
       style={[styles.pill, { flexDirection: row }, verifiedOnly ? styles.pillOn : null]}
     >
-      <Txt role="label" color={verifiedOnly ? 'onMint' : 'text'} numberOfLines={1}>
+      <Txt role="label" color={verifiedOnly ? 'onPrimary' : 'text'} numberOfLines={1}>
         {s.filter.label}
       </Txt>
       {/* `row` is already mirrored for Arabic, so "end" is the right side in English and the left in Arabic. */}
@@ -53,9 +53,9 @@ export function VerifiedFilter({ verifiedOnly, onChange }: Props) {
           verifiedOnly ? styles.trackOn : null,
         ]}
       >
-        <View style={styles.thumb}>
+        <View style={[styles.thumb, verifiedOnly ? styles.thumbOn : null]}>
           {verifiedOnly ? (
-            <Check color={colors.onMint} size={size.switchThumb - space.xs} strokeWidth={size.strokeHeavy} />
+            <Check color={colors.onPrimary} size={size.switchThumb - space.xs} strokeWidth={size.strokeHeavy} />
           ) : null}
         </View>
       </View>
@@ -72,13 +72,15 @@ const useStyles = makeStyles((c) => ({
     paddingStart: space.md,
     paddingEnd: space.xs + space.xxs,
     borderRadius: radius.pill,
-    backgroundColor: c.surface,
+    borderWidth: size.hairline,
+    borderColor: c.border,
     overflow: 'hidden',
   },
   pillOn: {
-    backgroundColor: c.mint,
+    backgroundColor: c.primary,
+    borderColor: c.primary,
   },
-  // Off: a mid-grey track, clearly a control on the grey pill (3:1) and clearly not "on".
+  // Off: a mid-grey track, clearly a control (3:1 on white and the ground) and clearly not "on".
   track: {
     width: size.switchTrackW,
     height: size.switchTrackH,
@@ -87,9 +89,9 @@ const useStyles = makeStyles((c) => ({
     paddingHorizontal: (size.switchTrackH - size.switchThumb) / 2,
     backgroundColor: c.outline,
   },
-  // On: a dark track on the mint pill. `onMint` is the same dark ink in both themes.
+  // On: a white track on the black pill, with a black thumb and a white check.
   trackOn: {
-    backgroundColor: c.onMint,
+    backgroundColor: c.onPrimary,
   },
   thumb: {
     width: size.switchThumb,
@@ -97,7 +99,11 @@ const useStyles = makeStyles((c) => ({
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    // White in both themes: it sits on a dark or mid-grey track either way.
+    // White on the mid-grey track when off.
     backgroundColor: c.surface,
+  },
+  // Black on the white track when on.
+  thumbOn: {
+    backgroundColor: c.primary,
   },
 }));

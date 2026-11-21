@@ -110,7 +110,7 @@ export function StoriesStrip({ title, groups, onOpen, style }: StripProps) {
                   style={styles.fill}
                 />
               ) : (
-                // No photo: the first letter of the name on the lavender block.
+                // No photo: the first letter of the name on the alice-blue block.
                 <View style={[styles.fill, styles.initial]}>
                   <Txt role="headline" color="onAccent" center content>
                     {provider.name.trim().charAt(0).toUpperCase()}

@@ -111,7 +111,7 @@ export default function JoinScreen() {
       <ProviderForm
         mode="create"
         header={
-          // What this screen is for: one lavender block, as on Suggest (icon, then words).
+          // What this screen is for: one alice-blue block, as on Suggest (icon, then words).
           <View style={styles.intro}>
             <Store color={colors.onAccent} size={size.tileIcon} strokeWidth={size.stroke} />
             <View style={styles.introWords}>

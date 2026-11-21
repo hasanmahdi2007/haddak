@@ -292,11 +292,12 @@ const useStyles = makeStyles((c) => ({
     paddingTop: space.sm,
     gap: space.lg,
   },
+  // A segmented control: alice-blue track, the chosen segment a black pill.
   track: {
     padding: space.xs,
     gap: space.xs,
     borderRadius: radius.pill,
-    backgroundColor: c.surfaceTint,
+    backgroundColor: c.accent,
   },
   segment: {
     flex: 1,

@@ -15,13 +15,15 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.config import check_startup_settings, settings
+from app.config import Settings, check_startup_settings, settings
 from app.db import get_db
+from app.request_limits import BodySizeLimit
 from app.request_logging import configure_logging, log_requests
 from app.routers import (
     admin,
     assist,
     categories,
+    claims,
     follows,
     hire_checks,
     me,
@@ -35,7 +37,17 @@ from app.routers import (
 check_startup_settings(settings)
 configure_logging()
 
-app = FastAPI(title="Haddak API", version="1.0.0")
+
+def docs_urls(current: Settings) -> dict[str, str | None]:
+    """The interactive API docs (/docs, /redoc, /openapi.json) help while
+    building. In production they are off: they would publish a map of every
+    route, admin routes included, to anyone."""
+    if current.is_production():
+        return {"docs_url": None, "redoc_url": None, "openapi_url": None}
+    return {"docs_url": "/docs", "redoc_url": "/redoc", "openapi_url": "/openapi.json"}
+
+
+app = FastAPI(title="Haddak API", version="1.0.0", **docs_urls(settings))
 
 app.middleware("http")(log_requests)
 
@@ -48,6 +60,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Added last, so it runs first: an oversized body is refused before anything else.
+app.add_middleware(BodySizeLimit)
 
 
 @app.exception_handler(RequestValidationError)
@@ -91,6 +106,30 @@ def admin_page() -> FileResponse:
     return FileResponse(ADMIN_PAGE, media_type="text/html", headers=ADMIN_PAGE_HEADERS)
 
 
+# ---------- sign-in email bridge (outside /api/v1) ----------
+
+# The link in the sign-in email opens in a browser. A browser cannot show an
+# app link (haddak:// or exp://) directly, so the email points here instead and
+# this page hands the code on to the app. See docs/API.md "Sign-in link".
+AUTH_OPEN_PAGE = Path(__file__).parent / "static" / "auth-open.html"
+AUTH_OPEN_HEADERS = {
+    "Content-Security-Policy": (
+        "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
+        "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    ),
+    "X-Frame-Options": "DENY",
+    # The address holds a one-time sign-in code: never send it to other sites.
+    "Referrer-Policy": "no-referrer",
+    "X-Content-Type-Options": "nosniff",
+    "Cache-Control": "no-store",
+}
+
+
+@app.get("/auth/open", include_in_schema=False)
+def auth_open_page() -> FileResponse:
+    return FileResponse(AUTH_OPEN_PAGE, media_type="text/html", headers=AUTH_OPEN_HEADERS)
+
+
 # ---------- the API ----------
 
 api = APIRouter(prefix="/api/v1")
@@ -117,5 +156,7 @@ api.include_router(follows.router)
 api.include_router(hire_checks.router)
 api.include_router(assist.router)
 api.include_router(admin.router)
+api.include_router(claims.router)
+api.include_router(claims.admin_router)
 
 app.include_router(api)

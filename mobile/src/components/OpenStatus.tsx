@@ -9,15 +9,15 @@ interface Props {
   /** From the API: true, false, or null when the provider gave no hours. */
   open: boolean | null;
   role?: TypeRole;
-  /** On a mint or lavender block the words are always dark, in both themes. */
+  /** On an alice-blue or vanilla block the words are always dark, in both themes. */
   onPastel?: boolean;
 }
 
 /**
  * "Open now" or "Closed", with a small dot. Draws nothing when hours are unknown.
- * The words carry the meaning and are always ink. The dot is mint when open
- * (ringed in dark green so it shows on any surface) and an empty ring when closed,
- * so it never depends on colour alone.
+ * The words carry the meaning and are always ink. No pill around it: the dot is a
+ * solid black dot when open and an empty grey ring when closed, so it never
+ * depends on colour alone (and there is no green: the founder ruled it out).
  */
 export function OpenStatus({ open, role = 'label', onPastel = false }: Props) {
   const { s, row } = useI18n();
@@ -45,8 +45,8 @@ const useStyles = makeStyles((c) => ({
     borderWidth: size.lineMid,
   },
   dotOpen: {
-    backgroundColor: c.mint,
-    borderColor: c.success,
+    backgroundColor: c.text,
+    borderColor: c.text,
   },
   dotClosed: {
     borderColor: c.textSubtle,

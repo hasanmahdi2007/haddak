@@ -23,7 +23,7 @@ import { Skeleton } from '@/components/Skeleton';
 import { StateView } from '@/components/StateView';
 import { StoriesRow } from '@/components/StoriesRow';
 import { TextLink } from '@/components/TextLink';
-import { Txt } from '@/components/Txt';
+import { Txt, useTypeScale } from '@/components/Txt';
 import { useI18n } from '@/i18n';
 import { requireSignIn } from '@/lib/auth';
 import { useCategories, type CategoryNode } from '@/lib/categories';
@@ -42,13 +42,13 @@ const NAME_MAX = 60;
 const NO_FOCUS_RING = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : null;
 
 // The grid is laid out two tiles to a row. Rows alternate wide + narrow and
-// narrow + wide, and the colours repeat every four tiles, so lavender and mint
-// step diagonally down the page instead of forming columns.
+// narrow + wide. The icon wells alternate alice blue and vanilla like a chessboard,
+// so each colour steps diagonally down the page instead of forming a column.
 const ROW_SHARES: [number, number][] = [
   [3, 2],
   [2, 3],
 ];
-const TONES: TileTone[] = ['accent', 'plain', 'plain', 'mint'];
+const TONES: TileTone[] = ['alice', 'vanilla'];
 
 /** Split a list into rows of two. A last tile on its own takes the full width. */
 function toRows<T>(items: T[]): T[][] {
@@ -64,6 +64,7 @@ export default function HomeScreen() {
   const { s, f, row, rtl, end, alignStart, textAlign, writingDirection, language, setLanguage, categoryName } =
     useI18n();
   const styles = useStyles();
+  const font = useTypeScale().body;
   const savedCount = useFavourites().list.length;
   const location = useLocation();
   const categories = useCategories();
@@ -148,7 +149,7 @@ export default function HomeScreen() {
           <View style={[styles.brandActions, { flexDirection: row }]}>
             {/* Who you follow, their updates, and your account. */}
             <IconButton icon={UserRound} label={s.account.open} onPress={() => router.push('/following')} />
-            {/* Saved providers; the lavender badge counts them. */}
+            {/* Saved providers; the small black badge counts them. */}
             <View>
               <IconButton
                 icon={Heart}
@@ -162,7 +163,7 @@ export default function HomeScreen() {
                   accessibilityElementsHidden
                   importantForAccessibility="no-hide-descendants"
                 >
-                  <Txt role="caption" color="onAccent" ltr>
+                  <Txt role="badge" color="onPrimary" ltr>
                     {savedCount > 99 ? '99+' : savedCount}
                   </Txt>
                 </View>
@@ -188,7 +189,7 @@ export default function HomeScreen() {
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + space.xxl }]}
       >
         <View style={[styles.column, styles.stack]}>
-          {/* The soft lavender hero block, kept calm: the question, where the search is centred, the assistant, search by name. */}
+          {/* The alice-blue hero block with black words: the question, where the search is centred, the assistant, search by name. */}
           <View style={styles.hero}>
             <Txt role="display" color="onHero" accessibilityRole="header">
               {s.home.question}
@@ -196,10 +197,10 @@ export default function HomeScreen() {
 
             <View style={[styles.locationRow, { flexDirection: row }]} accessibilityLiveRegion="polite">
               {location.status === 'locating' ? (
-                <ActivityIndicator size="small" color={colors.mint} />
+                <ActivityIndicator size="small" color={colors.onHero} />
               ) : (
                 <View style={styles.pin}>
-                  <LocationIcon color={colors.onMint} size={size.iconSmall} strokeWidth={size.lineBold} />
+                  <LocationIcon color={colors.onHero} size={size.iconSmall} strokeWidth={size.lineBold} />
                 </View>
               )}
               <Txt role="label" color="onHeroMuted" style={styles.locationText}>
@@ -223,7 +224,7 @@ export default function HomeScreen() {
             {/* The assistant: one big white entry that looks like a field. Nothing else competes with it. */}
             {VOICE_AVAILABLE ? (
               // With a speech module (the development build): the block opens the assistant to type,
-              // the ink disc at its end opens it already listening.
+              // the round black disc at its end opens it already listening.
               <View style={[styles.ask, styles.askSplit, { flexDirection: row }, askPressed ? styles.askPressed : null]}>
                 <Pressable
                   accessibilityRole="button"
@@ -302,7 +303,7 @@ export default function HomeScreen() {
                   autoCapitalize="words"
                   maxLength={NAME_MAX}
                   selectionColor={colors.accentStrong}
-                  style={[styles.fieldInput, NO_FOCUS_RING, { textAlign, writingDirection }]}
+                  style={[styles.fieldInput, font, NO_FOCUS_RING, { textAlign, writingDirection }]}
                 />
                 {name.length > 0 ? (
                   <Pressable
@@ -324,7 +325,7 @@ export default function HomeScreen() {
                   hitSlop={space.xs}
                   style={({ pressed }) => [styles.fieldGo, pressed ? styles.dim : null]}
                 >
-                  <Search color={colors.onMint} size={size.icon} strokeWidth={size.lineBold} />
+                  <Search color={colors.onPrimary} size={size.icon} strokeWidth={size.lineBold} />
                 </Pressable>
               </View>
             ) : (
@@ -410,7 +411,7 @@ export default function HomeScreen() {
                       key={tile.category.id}
                       icon={tile.category.icon}
                       label={tile.label}
-                      tone={TONES[(r * 2 + c) % TONES.length]}
+                      tone={TONES[(r + c) % TONES.length]}
                       grow={cells.length === 1 ? 1 : ROW_SHARES[r % 2][c]}
                       hasChildren={tile.hasChildren}
                       onPress={tile.onPress}
@@ -481,7 +482,7 @@ const useStyles = makeStyles((c) => ({
     alignItems: 'center',
     gap: space.xs,
   },
-  // Count on the heart: a small lavender pill at its top end corner, ringed in the ground colour.
+  // Count on the heart: a small black pill at its top end corner, ringed in the ground colour.
   savedBadge: {
     position: 'absolute',
     top: space.none,
@@ -489,7 +490,7 @@ const useStyles = makeStyles((c) => ({
     height: space.xl + space.xxs,
     paddingHorizontal: space.xs,
     borderRadius: radius.pill,
-    backgroundColor: c.accent,
+    backgroundColor: c.primary,
     borderWidth: size.lineBold,
     borderColor: c.background,
     alignItems: 'center',
@@ -499,8 +500,10 @@ const useStyles = makeStyles((c) => ({
     minHeight: size.touch,
     justifyContent: 'center',
   },
+  // An outlined pill, like every unselected chip.
   language: {
-    backgroundColor: c.surface,
+    borderWidth: size.hairline,
+    borderColor: c.border,
     borderRadius: radius.pill,
     paddingHorizontal: space.lg,
     paddingVertical: space.sm,
@@ -526,18 +529,19 @@ const useStyles = makeStyles((c) => ({
     columnGap: space.sm,
     rowGap: space.xs,
   },
+  // "You are here": a white disc with a black pin on the alice-blue block.
   pin: {
     width: size.pin,
     height: size.pin,
     borderRadius: radius.pill,
-    backgroundColor: c.mint,
+    backgroundColor: c.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   locationText: {
     flexShrink: 1,
   },
-  // Quiet controls inside the lavender block: see-through white pills, never underlined links.
+  // Quiet controls inside the alice-blue block: soft white pills with black words, never underlined links.
   heroChip: {
     minHeight: size.badge + space.sm,
     justifyContent: 'center',
@@ -546,9 +550,10 @@ const useStyles = makeStyles((c) => ({
     backgroundColor: c.heroControl,
   },
   heroChipPressed: {
-    backgroundColor: c.surface,
+    backgroundColor: c.heroControlPressed,
   },
-  // "Ask Jarak AI": a white block as tall as two lines of big text, with the ink arrow at its end.
+  // "Ask Jarak AI": a white block as tall as two lines of big text, with the round black arrow at its end.
+  // Flat: on the alice-blue block, white is separation enough.
   ask: {
     alignItems: 'center',
     gap: space.md,
@@ -560,7 +565,6 @@ const useStyles = makeStyles((c) => ({
     paddingEnd: space.md,
     marginTop: space.xs,
     overflow: 'hidden',
-    boxShadow: elevation.card,
   },
   askPressed: {
     backgroundColor: c.surfaceInset,
@@ -586,7 +590,7 @@ const useStyles = makeStyles((c) => ({
     flex: 1,
     minWidth: 0,
   },
-  // The tangerine Jarak AI mark, then the name.
+  // The vanilla Jarak AI mark, then the name.
   askTitle: {
     alignItems: 'center',
     gap: space.sm,
@@ -594,6 +598,7 @@ const useStyles = makeStyles((c) => ({
   askName: {
     flexShrink: 1,
   },
+  // A round black button with a white arrow, as in the founder's reference (16:1).
   askGo: {
     width: size.buttonLarge,
     height: size.buttonLarge,
@@ -610,7 +615,7 @@ const useStyles = makeStyles((c) => ({
     borderRadius: radius.pill,
     backgroundColor: c.heroControl,
   },
-  // A white pill field inside the soft lavender block (the near-white ground would barely show on it).
+  // A white pill field inside the alice-blue block.
   field: {
     alignItems: 'center',
     minHeight: size.button,
@@ -621,9 +626,9 @@ const useStyles = makeStyles((c) => ({
     paddingHorizontal: space.xs,
     marginTop: space.sm,
   },
-  // The edge turns purple on focus: mint on the pale field would be too faint to see.
+  // The edge turns black on focus.
   fieldFocused: {
-    borderColor: c.primary,
+    borderColor: c.onHero,
   },
   fieldInput: {
     ...typeScale.body,
@@ -640,12 +645,12 @@ const useStyles = makeStyles((c) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // The round mint button inside the field: 40 dp to the eye, 48 with its hitSlop.
+  // The round black button inside the field: 40 dp to the eye, 48 with its hitSlop.
   fieldGo: {
     width: size.segment + space.xs,
     height: size.segment + space.xs,
     borderRadius: radius.pill,
-    backgroundColor: c.mint,
+    backgroundColor: c.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -680,7 +685,7 @@ const useStyles = makeStyles((c) => ({
   gridRow: {
     gap: space.md,
   },
-  // "Everyone nearby": a wide grey block with an ink arrow button.
+  // "Everyone nearby": a wide white block with a round black arrow button.
   everyone: {
     alignItems: 'center',
     gap: space.md,

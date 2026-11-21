@@ -182,18 +182,20 @@ const useStyles = makeStyles((c) => ({
   pills: {
     gap: space.sm,
   },
-  // Three equal pills, the chosen one ink, like the offer's day pills.
+  // Three equal pill chips: outlined, the chosen one solid black, like the offer's day pills.
   pill: {
     flex: 1,
     minHeight: size.segment + space.xs,
     borderRadius: radius.pill,
-    backgroundColor: c.surfaceInset,
+    borderWidth: size.hairline,
+    borderColor: c.border,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: space.sm,
   },
   pillChosen: {
     backgroundColor: c.primary,
+    borderColor: c.primary,
   },
   dim: {
     opacity: opacity.pressed,

@@ -16,6 +16,7 @@ import {
   Plus,
   Share2,
   Star,
+  Store,
   Users,
   UserX,
   WifiOff,
@@ -39,6 +40,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, type ContactEventType, type OpeningHours, type ProviderDetail } from '@/api';
 import { AvailableTag, FeaturedTag, FoundingBadge, SponsoredTag } from '@/components/Badges';
 import { Button } from '@/components/Button';
+import { ClaimSheet } from '@/components/ClaimSheet';
 import { IconButton } from '@/components/IconButton';
 import { OfferBlock } from '@/components/OfferBlock';
 import { OpenStatus } from '@/components/OpenStatus';
@@ -229,7 +231,8 @@ export default function ProviderScreen() {
     avg_rating: number;
     review_count: number;
   } | null>(null);
-  const [sheet, setSheet] = useState<'share' | 'report' | null>(null);
+  // 'remove': the report sheet with "This is my business and I want it removed" already chosen.
+  const [sheet, setSheet] = useState<'share' | 'report' | 'remove' | 'claim' | null>(null);
   const favourites = useFavourites();
   const saved = favourites.isFavourite(id);
   // Scale of the heart; kept in state so the same value lives for the whole screen.
@@ -254,11 +257,12 @@ export default function ProviderScreen() {
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
   const contact = async (type: Exclude<ContactEventType, 'view'>, target: ProviderDetail) => {
+    // An OpenStreetMap listing may have no number; its buttons are hidden then.
+    const phone = target.phone;
+    if (!phone) return;
     api.logContactEvent(target.id, type).catch(() => undefined);
     const url =
-      type === 'whatsapp'
-        ? whatsappUrl(target.whatsapp ?? target.phone, s.provider.greeting)
-        : telUrl(target.phone);
+      type === 'whatsapp' ? whatsappUrl(target.whatsapp ?? phone, s.provider.greeting) : telUrl(phone);
     try {
       await Linking.openURL(url);
       setNotice(null);
@@ -266,7 +270,7 @@ export default function ProviderScreen() {
       setNotice(
         type === 'whatsapp'
           ? s.provider.whatsappFailed
-          : f(s.provider.callFailed, { phone: target.phone }),
+          : f(s.provider.callFailed, { phone }),
       );
     }
   };
@@ -279,6 +283,16 @@ export default function ProviderScreen() {
     } catch {
       setNotice(s.provider.directionsFailed);
     }
+  };
+
+  // Claiming needs an account: signed out, sign-in opens first and the sheet opens after it.
+  const claim = () => {
+    if (requireSignIn(() => setSheet('claim'))) setSheet('claim');
+  };
+
+  // OpenStreetMap's licence asks for attribution; the line links to its copyright page.
+  const openOsmCopyright = () => {
+    Linking.openURL('https://www.openstreetmap.org/copyright').catch(() => undefined);
   };
 
   // After a review was written, changed or deleted: the new average and count.
@@ -387,9 +401,9 @@ export default function ProviderScreen() {
       ? { ...provider, avg_rating: rated.avg_rating, review_count: rated.review_count }
       : provider;
   const hasPhotos = provider.photos.length > 0;
-  // On the mint block every word is dark, whatever the theme.
-  const heroText = provider.verified ? 'onMint' : 'text';
-  const heroMuted = provider.verified ? 'onMint' : 'textMuted';
+  // On the alice-blue block every word is dark, whatever the theme.
+  const heroText = provider.verified ? 'onAccent' : 'text';
+  const heroMuted = provider.verified ? 'onAccent' : 'textMuted';
   const TrustIcon = provider.verified ? BadgeCheck : Badge;
   // Shown only when the provider chose to, and only when there is something to say.
   const shownContacts = provider.contacts_this_month ?? 0;
@@ -417,8 +431,8 @@ export default function ProviderScreen() {
 
           {/* The page rises over the photo with round top corners. */}
           <View style={styles.body}>
-            {/* The hero block: mint when Haddak has verified this provider, grey when it has not.
-                Text on mint is dark in both themes. */}
+            {/* The hero block: alice blue when Haddak has verified this provider (with the black
+                trust disc), white when it has not. Text on alice blue is dark in both themes. */}
             <View style={[styles.hero, provider.verified ? styles.heroVerified : null]}>
               <View style={[styles.heroHead, { flexDirection: row }]}>
                 <View style={styles.trustText}>
@@ -473,7 +487,7 @@ export default function ProviderScreen() {
               >
                 <View style={[styles.trustDisc, provider.verified ? styles.trustDiscOn : null]}>
                   <TrustIcon
-                    color={provider.verified ? colors.mint : colors.text}
+                    color={provider.verified ? colors.onTrust : colors.text}
                     size={size.iconLarge}
                     strokeWidth={size.lineBold}
                   />
@@ -499,7 +513,7 @@ export default function ProviderScreen() {
                       {s.badges.community}
                     </Txt>
                     <Txt role="label" color={heroMuted}>
-                      {s.badges.communityBody}
+                      {provider.data_source === 'osm' ? s.badges.communityOsmBody : s.badges.communityBody}
                     </Txt>
                   </View>
                 </View>
@@ -639,6 +653,37 @@ export default function ProviderScreen() {
 
             <ProviderReviews provider={shown} onChanged={() => refreshRating(provider)} />
 
+            {/* Nobody owns this listing: invite the owner to claim it, or to ask for it to be removed. */}
+            {provider.claimed ? null : (
+              <View style={styles.claimCard}>
+                <View style={[styles.claimHead, { flexDirection: row }]}>
+                  <View style={styles.claimMark}>
+                    <Store color={colors.onSignature} size={size.iconSmall} strokeWidth={size.lineBold} />
+                  </View>
+                  <View style={styles.trustText}>
+                    <Txt role="title" accessibilityRole="header">
+                      {s.claim.cardTitle}
+                    </Txt>
+                    <Txt role="label" color="textMuted">
+                      {s.claim.cardBody}
+                    </Txt>
+                  </View>
+                </View>
+                <Button label={s.claim.cardAction} compact onPress={claim} />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={s.claim.notYours}
+                  onPress={() => setSheet('remove')}
+                  hitSlop={{ top: space.sm, bottom: space.sm }}
+                  style={({ pressed }) => [styles.claimLink, pressed ? styles.dim : null]}
+                >
+                  <Txt role="label" color="textMuted" center>
+                    {s.claim.notYours}
+                  </Txt>
+                </Pressable>
+              </View>
+            )}
+
             {/* Reporting is rare, so it is a quiet line at the very end, not a button. */}
             <Pressable
               accessibilityRole="button"
@@ -651,6 +696,20 @@ export default function ProviderScreen() {
                 {s.report.open}
               </Txt>
             </Pressable>
+
+            {provider.data_source === 'osm' ? (
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel={s.provider.osmAttribution}
+                accessibilityHint={s.provider.osmAttributionHint}
+                onPress={openOsmCopyright}
+                style={({ pressed }) => [styles.attribution, pressed ? styles.dim : null]}
+              >
+                <Txt role="caption" color="textMuted" center>
+                  {s.provider.osmAttribution}
+                </Txt>
+              </Pressable>
+            ) : null}
           </View>
 
         </View>
@@ -680,7 +739,7 @@ export default function ProviderScreen() {
       >
         <IconButton icon={BackIcon} label={s.common.back} onPress={goBack} tone="scrim" />
         <View style={[styles.overlayGroup, { flexDirection: row }]}>
-          {/* The heart: outline when not saved, filled lavender when saved. It swells for a moment on a tap. */}
+          {/* The heart: outline when not saved, filled alice-blue when saved. It swells for a moment on a tap. */}
           <Animated.View style={{ transform: [{ scale: pulse }] }}>
             <IconButton
               icon={Heart}
@@ -714,7 +773,14 @@ export default function ProviderScreen() {
               </Pressable>
             </View>
           ) : null}
+          {provider.phone ? null : (
+            <Txt role="label" color="textMuted" center>
+              {s.provider.noPhone}
+            </Txt>
+          )}
           <View style={[styles.actions, { flexDirection: row }]}>
+            {provider.phone ? (
+              <>
             <Button
               label={s.provider.whatsapp}
               accessibilityLabel={f(s.provider.whatsappLabel, { name: provider.name })}
@@ -733,6 +799,8 @@ export default function ProviderScreen() {
               onPress={() => void contact('call', provider)}
               style={styles.actionSecondary}
             />
+              </>
+            ) : null}
             <Button
               label={s.provider.directions}
               accessibilityLabel={f(s.provider.directionsLabel, { name: provider.name })}
@@ -759,8 +827,17 @@ export default function ProviderScreen() {
           />
         </Sheet>
       ) : null}
-      {sheet === 'report' ? (
-        <ReportSheet providerId={provider.id} name={provider.name} onClose={() => setSheet(null)} />
+      {sheet === 'report' || sheet === 'remove' ? (
+        <ReportSheet
+          providerId={provider.id}
+          name={provider.name}
+          unclaimed={!provider.claimed}
+          initialReason={sheet === 'remove' ? 'remove_my_business' : undefined}
+          onClose={() => setSheet(null)}
+        />
+      ) : null}
+      {sheet === 'claim' ? (
+        <ClaimSheet providerId={provider.id} name={provider.name} onClose={() => setSheet(null)} />
       ) : null}
     </View>
   );
@@ -828,7 +905,8 @@ const useStyles = makeStyles((c) => ({
     boxShadow: elevation.card,
   },
   heroVerified: {
-    backgroundColor: c.mint,
+    backgroundColor: c.accent,
+    boxShadow: 'none',
   },
   heroHead: {
     alignItems: 'flex-start',
@@ -865,7 +943,7 @@ const useStyles = makeStyles((c) => ({
     gap: space.md,
     marginTop: space.md,
   },
-  // The round mark beside a trust line: ink with a mint badge when verified, grey otherwise.
+  // The round mark beside a trust line: black with a white check badge when verified, grey otherwise.
   trustDisc: {
     width: size.trustDisc,
     height: size.trustDisc,
@@ -875,7 +953,7 @@ const useStyles = makeStyles((c) => ({
     justifyContent: 'center',
   },
   trustDiscOn: {
-    backgroundColor: c.onMint,
+    backgroundColor: c.trust,
   },
   trustText: {
     flex: 1,
@@ -906,7 +984,7 @@ const useStyles = makeStyles((c) => ({
     paddingVertical: space.sm,
     borderRadius: radius.md,
   },
-  // Today: a faint lavender band inside the white card, heavier text and the word "Today".
+  // Today: a faint grey band inside the white card, heavier text and the word "Today".
   hoursToday: {
     backgroundColor: c.surfaceInset,
   },
@@ -977,6 +1055,39 @@ const useStyles = makeStyles((c) => ({
   },
   reportText: {
     textDecorationLine: 'underline',
+  },
+  // "Is this your business?": a vanilla block, the signature kept for this special
+  // moment (docs: mobile/DESIGN.md, signature). No shadow: it is an invitation, not a card.
+  claimCard: {
+    gap: space.md,
+    padding: space.lg,
+    borderRadius: radius.lg,
+    backgroundColor: c.signature,
+  },
+  claimHead: {
+    alignItems: 'flex-start',
+    gap: space.md,
+  },
+  // The same small vanilla square as the Jarak AI mark.
+  claimMark: {
+    width: size.jarakMark,
+    height: size.jarakMark,
+    borderRadius: radius.sm,
+    backgroundColor: c.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  claimLink: {
+    alignSelf: 'center',
+    justifyContent: 'center',
+    minHeight: size.touch,
+    paddingHorizontal: space.md,
+  },
+  attribution: {
+    alignSelf: 'center',
+    justifyContent: 'center',
+    minHeight: size.touch,
+    paddingHorizontal: space.lg,
   },
   dock: {
     backgroundColor: c.background,

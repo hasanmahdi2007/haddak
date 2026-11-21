@@ -4,7 +4,7 @@ import { Pressable, View } from 'react-native';
 import type { Coordinates, ProviderSummary } from '@/api';
 import { useI18n } from '@/i18n';
 import type { RadiusM } from '@/lib/radius';
-import { elevation, fonts, makeStyles, radius, size, space, useTheme } from '@/theme';
+import { elevation, makeStyles, radius, size, space, useTheme } from '@/theme';
 
 import { FeaturedTag, NotVerifiedBadge, VerifiedBadge } from './Badges';
 import { OpenStatus } from './OpenStatus';
@@ -223,7 +223,7 @@ interface PinProps {
   verified: boolean;
   featured: boolean;
   selected: boolean;
-  /** Paid to appear first: the round mark gets the tangerine signature. */
+  /** Paid to appear first: the round mark gets the vanilla signature. */
   sponsored?: boolean;
 }
 
@@ -231,11 +231,11 @@ interface PinProps {
  * A provider pin: a small pill that carries the provider's name, with a pointer
  * under it whose tip marks the position. The name can be read without tapping.
  *
- * - Verified: white pill, ink edge, a mint disc with a check before the name.
+ * - Verified: white pill, ink edge, a black disc with a white check before the name.
  * - Not verified: grey pill, grey edge, an empty grey ring and a muted name.
- * - Featured (paid): the pill is lavender.
- * - Sponsored (paid): the round mark is tangerine (a tangerine ring around the
- *   mint disc when the provider is also verified, so trust still reads first).
+ * - Featured (paid): the pill is alice-blue.
+ * - Sponsored (paid): the round mark is vanilla (a vanilla ring around the
+ *   black disc when the provider is also verified, so trust still reads first).
  * - Selected: the pill fills ink and grows a little.
  *
  * It sits in a box at least 48 dp high so it is easy to tap; the tip is at the
@@ -277,16 +277,15 @@ export function ProviderPin({ name, verified, featured, selected, sponsored = fa
           ]}
         >
           {verified ? (
-            <Check color={colors.onMint} size={disc - space.sm} strokeWidth={size.strokeHeavy} />
+            <Check color={colors.onTrust} size={disc - space.sm} strokeWidth={size.strokeHeavy} />
           ) : null}
         </View>
         <Txt
-          role={selected ? 'label' : 'caption'}
+          role={selected ? 'label' : 'badge'}
           color={look.text}
           numberOfLines={1}
           // A pin is a picture of fixed size: very large system text must not push the name out of it.
           maxFontSizeMultiplier={1.2}
-          style={styles.pinName}
           content
         >
           {pinName(name)}
@@ -298,9 +297,9 @@ export function ProviderPin({ name, verified, featured, selected, sponsored = fa
 
 /**
  * A pin that has no room for its name: the round mark alone, centred on the
- * position. Verified: a mint disc with a check and an ink edge. Not verified:
- * a grey disc with a grey ring. Featured (paid): the disc is lavender. Sponsored
- * (paid): the disc is tangerine, or the mint disc gets a tangerine ring when verified.
+ * position. Verified: a black disc with a white check and a white edge. Not verified:
+ * a grey disc with a grey ring. Featured (paid): the disc is alice-blue. Sponsored
+ * (paid): the disc is vanilla, or the black disc gets a vanilla ring when verified.
  * Tapping it selects the provider, which shows the name.
  */
 export function ProviderDot({ verified, featured, sponsored = false }: Pick<PinProps, 'verified' | 'featured' | 'sponsored'>) {
@@ -316,14 +315,14 @@ export function ProviderDot({ verified, featured, sponsored = false }: Pick<PinP
         ]}
       >
         {verified ? (
-          <Check color={colors.onMint} size={size.mapDot - space.sm - space.xxs} strokeWidth={size.strokeHeavy} />
+          <Check color={colors.onTrust} size={size.mapDot - space.sm - space.xxs} strokeWidth={size.strokeHeavy} />
         ) : null}
       </View>
     </View>
   );
 }
 
-/** The search position: a lavender point with an ink ring. */
+/** The search position: a alice-blue point with an ink ring. */
 export function HereDot() {
   const styles = useStyles();
   return <View style={styles.here} />;
@@ -438,24 +437,22 @@ const useStyles = makeStyles((c) => ({
     justifyContent: 'center',
   },
   pinDiscVerified: {
-    backgroundColor: c.mint,
+    backgroundColor: c.trust,
   },
   pinDiscPlain: {
     borderWidth: size.lineBold,
     borderColor: c.outline,
   },
-  pinName: {
-    fontFamily: fonts.bodyStrong,
-  },
-  // Sponsored marks: a tangerine disc with a dark edge, or a tangerine ring around the mint check.
+  // Sponsored marks: a vanilla disc with a dark edge, or a vanilla ring around the black check.
   discSponsored: {
     backgroundColor: c.signature,
     borderWidth: size.lineMid,
     borderColor: c.onSignature,
   },
+  // Olive, the deeper vanilla: plain vanilla would vanish against the white pill.
   discSponsoredRing: {
     borderWidth: size.lineBold,
-    borderColor: c.signature,
+    borderColor: c.signatureStrong,
   },
   // A clear box a little larger than the mark, so a finger finds it.
   dotBox: {
@@ -473,8 +470,8 @@ const useStyles = makeStyles((c) => ({
     borderWidth: size.lineMid,
   },
   dotVerified: {
-    backgroundColor: c.mint,
-    borderColor: c.onMint,
+    backgroundColor: c.trust,
+    borderColor: c.onTrust,
   },
   dotFeatured: {
     backgroundColor: c.accent,

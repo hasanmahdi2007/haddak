@@ -1,4 +1,5 @@
 import { getAccessToken, handleUnauthorized } from '@/lib/auth';
+import { getDeviceId } from '@/lib/deviceId';
 
 import { createHttpApi } from './http';
 import { createMockApi } from './mock';
@@ -18,7 +19,8 @@ export const isMockMode = baseUrl.length === 0;
 // Both clients send the signed-in user's token (src/lib/auth.ts) when there is one.
 const mock = isMockMode ? createMockApi(getAccessToken) : null;
 
-export const api: HaddakApi = mock ?? createHttpApi(baseUrl, getAccessToken, handleUnauthorized);
+export const api: HaddakApi =
+  mock ?? createHttpApi(baseUrl, getAccessToken, handleUnauthorized, getDeviceId);
 
 // Lets the screenshot script trigger the error state in mock mode. Off in normal
 // builds: only in development, or when EXPO_PUBLIC_MOCK_CONTROLS=1 is set on purpose.

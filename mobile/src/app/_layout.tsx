@@ -4,6 +4,12 @@ import {
   ReadexPro_500Medium,
   ReadexPro_600SemiBold,
 } from '@expo-google-fonts/readex-pro';
+import {
+  Urbanist_400Regular,
+  Urbanist_500Medium,
+  Urbanist_600SemiBold,
+  Urbanist_700Bold,
+} from '@expo-google-fonts/urbanist';
 import { useFonts } from 'expo-font';
 import { SplashScreen, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -23,8 +29,13 @@ void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const { colors, dark } = useTheme();
-  // Font names here must match `fonts` in src/theme/tokens.ts.
+  // Font names here must match `fonts` in src/theme/tokens.ts: Urbanist for Latin
+  // text, Beiruti and Readex Pro for Arabic (Urbanist has no Arabic letters).
   const [loaded, error] = useFonts({
+    Urbanist_400Regular,
+    Urbanist_500Medium,
+    Urbanist_600SemiBold,
+    Urbanist_700Bold,
     Beiruti_600SemiBold,
     Beiruti_700Bold,
     ReadexPro_400Regular,

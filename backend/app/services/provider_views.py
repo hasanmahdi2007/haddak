@@ -84,6 +84,8 @@ def summary_fields(provider: Provider, distance_m: float | None, posts: PostInfo
         "sponsor_hook": provider.sponsor_hook if is_featured else None,
         "has_active_story": is_verified and provider.id in posts.story_provider_ids,
         "banner_title": banner.title if banner else None,
+        # Imported OpenStreetMap data must be shown with attribution (ODbL).
+        "data_source": "osm" if provider.source == "osm" else None,
     }
 
 

@@ -28,7 +28,7 @@ import { api, ApiError, type Category } from '@/api';
 import { Button } from '@/components/Button';
 import { IconButton } from '@/components/IconButton';
 import { StateView } from '@/components/StateView';
-import { Txt } from '@/components/Txt';
+import { Txt, useTypeScale } from '@/components/Txt';
 import { useI18n } from '@/i18n';
 import { useCategories } from '@/lib/categories';
 import { makeStyles, radius, size, space, type as typeScale, useTheme } from '@/theme';
@@ -137,6 +137,7 @@ export default function SuggestScreen() {
   const { colors } = useTheme();
   const { s, f, row, rtl, textAlign, writingDirection, categoryName } = useI18n();
   const styles = useStyles();
+  const font = useTypeScale().body;
   const params = useLocalSearchParams<{ category_id?: string }>();
   const categories = useCategories();
 
@@ -162,7 +163,7 @@ export default function SuggestScreen() {
   const nameRef = useRef<ComponentRef<typeof TextInput>>(null);
   const phoneRef = useRef<ComponentRef<typeof TextInput>>(null);
   // Where each field starts inside the list of fields, and where that list starts
-  // inside the scrolling page (under the lavender block). Measured as they are laid out.
+  // inside the scrolling page (under the alice-blue block). Measured as they are laid out.
   const fieldY = useRef<Partial<Record<FieldKey, number>>>({});
   const fieldsY = useRef(0);
 
@@ -236,13 +237,14 @@ export default function SuggestScreen() {
 
   const inputStyle = (key: FieldKey, error?: string | null) => [
     styles.input,
+    font,
     NO_FOCUS_RING,
     { textAlign, writingDirection },
     focused === key ? styles.inputFocused : null,
     error ? styles.inputError : null,
   ];
 
-  // The top bar holds only the way back. The title lives in the lavender block below it.
+  // The top bar holds only the way back. The title lives in the alice-blue block below it.
   const bar = (
     <View style={[styles.column, styles.bar, { flexDirection: row }]}>
       <IconButton icon={BackIcon} label={s.common.back} onPress={goBack} />
@@ -274,7 +276,7 @@ export default function SuggestScreen() {
         <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled">
           {/* The only child of the scrolling page, so a position measured inside it is a scroll position. */}
           <View style={[styles.column, styles.page]}>
-            {/* What this screen is for: one lavender block, built like a category tile (icon, then words). */}
+            {/* What this screen is for: one alice-blue block, built like a category tile (icon, then words). */}
             <View style={styles.intro}>
               <HeartHandshake color={colors.onAccent} size={size.tileIcon} strokeWidth={size.stroke} />
               <View style={styles.introWords}>
@@ -387,7 +389,7 @@ export default function SuggestScreen() {
                           autoCorrect={false}
                           returnKeyType="search"
                           selectionColor={colors.primary}
-                          style={[styles.panelInput, NO_FOCUS_RING, { textAlign, writingDirection }]}
+                          style={[styles.panelInput, font, NO_FOCUS_RING, { textAlign, writingDirection }]}
                         />
                       </View>
                       {/* A short list that scrolls inside the page. */}
@@ -541,7 +543,7 @@ const useStyles = makeStyles((c) => ({
     paddingBottom: space.xxl,
     gap: space.xxl,
   },
-  // The lavender block: icon on top, the title and one sentence under it.
+  // The alice-blue block: icon on top, the title and one sentence under it.
   intro: {
     backgroundColor: c.accent,
     borderRadius: radius.sheet,

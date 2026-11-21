@@ -180,8 +180,11 @@ interface ProviderSeed {
   claimed?: boolean;
   /** A paid card above the results, with this one-line hook. */
   sponsorHook?: string;
-  phone: string;
+  /** Null only for a listing imported from OpenStreetMap without a number. */
+  phone: string | null;
   whatsapp?: string;
+  /** 'osm': imported from OpenStreetMap (shown with attribution). */
+  dataSource?: 'osm';
   description: string;
   photos: string[];
   joined: string;
@@ -684,6 +687,25 @@ const SEEDS: ProviderSeed[] = [
     photos: [PHOTOS.barber],
     joined: '2026-11-14T09:00:00Z',
   },
+  // Imported from OpenStreetMap: no owner, no number, no photos. Shows the claim card
+  // and the attribution line.
+  {
+    slug: 'o1d6cm',
+    name: 'Centre Dentaire Al Amal',
+    categoryId: 21,
+    at: [700, 200],
+    area: 'Haret Hreik',
+    price: null,
+    rating: 0,
+    reviews: 0,
+    verified: false,
+    claimed: false,
+    phone: null,
+    dataSource: 'osm',
+    description: '',
+    photos: [],
+    joined: '2026-11-17T09:00:00Z',
+  },
 ];
 
 function categoryRef(id: number) {
@@ -798,6 +820,7 @@ export const MOCK_PROVIDERS: ProviderDetail[] = SEEDS.map((seed, index) => {
     // Stories and banners are also filled in per request (mockStories and mockBanner below).
     has_active_story: false,
     banner_title: null,
+    data_source: seed.dataSource ?? null,
     active_banner: null,
     follower_count: FOLLOWER_COUNTS[index] ?? (index * 7) % 23,
     is_following: false,

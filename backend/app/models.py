@@ -66,7 +66,9 @@ class Provider(Base):
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"))
     description: Mapped[str] = mapped_column(Text, server_default=text("''"))
     price_text: Mapped[str | None] = mapped_column(Text)
-    phone: Mapped[str] = mapped_column(Text)
+    # None only for listings imported from OpenStreetMap without a number
+    # (the database refuses NULL for every other source).
+    phone: Mapped[str | None] = mapped_column(Text)
     whatsapp: Mapped[str | None] = mapped_column(Text)
 
     # GEOGRAPHY (not GEOMETRY) so PostGIS measures in real metres on the
@@ -92,9 +94,13 @@ class Provider(Base):
     # JSON like {"mon": [["09:00", "13:00"]], ...}; None = hours not provided.
     # The shape is described in docs/SCHEMA.md and validated in schemas.py.
     opening_hours: Mapped[dict | None] = mapped_column(JSONB)
-    # Who created the listing: 'owner' (the provider, in the app) or
-    # 'suggestion' (the admin published it from a suggestion).
+    # Who created the listing: 'owner' (the provider, in the app),
+    # 'suggestion' (the admin published it from a suggestion) or 'osm'
+    # (imported from OpenStreetMap by scripts/import_osm.py).
     source: Mapped[str] = mapped_column(Text, server_default=text("'owner'"))
+    # The OpenStreetMap id, e.g. 'node/123'. Only set for source 'osm'; lets
+    # the import update a listing instead of adding it twice.
+    osm_ref: Mapped[str | None] = mapped_column(Text, unique=True)
     # One-sentence pitch written by the owner. The public only receives it
     # while the provider is sponsored (verified + featured_until not passed).
     sponsor_hook: Mapped[str | None] = mapped_column(Text)
@@ -326,3 +332,43 @@ class AssistLog(Base):
     # the founder's "most wanted" list.
     wanted_text: Mapped[str | None] = mapped_column(Text)
     place_unknown: Mapped[str | None] = mapped_column(Text)  # a place name we could not find
+
+
+class AssistQuota(Base):
+    """How many AI requests one "who" made on one day (Lebanon time).
+
+    `subject` is a keyed hash of the day plus the account, install id or IP
+    (app/services/assist/quota.py), never the value itself. Rows older than a
+    few days are deleted.
+    """
+
+    __tablename__ = "assist_quota"
+
+    subject: Mapped[str] = mapped_column(Text, primary_key=True)
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    used: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+
+
+class Claim(Base):
+    """ "Is this your business? Claim it": a signed-in user asks to become the
+    owner of a listing nobody owns. The founder approves or rejects it.
+
+    status is 'pending', 'approved' or 'rejected'. The database allows only
+    one 'pending' claim per user and listing (a partial unique index).
+    """
+
+    __tablename__ = "claims"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    provider_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("providers.id", ondelete="CASCADE"))
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    message: Mapped[str | None] = mapped_column(Text)
+    verification_doc_url: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text, server_default=text("'pending'"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    # Loaded in the same query: the admin list shows the listing's name and status.
+    provider: Mapped[Provider] = relationship(lazy="joined", innerjoin=True)

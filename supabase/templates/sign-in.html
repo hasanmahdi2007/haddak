@@ -1,0 +1,87 @@
+<!doctype html>
+<!--
+  Haddak sign-in email. Paste into Supabase -> Authentication -> Emails ->
+  "Magic link or OTP" AND "Confirm sign up" (needs custom SMTP first).
+  Subject: Your Haddak sign-in · رابط الدخول على حدّك
+  {{ .Token }} = the 6-digit code, {{ .ConfirmationURL }} = the one-tap link.
+  Email apps ignore most CSS, so everything is inline and in tables.
+-->
+<html lang="ar">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Haddak</title>
+</head>
+<body style="margin:0;padding:0;background:#F6F5FA;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F6F5FA;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;font-family:-apple-system,'Segoe UI',Roboto,Tahoma,Arial,sans-serif;color:#212121;">
+
+        <!-- Wordmark -->
+        <tr>
+          <td align="center" style="padding-bottom:20px;">
+            <span style="display:inline-block;background:#EFF0A3;border-radius:14px;padding:10px 18px;font-size:22px;font-weight:700;letter-spacing:-0.3px;color:#212121;">
+              حدّك &middot; Haddak
+            </span>
+          </td>
+        </tr>
+
+        <!-- Card -->
+        <tr>
+          <td style="background:#FFFFFF;border-radius:24px;padding:32px 28px;">
+
+            <!-- Arabic -->
+            <div dir="rtl" style="text-align:right;">
+              <p style="margin:0 0 8px;font-size:24px;font-weight:700;line-height:1.3;">أهلا فيك 👋</p>
+              <p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#4A4A55;">
+                اكتب هالرمز بتطبيق حدّك، أو كبوس عالزر من نفس التلفون.
+              </p>
+            </div>
+
+            <!-- The code: the most reliable way in -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td align="center" style="background:#D8DFE9;border-radius:16px;padding:18px 12px;">
+                  <div style="font-size:13px;color:#4A4A55;padding-bottom:6px;">رمز الدخول &middot; Your code</div>
+                  <div dir="ltr" style="font-size:36px;font-weight:700;letter-spacing:10px;color:#212121;font-family:'SF Mono',Menlo,Consolas,monospace;">{{ .Token }}</div>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Button -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
+              <tr>
+                <td align="center" style="background:#212121;border-radius:14px;">
+                  <a href="{{ .ConfirmationURL }}" style="display:block;padding:16px;font-size:17px;font-weight:600;color:#FFFFFF;text-decoration:none;">
+                    فوت على حدّك &middot; Open Haddak
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <!-- English -->
+            <div dir="ltr" style="text-align:left;margin-top:28px;padding-top:20px;border-top:1px solid #ECEBF2;">
+              <p style="margin:0 0 6px;font-size:18px;font-weight:700;">Welcome to Haddak</p>
+              <p style="margin:0;font-size:15px;line-height:1.6;color:#4A4A55;">
+                Type the code above in the Haddak app, or tap the button on the same phone.
+              </p>
+            </div>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:20px 12px 0;font-size:12px;line-height:1.6;color:#6B6B76;text-align:center;">
+            <div dir="rtl">الرمز بيخلص بعد ساعة. إذا ما طلبته إنت، تجاهل هالإيميل.</div>
+            <div dir="ltr">The code expires in 1 hour. If you didn't ask for it, ignore this email.</div>
+            <div style="padding-top:10px;">Haddak &middot; Lebanon</div>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>

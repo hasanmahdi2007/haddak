@@ -10,6 +10,7 @@
   It only calls the admin endpoints: GET and PATCH /api/v1/admin/providers,
   GET, DELETE and POST .../publish on /api/v1/admin/suggestions,
   GET and DELETE /api/v1/admin/reports,
+  GET /api/v1/admin/claims and POST .../approve and .../reject,
   GET /api/v1/admin/stories and /banners, DELETE /admin/stories/{id} and /admin/providers/{id}/banner,
   plus the public GET /api/v1/categories (for the category list when publishing).
   The admin key lives in a JavaScript variable: it is gone when the tab is
@@ -110,6 +111,7 @@
       <button type="button" data-status="rejected">Rejected</button>
       <button type="button" data-status="suggestions">Suggestions</button>
       <button type="button" data-status="reports">Reports</button>
+      <button type="button" data-status="claims">Claims</button>
       <button type="button" data-status="posts">Posts</button>
       <button type="button" data-status="wanted">Wanted</button>
     </div>
@@ -122,7 +124,7 @@
 
 // The admin key. Memory only: never saved to browser storage or cookies.
 let adminKey = "";
-// Which tab is open: a profile status, "suggestions", "reports", "posts" or "wanted".
+// Which tab is open: a profile status, "suggestions", "reports", "claims", "posts" or "wanted".
 let currentStatus = "pending";
 // The category list for the Publish form. Loaded once, the first time the
 // Suggestions tab is opened.
@@ -134,6 +136,7 @@ const REASON_LABELS = {
   not_real: "Not a real provider",
   closed: "Closed",
   offensive: "Offensive",
+  remove_my_business: "This is my business and I want it removed",
   other: "Other"
 };
 
@@ -240,6 +243,10 @@ async function loadList() {
       data = await callApi("GET", "/reports?limit=100");
       renderItem = renderReport;
       doneText = countMessage(data, "reports");
+    } else if (currentStatus === "claims") {
+      data = await callApi("GET", "/claims?status=pending");
+      renderItem = renderClaim;
+      doneText = data.total === 0 ? "No pending claims." : data.total + " pending claims.";
     } else if (currentStatus === "wanted") {
       // What people asked the assistant for and did not find, plus AI spending.
       const wanted = await callApi("GET", "/assist/wanted");
@@ -316,6 +323,17 @@ async function dismissReport(report) {
   }
 }
 
+// Approve or reject a claim ("Is this your business? Claim it").
+async function decideClaim(claim, decision) {
+  try {
+    await callApi("POST", "/claims/" + encodeURIComponent(claim.id) + "/" + decision);
+    await loadList();
+    showMessage((decision === "approve" ? "Approved" : "Rejected") + " the claim for " + claim.provider.name + ".", false);
+  } catch (error) {
+    showMessage(error.message, true);
+  }
+}
+
 async function deleteStory(story) {
   try {
     await callApi("DELETE", "/stories/" + encodeURIComponent(story.id));
@@ -353,13 +371,15 @@ function renderProvider(provider) {
   head.appendChild(element("h2", provider.name));
   if (provider.founding_member) head.appendChild(element("span", "Founding member", "badge"));
   if (provider.featured) head.appendChild(element("span", "Featured", "badge"));
-  if (provider.claimed === false) head.appendChild(element("span", "No owner (from a suggestion)", "badge"));
+  if (provider.claimed === false) {
+    head.appendChild(element("span", provider.source === "osm" ? "No owner (from OpenStreetMap)" : "No owner (from a suggestion)", "badge"));
+  }
   card.appendChild(head);
 
   const table = element("dl");
   addRow(table, "Category", element("span", provider.category ? provider.category.name_en : ""));
   addRow(table, "Area", element("span", provider.area_name));
-  addRow(table, "Phone", element("span", provider.phone));
+  addRow(table, "Phone", element("span", provider.phone || "Not given"));
   if (provider.whatsapp && provider.whatsapp !== provider.phone) {
     addRow(table, "WhatsApp", element("span", provider.whatsapp));
   }
@@ -807,6 +827,42 @@ function renderReport(report) {
     });
     actions.appendChild(reject);
   }
+  card.appendChild(actions);
+  return card;
+}
+
+// A claim: who asked (user id), their message and proof, and the listing.
+// The message was typed by a user: it goes in through textContent like everything else.
+function renderClaim(claim) {
+  const card = element("article", null, "card");
+  const provider = claim.provider;
+
+  const head = element("div", null, "card-head");
+  head.appendChild(element("h2", provider.name));
+  head.appendChild(element("span", provider.status, "badge"));
+  card.appendChild(head);
+
+  const table = element("dl");
+  addRow(table, "User id", element("span", claim.user_id));
+  addRow(table, "Proof", claim.verification_doc_url ? link("Open proof", claim.verification_doc_url) : element("span", "None sent"));
+  addRow(table, "Date", element("span", formatDate(claim.created_at)));
+  card.appendChild(table);
+
+  if (claim.message) card.appendChild(element("p", claim.message, "description"));
+
+  const actions = element("div", null, "actions");
+  const approve = element("button", claim.verification_doc_url ? "Approve (proof goes to Pending)" : "Approve");
+  approve.type = "button";
+  approve.addEventListener("click", function () {
+    decideClaim(claim, "approve");
+  });
+  actions.appendChild(approve);
+  const reject = element("button", "Reject", "danger");
+  reject.type = "button";
+  reject.addEventListener("click", function () {
+    decideClaim(claim, "reject");
+  });
+  actions.appendChild(reject);
   card.appendChild(actions);
   return card;
 }

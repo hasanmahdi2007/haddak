@@ -18,10 +18,11 @@ const VARIANTS: Record<
   primary: { bg: 'primary', pressed: 'primaryPressed', fg: 'onPrimary', border: null },
   whatsapp: { bg: 'whatsapp', pressed: 'whatsappPressed', fg: 'onWhatsapp', border: null },
   tonal: { bg: 'surfaceTint', pressed: 'surfaceTintStrong', fg: 'onPrimarySoft', border: null },
-  outline: { bg: null, pressed: 'surfaceTint', fg: 'primary', border: 'outline' },
+  // An outlined pill: a light grey edge and no fill; the words say what it does.
+  outline: { bg: null, pressed: 'surfaceTint', fg: 'primary', border: 'border' },
   // Emergency numbers only.
   danger: { bg: 'danger', pressed: 'dangerPressed', fg: 'onDanger', border: null },
-  // A quiet action on a grey or lavender block.
+  // A quiet action on a grey or pastel block.
   white: { bg: 'surface', pressed: 'surfaceTintStrong', fg: 'onPrimarySoft', border: null },
 };
 
@@ -81,7 +82,7 @@ export function Button({
         { flexDirection: row },
         v.bg ? { backgroundColor: colors[pressed ? v.pressed : v.bg] } : null,
         !v.bg && pressed ? { backgroundColor: colors[v.pressed] } : null,
-        v.border ? { borderWidth: size.lineMid, borderColor: colors[v.border] } : null,
+        v.border ? { borderWidth: size.hairline, borderColor: colors[v.border] } : null,
         pressed ? styles.pressed : null,
         disabled ? styles.disabled : null,
         style,

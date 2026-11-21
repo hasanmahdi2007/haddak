@@ -89,11 +89,14 @@ export const en = {
     sponsoredLabel: 'Sponsored, paid placement',
     availableFilter: 'Available now',
     availableFilterHint: 'Shows only people who can come right now',
+    // A quiet line above the first result Haddak has not checked (verified ones always come first).
+    unverifiedDivider: 'Not verified yet',
+    unverifiedDividerBody: "Haddak hasn't checked these",
   },
 
   filter: {
     label: 'Verified only',
-    hint: 'When off, listings Haddak has not checked are shown too.',
+    hint: 'When on, only listings Haddak has checked are shown.',
   },
 
   badges: {
@@ -103,6 +106,7 @@ export const en = {
     notVerifiedBody: 'Haddak has not checked this listing. Check for yourself before you agree on anything.',
     community: 'Listed by the community',
     communityBody: "Added from someone's suggestion. The owner has not joined Haddak yet.",
+    communityOsmBody: 'Added from OpenStreetMap. The owner has not joined Haddak yet.',
     founding: 'Founding member',
     featured: 'Featured',
     featuredLabel: 'Featured, paid placement',
@@ -194,6 +198,9 @@ export const en = {
     directions: 'Directions',
     directionsLabel: 'Get directions to {name} in your maps app',
     directionsFailed: "Couldn't open the maps app.",
+    noPhone: 'No phone number on this listing yet.',
+    osmAttribution: 'Data © OpenStreetMap contributors',
+    osmAttributionHint: 'Opens the OpenStreetMap copyright page',
   },
 
   suggest: {
@@ -300,8 +307,16 @@ export const en = {
 
   auth: {
     close: 'Close sign-in',
-    title: 'Sign in to Haddak',
-    intro: 'Follow the places you like and see their updates in one place. No password: we email you a sign-in link.',
+    modeSignUp: 'Create account',
+    modeSignIn: 'Sign in',
+    modes: 'Create an account or sign in',
+    titleSignUp: 'Join Haddak',
+    introSignUp: 'Follow the places you like, see their offers, and list your own business. Free, and no password: we email you a link.',
+    sendSignUp: 'Create my account',
+    title: 'Welcome back',
+    intro: 'Enter the email you joined with. No password: we email you a sign-in link.',
+    noAccount: "There's no Haddak account with this email yet.",
+    noAccountAction: 'Create one with this email',
     email: 'Email',
     emailPlaceholder: 'you@example.com',
     emailInvalid: 'Enter an email like name@example.com.',
@@ -339,7 +354,7 @@ export const en = {
     title: 'Following',
     signedOutTitle: 'Keep up with places you like',
     signedOutBody: 'Sign in to follow providers and see their updates here.',
-    signIn: 'Sign in',
+    signIn: 'Sign up or sign in',
     updates: 'Their updates',
     noUpdates: 'No updates from them right now. Updates stay up for a day.',
     providers: 'You follow',
@@ -660,6 +675,7 @@ export const en = {
       not_real: "It isn't a real business",
       closed: 'It has closed',
       offensive: 'Offensive or abusive',
+      remove_my_business: 'This is my business and I want it removed',
       other: 'Something else',
     },
     reasonRequired: "Choose what's wrong.",
@@ -674,6 +690,31 @@ export const en = {
     rateLimited: "You've sent several reports already. Try again later.",
     failed: "Couldn't send it. Check your connection and try again.",
     gone: 'This listing has already been removed.',
+  },
+
+  // "Is this your business? Claim it" on listings nobody owns yet.
+  claim: {
+    cardTitle: 'Is this your business?',
+    cardBody: 'Claim it for free to add photos, prices and hours, and get the Verified badge.',
+    cardAction: 'Claim it for free',
+    notYours: "Listed without asking you? Ask us to remove it",
+    title: 'Claim {name}',
+    intro: 'Haddak checks every claim by hand. Once approved, the listing is yours in My business.',
+    message: 'Message',
+    messagePlaceholder: 'For example: I own this shop since 2015.',
+    proof: 'Proof',
+    proofNote: 'A photo of the shop front with you in it, a licence or a business card. It makes the check faster.',
+    send: 'Send claim',
+    thanksTitle: 'Claim sent',
+    thanksBody: "We'll check it and the listing will appear in My business once it's approved.",
+    done: 'Done',
+    close: 'Close',
+    rateLimited: "You've sent several claims already. Try again later.",
+    failed: "Couldn't send it. Check your connection and try again.",
+    alreadyAsked: 'You already asked to claim this listing. We will check it soon.',
+    hasProfile: 'You already have a business on Haddak. One account can own one listing.',
+    alreadyOwned: 'Someone already owns this listing. Report it if that looks wrong.',
+    gone: 'This listing has been removed.',
   },
 
   // The assistant, "Jarak AI" (جارك, "your neighbour"; "AI" so nobody takes it for a real person).

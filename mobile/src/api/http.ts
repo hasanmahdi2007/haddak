@@ -6,6 +6,8 @@ import {
   type Banner,
   type BannerInput,
   type Category,
+  type Claim,
+  type ClaimInput,
   type ContactEventType,
   type Coordinates,
   type FollowingParams,
@@ -40,6 +42,8 @@ interface RequestOptions {
   body?: unknown;
   /** Send the login token; 401 if the user is signed out. */
   auth?: boolean;
+  /** Send the install id (X-Haddak-Device), for Jarak's free daily allowance. */
+  device?: boolean;
 }
 
 const TIMEOUT_MS = 12000;
@@ -48,16 +52,18 @@ const TIMEOUT_MS = 12000;
  * Client for the FastAPI backend described in docs/API.md.
  * `getToken` returns the Supabase access token, or null when signed out.
  * `onUnauthorized` runs when the backend refuses a token we sent (401).
+ * `getDeviceId` returns the install id (src/lib/deviceId.ts), or null.
  */
 export function createHttpApi(
   baseUrl: string,
   getToken: () => Promise<string | null> = async () => null,
   onUnauthorized: () => void = () => undefined,
+  getDeviceId: () => Promise<string | null> = async () => null,
 ): HaddakApi {
   const root = `${baseUrl.replace(/\/+$/, '')}/api/v1`;
 
   async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-    const { method = 'GET', query, body, auth = false } = options;
+    const { method = 'GET', query, body, auth = false, device = false } = options;
 
     const search = Object.entries(query ?? {})
       .filter(([, value]) => value !== undefined)
@@ -71,6 +77,10 @@ export function createHttpApi(
     const token = await getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
     else if (auth) throw new ApiError(401, 'Not signed in');
+    if (device) {
+      const deviceId = await getDeviceId();
+      if (deviceId) headers['X-Haddak-Device'] = deviceId;
+    }
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -155,7 +165,8 @@ export function createHttpApi(
     reportProvider: (providerId: string, input: ReportInput) =>
       request<{ id: string }>(`/providers/${id(providerId)}/reports`, { method: 'POST', body: input }),
     // No login. The backend sends the AI only the sentence, never the position.
-    assist: (body: AssistRequest) => request<AssistResponse>('/assist', { method: 'POST', body }),
+    assist: (body: AssistRequest) =>
+      request<AssistResponse>('/assist', { method: 'POST', body, device: true }),
 
     getMyReview: (providerId: string) =>
       request<Review | null>(`/providers/${id(providerId)}/reviews/mine`, { auth: true }),
@@ -199,5 +210,7 @@ export function createHttpApi(
         body: { answer },
         auth: true,
       }),
+    claimProvider: (providerId: string, input: ClaimInput) =>
+      request<Claim>(`/providers/${id(providerId)}/claim`, { method: 'POST', body: input, auth: true }),
   };
 }

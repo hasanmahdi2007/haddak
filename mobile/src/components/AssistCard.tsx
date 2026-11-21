@@ -180,7 +180,7 @@ const useStyles = makeStyles((c) => ({
     rowGap: space.xs,
     marginTop: space.xxs,
   },
-  // A faint lavender strip inside the white block, the same as on a result card.
+  // A faint grey strip inside the white block, the same as on a result card.
   facts: {
     flexWrap: 'wrap',
     alignItems: 'center',

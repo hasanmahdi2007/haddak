@@ -186,12 +186,16 @@ class ProviderSummary(BaseModel):
     sponsor_hook: str | None  # always None unless sponsored
     has_active_story: bool
     banner_title: str | None  # title of the active banner, if there is one
+    # 'osm' for a listing imported from OpenStreetMap (the app then shows
+    # "Data © OpenStreetMap contributors"), otherwise None.
+    data_source: Literal["osm"] | None
 
 
 class ProviderDetail(ProviderSummary):
     description: str
-    phone: str
-    whatsapp: str
+    # Both None only for an OpenStreetMap listing that came without a number.
+    phone: str | None
+    whatsapp: str | None
     photos: list[str]
     created_at: datetime
     opening_hours: dict[str, list[list[str]]] | None
@@ -213,7 +217,7 @@ class OwnProvider(ProviderDetail):
     """
 
     status: str
-    source: str  # 'owner' or 'suggestion'
+    source: str  # 'owner', 'suggestion' or 'osm'
     featured_until: date | None
     verification_doc_url: str | None
     show_contact_count: bool
@@ -518,7 +522,11 @@ class SuggestionList(BaseModel):
 
 # ---------- Reports ----------
 
-ReportReason = Literal["wrong_info", "not_real", "closed", "offensive", "other"]
+# remove_my_business: "This is my business and I want it removed" (for
+# listings added without the owner, e.g. OpenStreetMap imports).
+ReportReason = Literal[
+    "wrong_info", "not_real", "closed", "offensive", "remove_my_business", "other"
+]
 
 
 class ReportIn(BaseModel):
@@ -556,6 +564,50 @@ class ReportOut(BaseModel):
 
 class ReportList(BaseModel):
     items: list[ReportOut]
+    total: int
+
+
+# ---------- Claims ("Is this your business? Claim it") ----------
+
+ClaimStatus = Literal["pending", "approved", "rejected"]
+
+
+class ClaimIn(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    message: str | None = Field(default=None, max_length=500)
+    verification_doc_url: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("message", "verification_doc_url")
+    @classmethod
+    def empty_is_none(cls, value: str | None) -> str | None:
+        # An empty box in the app means "nothing", not an empty text.
+        return value or None
+
+
+class ClaimOut(BaseModel):
+    """What the claimer gets back."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    provider_id: uuid.UUID
+    status: str
+    created_at: datetime
+
+
+class AdminClaimOut(ClaimOut):
+    """What the admin sees: the claimer, their message and proof, and the listing."""
+
+    user_id: uuid.UUID
+    message: str | None
+    verification_doc_url: str | None
+    decided_at: datetime | None
+    provider: ReportedProvider  # id, name and status, like next to a report
+
+
+class AdminClaimList(BaseModel):
+    items: list[AdminClaimOut]
     total: int
 
 

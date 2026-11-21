@@ -5,7 +5,7 @@ import { Platform, type StyleProp, type TextStyle, View, type ViewStyle } from '
 import { useI18n } from '@/i18n';
 import { makeStyles, radius, size, space, type as typeScale, useTheme } from '@/theme';
 
-import { Txt } from './Txt';
+import { Txt, useTypeScale } from './Txt';
 
 /**
  * The form parts shared by sign-in and My business. They follow the Suggest form
@@ -84,8 +84,11 @@ export function Field({ label, optional, hint, error, aside, children, style }: 
 export function useInputStyle() {
   const styles = useStyles();
   const { textAlign, writingDirection } = useI18n();
+  // Typed like the stylesheet entries, so the same style also fits a Pressable (the category picker).
+  const font: ViewStyle | TextStyle = useTypeScale().body;
   return (focused: boolean, error?: string | null, multiline = false) => [
     styles.input,
+    font,
     NO_FOCUS_RING,
     { textAlign, writingDirection },
     multiline ? styles.multiline : null,
@@ -98,13 +101,13 @@ type NoticeTone = 'error' | 'info' | 'success';
 
 const NOTICE_ICON: Record<NoticeTone, LucideIcon> = { error: CircleAlert, info: Info, success: CircleCheck };
 
-/** A short message in its own block: red-soft for a failure, white for information, mint for done. */
+/** A short message in its own block: red-soft for a failure, white for information, alice blue for done. */
 export function Notice({ tone = 'error', children }: { tone?: NoticeTone; children: string }) {
   const { colors } = useTheme();
   const { row } = useI18n();
   const styles = useStyles();
   const Icon = NOTICE_ICON[tone];
-  const fg = tone === 'error' ? 'onDangerSoft' : tone === 'success' ? 'onMint' : 'text';
+  const fg = tone === 'error' ? 'onDangerSoft' : tone === 'success' ? 'onAccent' : 'text';
   return (
     <View
       style={[styles.notice, styles[tone], { flexDirection: row }]}
@@ -182,6 +185,6 @@ const useStyles = makeStyles((c) => ({
     backgroundColor: c.surface,
   },
   success: {
-    backgroundColor: c.mint,
+    backgroundColor: c.accent,
   },
 }));

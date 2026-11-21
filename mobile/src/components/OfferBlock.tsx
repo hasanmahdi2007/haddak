@@ -9,11 +9,10 @@ import { makeStyles, radius, size, space, useTheme } from '@/theme';
 import { Txt } from './Txt';
 
 /**
- * A provider's running offer on their profile: a deep purple block (the colour
- * of the primary buttons, with white words) carrying the title, one sentence and
- * when it ends. The discount, when there is one, is the big figure on a tangerine
- * block at the end (the signature colour, with dark words); without it a tag icon
- * on the same tangerine square takes its place.
+ * A provider's running offer on their profile: a vanilla block (the signature
+ * highlight, with black words) carrying the title, one sentence and when it ends.
+ * The discount, when there is one, is the big black figure on a white tile at the
+ * end; without it a tag icon on a small white square takes its place.
  */
 export function OfferBlock({ banner }: { banner: Banner }) {
   const { colors } = useTheme();
@@ -35,17 +34,17 @@ export function OfferBlock({ banner }: { banner: Banner }) {
   return (
     <View style={[styles.block, { flexDirection: row }]} accessible accessibilityLabel={spoken}>
       <View style={styles.words}>
-        <Txt role="headline" color="onPrimary" content>
+        <Txt role="headline" color="onSignature" content>
           {banner.title}
         </Txt>
         {banner.text ? (
-          <Txt color="onPrimary" content>
+          <Txt color="onSignature" content>
             {banner.text}
           </Txt>
         ) : null}
         <View style={[styles.ends, { flexDirection: row }]}>
-          <Clock color={colors.onPrimary} size={size.iconSmall} strokeWidth={size.lineBold} />
-          <Txt role="label" color="onPrimary">
+          <Clock color={colors.onSignature} size={size.iconSmall} strokeWidth={size.lineBold} />
+          <Txt role="label" color="onSignature">
             {ends}
           </Txt>
         </View>
@@ -72,7 +71,7 @@ export function OfferBlock({ banner }: { banner: Banner }) {
 
 const useStyles = makeStyles((c) => ({
   block: {
-    backgroundColor: c.primary,
+    backgroundColor: c.signature,
     borderRadius: radius.lg,
     padding: space.md,
     gap: space.md,
@@ -95,7 +94,7 @@ const useStyles = makeStyles((c) => ({
     minHeight: size.offerFigure,
     paddingHorizontal: space.md,
     borderRadius: radius.lg - space.xs,
-    backgroundColor: c.signature,
+    backgroundColor: c.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -103,7 +102,7 @@ const useStyles = makeStyles((c) => ({
     width: size.touch,
     height: size.touch,
     borderRadius: radius.md,
-    backgroundColor: c.signature,
+    backgroundColor: c.surface,
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'flex-start',

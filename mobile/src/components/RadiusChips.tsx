@@ -14,7 +14,8 @@ interface Props {
 
 /**
  * One choice of four: 500 m, 1 km, 5 km, City.
- * A compact segmented control: a grey pill track, the chosen segment filled ink.
+ * A row of pill chips: outlined (light grey edge, no fill) when not chosen, solid
+ * black with white words when chosen.
  * Each segment is 36 dp high to the eye; hitSlop above and below makes the touch
  * target 48 dp without making the control any taller.
  */
@@ -38,7 +39,7 @@ export function RadiusChips({ value, onChange, style }: Props) {
             accessibilityState={{ selected, checked: selected }}
             onPress={() => onChange(option)}
             hitSlop={{ top: size.segmentSlop, bottom: size.segmentSlop }}
-            android_ripple={{ color: colors.surfaceTintStrong }}
+            android_ripple={{ color: colors.surfaceTint }}
             style={({ pressed }) => [
               styles.segment,
               selected ? styles.segmentSelected : null,
@@ -56,18 +57,16 @@ export function RadiusChips({ value, onChange, style }: Props) {
 }
 
 const useStyles = makeStyles((c) => ({
-  // White on the lavender ground, like every other control that sits on it.
   track: {
-    backgroundColor: c.surface,
-    borderRadius: radius.pill,
-    padding: space.xxs,
-    gap: space.xxs,
+    gap: space.xs + space.xxs,
   },
   segment: {
     flex: 1,
     minWidth: 0,
     height: size.segment,
     borderRadius: radius.pill,
+    borderWidth: size.hairline,
+    borderColor: c.border,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: space.xs,
@@ -75,6 +74,7 @@ const useStyles = makeStyles((c) => ({
   },
   segmentSelected: {
     backgroundColor: c.primary,
+    borderColor: c.primary,
   },
   segmentPressed: {
     backgroundColor: c.surfaceInset,

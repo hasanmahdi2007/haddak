@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, ArrowRight, List, Map as MapIcon, SearchX, WifiOff, X, Zap } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, Badge, List, Map as MapIcon, SearchX, WifiOff, X, Zap } from 'lucide-react-native';
 import { useState } from 'react';
 import { FlatList, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -65,7 +65,7 @@ export default function ResultsScreen() {
     category_id?: string;
     radius?: string;
     q?: string;
-    unverified?: string;
+    verified?: string;
     // From the assistant (src/app/assist.tsx): its filters, and the centre of a named place.
     max_price?: string;
     price_unit?: string;
@@ -93,8 +93,9 @@ export default function ResultsScreen() {
   const q = typed.length >= 2 ? typed : undefined;
   const [radiusM, setRadiusM] = useState<RadiusM>(() => parseRadius(params.radius));
   const [mode, setMode] = useState<ViewMode>('list');
-  // Verified only unless the user says otherwise (or a link arrives with `unverified=1`).
-  const [verifiedOnly, setVerifiedOnly] = useState(params.unverified !== '1');
+  // Everyone by default, verified first (founder decision 2026-11-17); "Verified only" is
+  // the user's switch (or a link that arrives with `verified=1`).
+  const [verifiedOnly, setVerifiedOnly] = useState(params.verified === '1');
   // The assistant's extra filters. Each shows as a pill under the header; tapping it removes it.
   const [price, setPrice] = useState(() => {
     const amount = numberParam(params.max_price);
@@ -181,6 +182,9 @@ export default function ResultsScreen() {
   const sponsoredItems = q ? [] : items.filter((item) => item.sponsored).slice(0, MAX_SPONSORED);
   const sponsoredIds = new Set(sponsoredItems.map((item) => item.id));
   const listItems = items.filter((item) => !sponsoredIds.has(item.id));
+  // The backend puts every verified provider first, so one quiet divider above the
+  // first unverified card separates the two groups.
+  const firstUnverifiedId = listItems.find((item) => !item.verified)?.id;
 
   const modes: { key: ViewMode; label: string; icon: typeof List }[] = [
     { key: 'list', label: s.results.viewList, icon: List },
@@ -221,7 +225,7 @@ export default function ResultsScreen() {
                     onPress={() => setMode(key)}
                     // 36 dp to the eye; hitSlop makes the touch target 48.
                     hitSlop={{ top: size.segmentSlop, bottom: size.segmentSlop }}
-                    android_ripple={{ color: colors.surfaceTintStrong }}
+                    android_ripple={{ color: colors.accentSoft }}
                     style={[styles.switchItem, { flexDirection: row }, active ? styles.switchActive : null]}
                   >
                     <Icon
@@ -244,7 +248,7 @@ export default function ResultsScreen() {
           </View>
 
           <View style={[styles.extraFilters, { flexDirection: row }]}>
-            {/* Always there: grey when off; on, it turns ink like the other filters. */}
+            {/* Always there: outlined when off; on, it turns black like the other filters. */}
             <Pressable
               accessibilityRole="switch"
               accessibilityLabel={s.results.availableFilter}
@@ -355,12 +359,30 @@ export default function ResultsScreen() {
             keyExtractor={(item) => item.id}
             // `plain`: a sponsored provider outside the section is drawn as an ordinary card.
             renderItem={({ item }) => (
-              <ProviderCard
-                provider={item}
-                plain
-                onPress={() => openProvider(item)}
-                onOpenStory={() => openStory(item)}
-              />
+              <>
+                {item.id === firstUnverifiedId ? (
+                  <View
+                    style={[styles.unverifiedHead, { flexDirection: row }]}
+                    accessible
+                    accessibilityRole="header"
+                    accessibilityLabel={`${s.results.unverifiedDivider}. ${s.results.unverifiedDividerBody}`}
+                  >
+                    <Badge color={colors.textSubtle} size={size.iconSmall} strokeWidth={size.stroke} />
+                    <Txt role="label" color="text">
+                      {s.results.unverifiedDivider}
+                    </Txt>
+                    <Txt role="label" color="textMuted" style={styles.unverifiedBody} numberOfLines={2}>
+                      {s.results.unverifiedDividerBody}
+                    </Txt>
+                  </View>
+                ) : null}
+                <ProviderCard
+                  provider={item}
+                  plain
+                  onPress={() => openProvider(item)}
+                  onOpenStory={() => openStory(item)}
+                />
+              </>
             )}
             ListHeaderComponent={
               sponsoredItems.length > 0 ? (
@@ -431,9 +453,9 @@ const useStyles = makeStyles((c) => ({
     flex: 1,
     minWidth: 0,
   },
-  // List / Map: a white pill track, like the distance control.
+  // List / Map: an alice-blue segmented track; the chosen segment is a black pill with white words.
   switch: {
-    backgroundColor: c.surface,
+    backgroundColor: c.accent,
     borderRadius: radius.pill,
     padding: space.xxs,
     gap: space.xxs,
@@ -458,7 +480,7 @@ const useStyles = makeStyles((c) => ({
   radius: {
     flex: 1,
   },
-  // The assistant's filters: ink pills (the selected colour) with an X that removes them.
+  // The assistant's filters: black pills (the selected state) with an X that removes them.
   extraFilters: {
     flexWrap: 'wrap',
     gap: space.sm,
@@ -474,8 +496,11 @@ const useStyles = makeStyles((c) => ({
     backgroundColor: c.primary,
     overflow: 'hidden',
   },
+  // Off: an outlined pill, like every unselected chip.
   extraFilterOff: {
-    backgroundColor: c.surface,
+    backgroundColor: 'transparent',
+    borderWidth: size.hairline,
+    borderColor: c.border,
   },
   list: {
     paddingHorizontal: space.lg,
@@ -498,6 +523,20 @@ const useStyles = makeStyles((c) => ({
   restHead: {
     marginTop: space.lg,
     paddingHorizontal: space.xs,
+  },
+  // "Not verified yet: Haddak hasn't checked these": a hairline and one quiet line, no box.
+  unverifiedHead: {
+    alignItems: 'center',
+    gap: space.sm,
+    marginTop: space.sm,
+    marginBottom: space.md,
+    paddingTop: space.md,
+    paddingHorizontal: space.xs,
+    borderTopWidth: size.hairline,
+    borderTopColor: c.divider,
+  },
+  unverifiedBody: {
+    flex: 1,
   },
   skeletonCard: {
     backgroundColor: c.surface,

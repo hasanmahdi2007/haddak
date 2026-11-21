@@ -4,9 +4,9 @@ import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { makeStyles, radius, size, useTheme } from '@/theme';
 
 /**
- * The Jarak AI mark: a small tangerine square with a sparkle, beside the
- * assistant's name on Home and in its own screen bar. Tangerine is Haddak's
- * signature colour, kept for its special moments. Decorative: the name next
+ * The Jarak AI mark: a small vanilla square with a black sparkle, beside the
+ * assistant's name on Home and in its own screen bar. Vanilla is Haddak's
+ * signature highlight, kept for its special moments. Decorative: the name next
  * to it already says what it is, so screen readers skip it.
  */
 export function JarakMark({ style }: { style?: StyleProp<ViewStyle> }) {

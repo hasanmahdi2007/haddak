@@ -5,8 +5,9 @@ For a sentence, the checks run in this order (cheapest first):
   1. Exact match: the sentence is exactly a category name or a provider name
      -> search directly, no AI.
   2. Cache: the same sentence was understood before -> reuse that answer.
-  3. Before asking the AI: an API key is set, the monthly budget is not used
-     up, and this IP has not used up its daily allowance.
+  3. Before asking the AI: an API key is set, neither the monthly nor today's
+     budget is used up, and the caller (person and IP) still has some of
+     today's free allowance (quota.py).
   4. Ask the AI, check its answer, remember it, log the cost.
 If the AI cannot be asked (step 3 fails) or its request fails, the free
 keyword fallback (keywords.py) tries word lists instead. Only when that
@@ -44,12 +45,13 @@ from app.services.assist.ai_client import (
     ask_model,
     choose_model,
 )
-from app.services.assist.budget import budget_reached, cost_usd, daily_limit_reached
+from app.services.assist.budget import cost_usd, daily_budget_reached, monthly_budget_reached
 from app.services.assist.cache import get_cached, save_cached
 from app.services.assist.keywords import understand as understand_keywords
 from app.services.assist.normalize import normalize_text, text_hash
 from app.services.assist.places import find_place, place_by_slug
 from app.services.assist.prompt import build_system_prompt
+from app.services.assist.quota import Caller, forget_old_days, take_ai_allowance
 from app.services.assist.summary import fixed_summary, results_summary
 from app.services.search import search_providers
 
@@ -459,7 +461,7 @@ def keyword_fallback(db: Session, body: AssistIn, categories: list[Category]) ->
 def answer_without_ai(
     db: Session, body: AssistIn, categories: list[Category], hashed: str, normalized: str
 ) -> AssistOut:
-    """No key, budget used up or daily allowance used up. A keyword answer is
+    """No key, a budget used up or the daily allowance used up. A keyword answer is
     logged like an exact match (source "direct": our own code, no cost), so
     a search that found nothing still reaches the "most wanted" list."""
     response = keyword_fallback(db, body, categories)
@@ -471,7 +473,7 @@ def answer_without_ai(
 # ---------- the two entry points ----------
 
 
-def assist_from_text(db: Session, body: AssistIn, client_ip: str) -> AssistOut:
+def assist_from_text(db: Session, body: AssistIn, caller: Caller) -> AssistOut:
     text = body.text
     normalized = normalize_text(text)
     hashed = text_hash(normalized)
@@ -492,15 +494,19 @@ def assist_from_text(db: Session, body: AssistIn, client_ip: str) -> AssistOut:
         write_log(db, source="cache", response=response, hashed=hashed, normalized=normalized)
         return response
 
-    # 3. May we ask the AI? The daily allowance is checked last, so it only
-    #    counts requests that really go to the AI.
+    # 3. May we ask the AI? The allowance is checked last, so it only counts
+    #    requests that really go to the AI.
     #    If not, the free keyword fallback answers instead.
     if not settings.anthropic_api_key.strip():
         return answer_without_ai(db, body, categories, hashed, normalized)
-    if budget_reached(db):
+    if monthly_budget_reached(db):
         logger.warning("assistant monthly budget reached; using the keyword fallback")
         return answer_without_ai(db, body, categories, hashed, normalized)
-    if daily_limit_reached(client_ip):
+    if daily_budget_reached(db):
+        logger.warning("assistant daily budget reached; using the keyword fallback")
+        return answer_without_ai(db, body, categories, hashed, normalized)
+    forget_old_days(db)
+    if not take_ai_allowance(db, caller):
         return answer_without_ai(db, body, categories, hashed, normalized)
 
     # 4. Ask the AI.

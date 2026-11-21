@@ -30,7 +30,7 @@ function roleFor(text: string): TypeRole {
 
 /**
  * One provider's updates, full screen: the page with one big block on it.
- * A written update is a lavender block with the words set large at the bottom;
+ * A written update is a alice-blue block with the words set large at the bottom;
  * an update with a photo is the photo, with the words on a white block over
  * its lower edge.
  *
@@ -280,7 +280,7 @@ export default function StoriesScreen() {
           ) : (
             <View style={styles.written}>
               <View style={[styles.mark, { alignSelf: alignStart }]}>
-                <CategoryIcon icon={provider.category.icon} color={colors.onPrimary} size={size.iconLarge} />
+                <CategoryIcon icon={provider.category.icon} color={colors.onHero} size={size.iconLarge} />
               </View>
               <View accessibilityLiveRegion="polite">
                 <Txt role={roleFor(story.text)} color="onHero" content="block">
@@ -404,12 +404,12 @@ const useStyles = makeStyles((c) => ({
     padding: space.xxl,
     gap: space.xl,
   },
-  // The provider's category on a deep lavender square.
+  // The provider's category on a see-through white square inside the alice-blue block.
   mark: {
     width: size.tileIconBox,
     height: size.tileIconBox,
     borderRadius: radius.md,
-    backgroundColor: c.primary,
+    backgroundColor: c.heroControl,
     alignItems: 'center',
     justifyContent: 'center',
   },

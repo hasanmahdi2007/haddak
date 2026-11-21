@@ -21,6 +21,10 @@ CONTACT_EVENTS_PER_MINUTE = 30
 WRITES_PER_MINUTE = 20
 SUGGESTIONS_PER_HOUR = 5
 REPORTS_PER_HOUR = 10
+CLAIMS_PER_HOUR = 5
+# Far more than anyone can type; stops a script hammering the assistant. The
+# AI's own daily allowance is separate (app/services/assist/quota.py).
+ASSIST_REQUESTS_PER_MINUTE = 20
 ONE_MINUTE = 60
 ONE_HOUR = 60 * 60
 CONTACT_EVENT_DEDUP_SECONDS = 10 * 60
@@ -159,6 +163,16 @@ def limit_suggestions(request: Request) -> None:
 def limit_reports(request: Request) -> None:
     """10 per hour per IP. Like suggestions: no login, so a stricter limit."""
     enforce_limit(f"reports:{get_client_ip(request)}", REPORTS_PER_HOUR, ONE_HOUR)
+
+
+def limit_claims(request: Request) -> None:
+    """5 per hour per IP. Claims are rare (one per business), so a strict limit."""
+    enforce_limit(f"claims:{get_client_ip(request)}", CLAIMS_PER_HOUR, ONE_HOUR)
+
+
+def limit_assist(request: Request) -> None:
+    """20 per minute per IP, every assistant request (with or without AI)."""
+    enforce_limit(f"assist:{get_client_ip(request)}", ASSIST_REQUESTS_PER_MINUTE)
 
 
 def is_repeated_contact_event(request: Request, provider_id: object, event_type: str) -> bool:

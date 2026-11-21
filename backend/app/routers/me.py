@@ -28,10 +28,15 @@ SLUG_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
 SLUG_LENGTH = 6
 
 
+def random_slug() -> str:
+    """A random share code (not yet checked against the database)."""
+    return "".join(secrets.choice(SLUG_ALPHABET) for _ in range(SLUG_LENGTH))
+
+
 def generate_slug(db: Session) -> str:
     """A random share code that no other provider uses yet."""
     while True:
-        slug = "".join(secrets.choice(SLUG_ALPHABET) for _ in range(SLUG_LENGTH))
+        slug = random_slug()
         already_used = db.scalar(select(Provider.id).where(Provider.slug == slug))
         if already_used is None:
             return slug

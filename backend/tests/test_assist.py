@@ -5,7 +5,8 @@ with FakeClient, which returns whatever answer the test prepared. Without
 that fixture, creating the client fails the test (see conftest.py).
 """
 
-from datetime import UTC, datetime
+import uuid
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 
 import anthropic
@@ -14,12 +15,15 @@ import pytest
 from sqlalchemy import select
 
 from app.config import settings
-from app.models import AssistLog
+from app.models import AssistLog, AssistQuota
+from app.rate_limit import limiter
 from app.services.assist.ai_client import AIOption, AIResult
+from app.services.assist.quota import subject_hash, today
 from tests.conftest import (
     ADMIN_HEADERS,
     CENTER_LAT,
     CENTER_LNG,
+    auth_headers,
     make_category,
     make_provider,
 )
@@ -553,20 +557,201 @@ def test_last_months_spending_does_not_count(client, db, fake_ai, monkeypatch):
     assert ask(client, "baddé sankari")["kind"] == "results"
 
 
-def test_daily_limit_per_ip_counts_only_ai_requests(client, db, fake_ai, monkeypatch, clock):
-    monkeypatch.setattr(settings, "assist_daily_limit", 2)
+# ---------- the free daily AI allowance (quota.py) ----------
+
+
+def ask_as(client, text: str, *, device: str | None = None, headers: dict | None = None) -> dict:
+    """ask() with an install id and/or other headers."""
+    sent = dict(headers or {})
+    if device is not None:
+        sent["X-Haddak-Device"] = device
+    body = {"text": text, "lat": CENTER_LAT, "lng": CENTER_LNG, "lang": "en"}
+    response = client.post(URL, json=body, headers=sent)
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def move_to(monkeypatch, day: date) -> None:
+    monkeypatch.setattr("app.services.assist.quota.today", lambda: day)
+
+
+PHONE_A = str(uuid.uuid4())
+PHONE_B = str(uuid.uuid4())
+# What TestClient reports as the caller's IP.
+TEST_CLIENT_IP = "testclient"
+
+
+def test_phone_allowance_counts_only_ai_requests(client, db, fake_ai, monkeypatch):
+    monkeypatch.setattr(settings, "assist_daily_limit_anonymous", 2)
     make_category(db, "plumber")
     fake_ai.answer = ai_answer(category_slugs=["plumber"])
 
-    assert ask(client, "first sentence")["kind"] == "results"
-    assert ask(client, "first sentence")["kind"] == "results"  # cache: not counted
-    assert ask(client, "Plumber")["kind"] == "results"  # exact match: not counted
-    assert ask(client, "second sentence")["kind"] == "results"
-    assert ask(client, "third sentence")["kind"] == "unavailable"
+    assert ask_as(client, "first sentence", device=PHONE_A)["kind"] == "results"
+    assert ask_as(client, "first sentence", device=PHONE_A)["kind"] == "results"  # cache
+    assert ask_as(client, "Plumber", device=PHONE_A)["kind"] == "results"  # exact name
+    assert ask_as(client, "second sentence", device=PHONE_A)["kind"] == "results"
+    # Allowance used: the keyword fallback answers (it knows no word here).
+    assert ask_as(client, "third sentence", device=PHONE_A)["kind"] == "unavailable"
     assert len(fake_ai.calls) == 2
 
-    clock.advance(24 * 60 * 60 + 1)  # a day later
-    assert ask(client, "third sentence")["kind"] == "results"
+
+def test_the_allowance_starts_again_the_next_day(client, db, fake_ai, monkeypatch):
+    monkeypatch.setattr(settings, "assist_daily_limit_anonymous", 1)
+    make_category(db, "plumber")
+    fake_ai.answer = ai_answer(category_slugs=["plumber"])
+    move_to(monkeypatch, date(2026, 11, 21))
+    ask_as(client, "first sentence", device=PHONE_A)
+    assert ask_as(client, "second sentence", device=PHONE_A)["kind"] == "unavailable"
+
+    move_to(monkeypatch, date(2026, 11, 22))
+
+    assert ask_as(client, "second sentence", device=PHONE_A)["kind"] == "results"
+
+
+def test_each_phone_has_its_own_allowance(client, db, fake_ai, monkeypatch):
+    monkeypatch.setattr(settings, "assist_daily_limit_anonymous", 1)
+    make_category(db, "plumber")
+    fake_ai.answer = ai_answer(category_slugs=["plumber"])
+
+    assert ask_as(client, "first sentence", device=PHONE_A)["kind"] == "results"
+    assert ask_as(client, "second sentence", device=PHONE_B)["kind"] == "results"
+    assert len(fake_ai.calls) == 2
+
+
+def test_a_signed_in_account_gets_its_own_larger_allowance(client, db, fake_ai, monkeypatch):
+    monkeypatch.setattr(settings, "assist_daily_limit_anonymous", 1)
+    monkeypatch.setattr(settings, "assist_daily_limit_signed_in", 2)
+    make_category(db, "plumber")
+    fake_ai.answer = ai_answer(category_slugs=["plumber"])
+    signed_in = auth_headers(uuid.uuid4())
+
+    # Counted on the account, not on the phone.
+    assert ask_as(client, "one", device=PHONE_A, headers=signed_in)["kind"] == "results"
+    assert ask_as(client, "two", device=PHONE_A, headers=signed_in)["kind"] == "results"
+    assert ask_as(client, "three", device=PHONE_A, headers=signed_in)["kind"] == "unavailable"
+    assert len(fake_ai.calls) == 2
+
+
+def test_inventing_a_new_install_id_each_time_is_stopped_by_the_ip(
+    client, db, fake_ai, monkeypatch
+):
+    monkeypatch.setattr(settings, "assist_daily_limit_anonymous", 10)
+    monkeypatch.setattr(settings, "assist_daily_limit_per_ip", 2)
+    make_category(db, "plumber")
+    fake_ai.answer = ai_answer(category_slugs=["plumber"])
+
+    answers = [ask_as(client, f"sentence {n}", device=str(uuid.uuid4())) for n in range(3)]
+
+    assert [answer["kind"] for answer in answers] == ["results", "results", "unavailable"]
+    assert len(fake_ai.calls) == 2
+
+
+@pytest.mark.parametrize("device", [None, "not-an-install-id", "1234"])
+def test_without_a_valid_install_id_only_the_ip_is_counted(
+    client, db, fake_ai, monkeypatch, device
+):
+    monkeypatch.setattr(settings, "assist_daily_limit_anonymous", 1)
+    monkeypatch.setattr(settings, "assist_daily_limit_per_ip", 2)
+    make_category(db, "plumber")
+    fake_ai.answer = ai_answer(category_slugs=["plumber"])
+
+    kinds = [ask_as(client, f"sentence {n}", device=device)["kind"] for n in range(3)]
+
+    assert kinds == ["results", "results", "unavailable"]
+
+
+def test_a_refused_request_uses_up_nobodys_allowance(client, db, fake_ai, monkeypatch):
+    monkeypatch.setattr(settings, "assist_daily_limit_anonymous", 1)
+    make_category(db, "plumber")
+    fake_ai.answer = ai_answer(category_slugs=["plumber"])
+
+    ask_as(client, "first sentence", device=PHONE_A)
+    ask_as(client, "second sentence", device=PHONE_A)  # refused: phone A is out
+    ask_as(client, "third sentence", device=PHONE_B)
+
+    ip_row = db.get(AssistQuota, (subject_hash(f"ip:{TEST_CLIENT_IP}", today()), today()))
+    assert ip_row.used == 2  # the refused request was not counted on the IP
+
+
+def test_the_allowance_table_holds_no_ip_account_or_install_id(client, db, fake_ai):
+    make_category(db, "plumber")
+    fake_ai.answer = ai_answer(category_slugs=["plumber"])
+    user_id = uuid.uuid4()
+
+    ask_as(client, "first sentence", device=PHONE_A)
+    ask_as(client, "second sentence", device=PHONE_B, headers=auth_headers(user_id))
+
+    subjects = list(db.scalars(select(AssistQuota.subject)))
+    assert len(subjects) == 3  # phone A, the account, the IP
+    for subject in subjects:
+        assert len(subject) == 64 and all(char in "0123456789abcdef" for char in subject)
+        for value in (PHONE_A, PHONE_B, str(user_id), TEST_CLIENT_IP):
+            assert value not in subject
+
+
+def test_the_same_phone_gets_an_unrelated_hash_each_day():
+    who = f"device:{PHONE_A}"
+
+    assert subject_hash(who, date(2026, 11, 21)) != subject_hash(who, date(2026, 11, 22))
+
+
+def test_counts_survive_a_server_restart(client, db, fake_ai, monkeypatch):
+    monkeypatch.setattr(settings, "assist_daily_limit_anonymous", 1)
+    make_category(db, "plumber")
+    fake_ai.answer = ai_answer(category_slugs=["plumber"])
+    ask_as(client, "first sentence", device=PHONE_A)
+
+    limiter.reset()  # every count kept in memory is gone, as after a restart
+
+    assert ask_as(client, "second sentence", device=PHONE_A)["kind"] == "unavailable"
+
+
+def test_old_days_are_deleted(client, db, fake_ai):
+    db.add(AssistQuota(subject="old", day=today() - timedelta(days=5), used=3))
+    db.add(AssistQuota(subject="yesterday", day=today() - timedelta(days=1), used=3))
+    db.commit()
+    make_category(db, "plumber")
+    fake_ai.answer = ai_answer(category_slugs=["plumber"])
+
+    ask_as(client, "first sentence", device=PHONE_A)
+
+    db.expire_all()
+    left = set(db.scalars(select(AssistQuota.subject)))
+    assert "old" not in left
+    assert "yesterday" in left
+
+
+def test_daily_budget_rests_the_ai_until_tomorrow(client, db, fake_ai, monkeypatch):
+    monkeypatch.setattr(settings, "assist_daily_budget_usd", 0.5)
+    db.add(AssistLog(source="ai", model="claude-haiku-5-5", cost_usd=0.5, kind="results",
+                     text_hash="x"))  # fmt: skip
+    db.commit()
+
+    assert ask(client, "baddé sankari")["kind"] == "unavailable"
+    assert fake_ai.calls == []
+
+
+def test_spending_before_today_does_not_count_for_today(client, db, fake_ai, monkeypatch):
+    monkeypatch.setattr(settings, "assist_daily_budget_usd", 0.5)
+    make_category(db, "plumber")
+    two_days_ago = datetime.now(UTC) - timedelta(days=2)
+    db.add(AssistLog(source="ai", model="claude-haiku-5-5", cost_usd=0.5, kind="results",
+                     text_hash="x", created_at=two_days_ago))  # fmt: skip
+    db.commit()
+    fake_ai.answer = ai_answer(category_slugs=["plumber"])
+
+    assert ask(client, "baddé sankari")["kind"] == "results"
+
+
+def test_more_than_20_requests_a_minute_from_one_ip_is_429(client, db, clock):
+    body = {"text": "hello there", "lat": CENTER_LAT, "lng": CENTER_LNG}
+
+    statuses = [client.post(URL, json=body).status_code for _ in range(21)]
+
+    assert statuses[:20] == [200] * 20
+    assert statuses[20] == 429
+    clock.advance(61)
+    assert client.post(URL, json=body).status_code == 200
 
 
 # ---------- the free keyword fallback (no AI) ----------

@@ -24,7 +24,7 @@ interface Props {
 
 /**
  * Empty, error and "coming soon" states: what happened, why, and one way forward.
- * The purple icon sits on a white disc lifted by the card shadow, with a small mint dot;
+ * The black icon sits on a white disc lifted by the card shadow, with a small vanilla dot;
  * an error swaps both for the error colours.
  */
 export function StateView({
@@ -95,7 +95,7 @@ const useStyles = makeStyles((c) => ({
     width: space.lg,
     height: space.lg,
     borderRadius: radius.pill,
-    backgroundColor: c.mint,
+    backgroundColor: c.signature,
     borderWidth: size.lineBold,
     borderColor: c.surface,
   },

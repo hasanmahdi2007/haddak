@@ -13,12 +13,21 @@ import { Txt } from './Txt';
 
 /** In the order people are most likely to need them. */
 const REASONS: ReportReason[] = ['wrong_info', 'closed', 'not_real', 'offensive', 'other'];
+/**
+ * A listing nobody owns (from a suggestion or OpenStreetMap) also offers
+ * "This is my business and I want it removed", the way out for owners listed without asking.
+ */
+const UNCLAIMED_REASONS: ReportReason[] = ['wrong_info', 'closed', 'not_real', 'remove_my_business', 'offensive', 'other'];
 /** Limit of `note` in POST /providers/{id}/reports. */
 const NOTE_MAX = 500;
 
 interface Props {
   providerId: string;
   name: string;
+  /** True for a listing with no owner: adds the "remove my business" reason. */
+  unclaimed?: boolean;
+  /** A reason chosen in advance, e.g. from "Not listed by you? Ask us to remove it". */
+  initialReason?: ReportReason;
   onClose: () => void;
 }
 
@@ -27,12 +36,12 @@ interface Props {
  * Then the same sheet says thank you. No login, and nothing about the sender
  * is stored (docs/API.md).
  */
-export function ReportSheet({ providerId, name, onClose }: Props) {
+export function ReportSheet({ providerId, name, unclaimed = false, initialReason, onClose }: Props) {
   const { colors } = useTheme();
   const { s, f, row } = useI18n();
   const styles = useStyles();
   const inputStyle = useInputStyle();
-  const [reason, setReason] = useState<ReportReason | null>(null);
+  const [reason, setReason] = useState<ReportReason | null>(initialReason ?? null);
   const [note, setNote] = useState('');
   const [focused, setFocused] = useState(false);
   const [sending, setSending] = useState(false);
@@ -63,7 +72,7 @@ export function ReportSheet({ providerId, name, onClose }: Props) {
       <Sheet title={s.report.title} closeLabel={s.report.close} onClose={onClose}>
         <View style={styles.thanks} accessibilityLiveRegion="polite">
           <View style={styles.thanksDisc}>
-            <Check color={colors.onMint} size={size.iconLarge} strokeWidth={size.strokeBold} />
+            <Check color={colors.onAccent} size={size.iconLarge} strokeWidth={size.strokeBold} />
           </View>
           <Txt role="title" center>
             {s.report.thanksTitle}
@@ -85,7 +94,7 @@ export function ReportSheet({ providerId, name, onClose }: Props) {
 
       <Field label={s.report.reasonLabel} error={reasonError}>
         <View accessibilityRole="radiogroup" accessibilityLabel={s.report.reasonLabel} style={styles.reasons}>
-          {REASONS.map((key) => {
+          {(unclaimed ? UNCLAIMED_REASONS : REASONS).map((key) => {
             const chosen = reason === key;
             return (
               <Pressable
@@ -190,7 +199,7 @@ const useStyles = makeStyles((c) => ({
     width: size.trustDisc + space.md,
     height: size.trustDisc + space.md,
     borderRadius: radius.pill,
-    backgroundColor: c.mint,
+    backgroundColor: c.accent,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: space.xs,

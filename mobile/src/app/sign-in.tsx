@@ -21,6 +21,7 @@ import { Txt } from '@/components/Txt';
 import { useI18n } from '@/i18n';
 import {
   type AuthFailure,
+  type AuthMode,
   cancelSignIn,
   finishSignIn,
   sendCode,
@@ -57,6 +58,8 @@ export default function SignInScreen() {
   const focused = useIsFocused();
 
   const [step, setStep] = useState<Step>('email');
+  // New people are the common case, so the screen opens on "Create account".
+  const [mode, setMode] = useState<AuthMode>('signUp');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [inputFocused, setInputFocused] = useState(false);
@@ -115,7 +118,7 @@ export default function SignInScreen() {
     }
   };
 
-  const requestCode = async (again: boolean) => {
+  const requestCode = async (again: boolean, as: AuthMode = mode) => {
     if (emailProblem) {
       setShowEmailError(true);
       AccessibilityInfo.announceForAccessibility(emailProblem);
@@ -124,7 +127,7 @@ export default function SignInScreen() {
     setBusy(true);
     setFailure(null);
     setResent(false);
-    const result = await sendCode(trimmed);
+    const result = await sendCode(trimmed, as);
     setBusy(false);
     if (!result.ok) {
       failed(result.failure, result.retryAfterS);
@@ -182,6 +185,8 @@ export default function SignInScreen() {
         return s.auth.linkExpired;
       case 'otherDevice':
         return s.auth.otherDevice;
+      case 'noAccount':
+        return s.auth.noAccount;
       case 'rateLimited':
         return retryAfterS ? f(s.auth.rateLimitedFor, { n: retryAfterS }) : s.auth.rateLimited;
       case 'offline':
@@ -225,7 +230,40 @@ export default function SignInScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
         <ScrollView keyboardShouldPersistTaps="handled">
           <View style={[styles.column, styles.page]}>
-            {/* What this step is for: one lavender block, built like the Suggest intro. */}
+            {/* Create account / Sign in: the same switch as List / Map on Results. */}
+            {step === 'email' ? (
+              <View accessibilityRole="tablist" accessibilityLabel={s.auth.modes} style={[styles.switch, { flexDirection: row }]}>
+                {(
+                  [
+                    { key: 'signUp', label: s.auth.modeSignUp },
+                    { key: 'signIn', label: s.auth.modeSignIn },
+                  ] as const
+                ).map(({ key, label }) => {
+                  const active = mode === key;
+                  return (
+                    <Pressable
+                      key={key}
+                      accessibilityRole="tab"
+                      accessibilityLabel={label}
+                      accessibilityState={{ selected: active }}
+                      onPress={() => {
+                        setMode(key);
+                        setFailure(null);
+                      }}
+                      hitSlop={{ top: size.segmentSlop, bottom: size.segmentSlop }}
+                      android_ripple={{ color: colors.accentSoft }}
+                      style={[styles.switchItem, active ? styles.switchActive : null]}
+                    >
+                      <Txt role="label" color={active ? 'onPrimary' : 'text'} numberOfLines={1}>
+                        {label}
+                      </Txt>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
+
+            {/* What this step is for: one alice-blue block, built like the Suggest intro. */}
             <View style={styles.intro}>
               {step === 'email' ? (
                 <KeyRound color={colors.onAccent} size={size.tileIcon} strokeWidth={size.stroke} />
@@ -234,10 +272,14 @@ export default function SignInScreen() {
               )}
               <View style={styles.introWords}>
                 <Txt role="display" color="onAccent" accessibilityRole="header">
-                  {step === 'email' ? s.auth.title : s.auth.codeTitle}
+                  {step === 'code' ? s.auth.codeTitle : mode === 'signUp' ? s.auth.titleSignUp : s.auth.title}
                 </Txt>
                 <Txt color="onAccent">
-                  {step === 'email' ? s.auth.intro : f(s.auth.codeIntro, { email: `⁦${trimmed}⁩` })}
+                  {step === 'code'
+                    ? f(s.auth.codeIntro, { email: `⁦${trimmed}⁩` })
+                    : mode === 'signUp'
+                      ? s.auth.introSignUp
+                      : s.auth.intro}
                 </Txt>
               </View>
             </View>
@@ -350,9 +392,22 @@ export default function SignInScreen() {
         <View style={[styles.dock, { paddingBottom: insets.bottom + space.md }]}>
           <View style={[styles.column, styles.dockInner]}>
             {failure ? <Notice>{failureText(failure.kind, failure.retryAfterS)}</Notice> : null}
+            {failure?.kind === 'noAccount' ? (
+              <TextLink
+                label={s.auth.noAccountAction}
+                onPress={() => {
+                  setMode('signUp');
+                  void requestCode(false, 'signUp');
+                }}
+              />
+            ) : null}
             {resent && !failure ? <Notice tone="success">{s.auth.resent}</Notice> : null}
             {step === 'email' ? (
-              <Button label={s.auth.sendCode} onPress={() => void requestCode(false)} loading={busy} />
+              <Button
+                label={mode === 'signUp' ? s.auth.sendSignUp : s.auth.sendCode}
+                onPress={() => void requestCode(false)}
+                loading={busy}
+              />
             ) : (
               <Button
                 label={s.auth.verify}
@@ -392,6 +447,24 @@ const useStyles = makeStyles((c) => ({
     paddingBottom: space.xxl,
     gap: space.xxl,
   },
+  // Alice-blue track; the chosen half is a black pill with white words.
+  switch: {
+    backgroundColor: c.accent,
+    borderRadius: radius.pill,
+    padding: space.xxs,
+    gap: space.xxs,
+  },
+  switchItem: {
+    flex: 1,
+    height: size.segment,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  switchActive: {
+    backgroundColor: c.primary,
+  },
   intro: {
     backgroundColor: c.accent,
     borderRadius: radius.sheet,
@@ -421,7 +494,7 @@ const useStyles = makeStyles((c) => ({
     flexDirection: 'row',
     gap: space.sm,
   },
-  // One white tile per digit on the lavender ground; the next one to fill gets the ink edge.
+  // One white tile per digit on the ghost-white ground; the next one to fill gets the ink edge.
   box: {
     flex: 1,
     height: size.button + space.sm,

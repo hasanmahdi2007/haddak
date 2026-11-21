@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Haddak</title>
+<style>
+  :root { --bg: #F6F5FA; --card: #FFFFFF; --ink: #212121; --muted: #5C5C66; --block: #D8DFE9; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+         background: var(--bg); color: var(--ink); padding: 16px;
+         font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .card { background: var(--card); border-radius: 20px; padding: 28px 22px; max-width: 380px; width: 100%;
+          text-align: center; box-shadow: 0 6px 24px rgba(33, 33, 33, .08); }
+  h1 { font-size: 22px; margin: 0 0 8px; }
+  p { color: var(--muted); font-size: 16px; line-height: 1.5; margin: 0 0 6px; }
+  .en { direction: ltr; }
+  a.btn { display: block; margin: 20px 0 14px; padding: 16px; border-radius: 14px; background: var(--ink);
+          color: #fff; font-size: 18px; font-weight: 600; text-decoration: none; }
+  .note { background: var(--block); border-radius: 12px; padding: 12px; font-size: 14px; color: var(--ink); }
+  [hidden] { display: none; }
+</style>
+</head>
+<body>
+<main class="card">
+  <h1>حدّك · Haddak</h1>
+  <p>عم نرجّعك عالتطبيق…</p>
+  <p class="en">Taking you back to the app…</p>
+  <a id="open" class="btn" href="#" hidden>افتح حدّك · Open Haddak</a>
+  <div class="note">
+    <p>إذا ما انفتح التطبيق، افتح هالإيميل عالتلفون يلّي عليه حدّك.</p>
+    <p class="en">If the app does not open, open this email on the phone that has Haddak.</p>
+  </div>
+</main>
+<script>
+  // The sign-in email lands here (a normal web page every browser can show),
+  // then we pass the sign-in code on to the app. `app` is the app's own link,
+  // e.g. exp://192.168.1.20:8081/--/auth-callback in Expo Go or
+  // haddak://auth-callback in a real build. Only those two kinds are allowed,
+  // so this page cannot be used to send people to other websites.
+  (function () {
+    var params = new URLSearchParams(location.search);
+    var app = params.get('app') || '';
+    if (!/^(exp|haddak):\/\//.test(app)) return;
+    params.delete('app');
+    var rest = params.toString();
+    var target = app + (rest ? (app.indexOf('?') === -1 ? '?' : '&') + rest : '') + location.hash;
+    var button = document.getElementById('open');
+    button.href = target;
+    button.hidden = false;
+    location.href = target;
+  })();
+</script>
+</body>
+</html>

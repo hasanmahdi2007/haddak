@@ -8,7 +8,7 @@ import { useCategories } from '@/lib/categories';
 import { makeStyles, radius, size, space, type as typeScale, useTheme } from '@/theme';
 
 import { FIELD_INSET, useInputStyle } from './Field';
-import { Txt } from './Txt';
+import { Txt, useTypeScale } from './Txt';
 
 /** How many category rows show before the list scrolls. */
 const VISIBLE_CATEGORIES = 5;
@@ -35,6 +35,7 @@ export function CategoryPicker({ label, value, onChange, error, onSearchFocus }:
   const { colors } = useTheme();
   const { s, row, textAlign, writingDirection, categoryName } = useI18n();
   const styles = useStyles();
+  const font = useTypeScale().body;
   const inputStyle = useInputStyle();
   const categories = useCategories();
   const [open, setOpen] = useState(false);
@@ -89,7 +90,7 @@ export function CategoryPicker({ label, value, onChange, error, onSearchFocus }:
               autoCorrect={false}
               returnKeyType="search"
               selectionColor={colors.primary}
-              style={[styles.searchInput, NO_FOCUS_RING, { textAlign, writingDirection }]}
+              style={[styles.searchInput, font, NO_FOCUS_RING, { textAlign, writingDirection }]}
             />
           </View>
           {categories.status === 'error' ? (

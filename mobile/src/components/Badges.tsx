@@ -2,13 +2,13 @@ import { Award, Badge, BadgeCheck, Handshake, Tag, Users, Zap } from 'lucide-rea
 import { View } from 'react-native';
 
 import { useI18n } from '@/i18n';
-import { fonts, makeStyles, radius, size, space, useTheme } from '@/theme';
+import { makeStyles, radius, size, space, useTheme } from '@/theme';
 
 import { Txt } from './Txt';
 
 /**
- * Verified: Haddak's trust mark. A solid mint pill with a check badge and the word,
- * always with dark text. `decorative` hides it from screen readers when a parent
+ * Verified: Haddak's trust mark. A small solid black pill with a white check badge and
+ * white words. `decorative` hides it from screen readers when a parent
  * already says "Verified".
  */
 export function VerifiedBadge({ decorative = false }: { decorative?: boolean }) {
@@ -21,8 +21,8 @@ export function VerifiedBadge({ decorative = false }: { decorative?: boolean }) 
       accessible={!decorative}
       accessibilityLabel={decorative ? undefined : s.badges.verified}
     >
-      <BadgeCheck color={colors.onMint} size={size.iconSmall} strokeWidth={size.lineBold} />
-      <Txt role="caption" color="onMint" style={styles.pillText}>
+      <BadgeCheck color={colors.onTrust} size={size.iconSmall} strokeWidth={size.lineBold} />
+      <Txt role="badge" color="onTrust">
         {s.badges.verified}
       </Txt>
     </View>
@@ -31,9 +31,9 @@ export function VerifiedBadge({ decorative = false }: { decorative?: boolean }) 
 
 /**
  * "Available now": the owner said they can take a job right away (it turns
- * itself off after 2, 4 or 8 hours). A tangerine pill (the signature colour, one
+ * itself off after 2, 4 or 8 hours). A vanilla pill (the signature highlight, one
  * of Haddak's special moments) with a lightning icon, so it never reads as the
- * mint Verified mark.
+ * black Verified mark.
  */
 export function AvailableTag({ decorative = false }: { decorative?: boolean }) {
   const { colors } = useTheme();
@@ -46,7 +46,7 @@ export function AvailableTag({ decorative = false }: { decorative?: boolean }) {
       accessibilityLabel={decorative ? undefined : s.badges.availableNow}
     >
       <Zap color={colors.onSignature} size={size.iconSmall} strokeWidth={size.lineBold} fill={colors.onSignature} />
-      <Txt role="caption" color="onSignature" style={styles.pillText}>
+      <Txt role="badge" color="onSignature">
         {s.badges.availableNow}
       </Txt>
     </View>
@@ -55,7 +55,8 @@ export function AvailableTag({ decorative = false }: { decorative?: boolean }) {
 
 /**
  * "Hired through Haddak" on a review: the author told Haddak they hired this
- * provider. Lavender, not mint, so it is never mistaken for the Verified mark.
+ * provider. Alice blue (the positive colour) with a handshake and no check, so it is
+ * not mistaken for the black Verified mark.
  */
 export function HiredBadge() {
   const { colors } = useTheme();
@@ -64,7 +65,7 @@ export function HiredBadge() {
   return (
     <View style={[styles.pill, styles.hired, { flexDirection: row }]} accessible accessibilityLabel={s.hire.mark}>
       <Handshake color={colors.primary} size={size.iconSmall} strokeWidth={size.stroke} />
-      <Txt role="caption" color="onPrimarySoft" style={styles.pillText}>
+      <Txt role="badge" color="onPrimarySoft">
         {s.hire.mark}
       </Txt>
     </View>
@@ -72,7 +73,7 @@ export function HiredBadge() {
 }
 
 /**
- * Not verified: the same pill shape in neutral grey, with the badge outline and no check.
+ * Not verified: the same pill shape as an outlined grey pill, with the badge outline and no check.
  * It is deliberately not a warning colour: it states a fact, it does not accuse anyone.
  */
 export function NotVerifiedBadge({ decorative = false }: { decorative?: boolean }) {
@@ -85,8 +86,8 @@ export function NotVerifiedBadge({ decorative = false }: { decorative?: boolean 
       accessible={!decorative}
       accessibilityLabel={decorative ? undefined : s.badges.notVerified}
     >
-      <Badge color={colors.text} size={size.iconSmall} strokeWidth={size.lineBold} />
-      <Txt role="caption" color="text" style={styles.pillText}>
+      <Badge color={colors.textMuted} size={size.iconSmall} strokeWidth={size.lineBold} />
+      <Txt role="badge" color="textMuted">
         {s.badges.notVerified}
       </Txt>
     </View>
@@ -119,7 +120,7 @@ export function FoundingBadge() {
   return (
     <View style={[styles.founding, { flexDirection: row }]} accessible accessibilityLabel={s.badges.founding}>
       <Award color={colors.textMuted} size={size.iconSmall} strokeWidth={size.stroke} />
-      <Txt role="caption" color="textMuted" style={styles.pillText}>
+      <Txt role="badge" color="textMuted">
         {s.badges.founding}
       </Txt>
     </View>
@@ -128,14 +129,14 @@ export function FoundingBadge() {
 
 /**
  * Featured means paid placement, and the screen-reader label says so.
- * A plain lavender pill with no star or medal, so it is not read as a quality award.
+ * A plain alice-blue pill with no star or medal, so it is not read as a quality award.
  */
 export function FeaturedTag() {
   const { s } = useI18n();
   const styles = useStyles();
   return (
     <View style={[styles.pill, styles.featured]} accessible accessibilityLabel={s.badges.featuredLabel}>
-      <Txt role="caption" color="onAccent" style={styles.pillText}>
+      <Txt role="badge" color="onAccent">
         {s.badges.featured}
       </Txt>
     </View>
@@ -144,8 +145,8 @@ export function FeaturedTag() {
 
 /**
  * Sponsored means the provider paid to appear first, and the label says so.
- * A tangerine pill (the signature colour) with dark words; it reads on the
- * lavender sponsored card and on the page alike.
+ * A vanilla pill (the signature highlight) with dark words; it reads on the
+ * alice-blue sponsored card and on the page alike.
  */
 export function SponsoredTag({ decorative = false }: { decorative?: boolean }) {
   const { s } = useI18n();
@@ -156,7 +157,7 @@ export function SponsoredTag({ decorative = false }: { decorative?: boolean }) {
       accessible={!decorative}
       accessibilityLabel={decorative ? undefined : s.results.sponsoredLabel}
     >
-      <Txt role="caption" color="onSignature" style={styles.pillText}>
+      <Txt role="badge" color="onSignature">
         {s.results.sponsored}
       </Txt>
     </View>
@@ -164,9 +165,8 @@ export function SponsoredTag({ decorative = false }: { decorative?: boolean }) {
 }
 
 /**
- * A provider's running offer, on a result card: an ink pill with a tag icon and
- * the offer's title. Purple, so it is not mistaken for the mint Verified mark or
- * the tangerine Sponsored and Available now pills beside it.
+ * A provider's running offer, on a result card: a vanilla pill (offers are a
+ * signature moment) with a tag icon and the offer's title in dark words.
  */
 export function OfferTag({ title }: { title: string }) {
   const { colors } = useTheme();
@@ -174,8 +174,8 @@ export function OfferTag({ title }: { title: string }) {
   const styles = useStyles();
   return (
     <View style={[styles.pill, styles.offer, { flexDirection: row }]}>
-      <Tag color={colors.onPrimary} size={size.star} strokeWidth={size.lineBold} />
-      <Txt role="caption" color="onPrimary" numberOfLines={1} style={[styles.pillText, styles.offerText]} content>
+      <Tag color={colors.onSignature} size={size.star} strokeWidth={size.lineBold} />
+      <Txt role="badge" color="onSignature" numberOfLines={1} style={styles.offerText} content>
         {title}
       </Txt>
     </View>
@@ -191,14 +191,13 @@ const useStyles = makeStyles((c) => ({
     paddingHorizontal: space.sm,
     borderRadius: radius.pill,
   },
-  pillText: {
-    fontFamily: fonts.bodyMedium,
-  },
   verified: {
-    backgroundColor: c.mint,
+    backgroundColor: c.trust,
   },
+  // Outlined: a light grey edge, no fill. The words carry the meaning.
   notVerified: {
-    backgroundColor: c.surfaceTintStrong,
+    borderWidth: size.hairline,
+    borderColor: c.border,
   },
   hired: {
     alignSelf: 'flex-start',
@@ -213,7 +212,7 @@ const useStyles = makeStyles((c) => ({
     backgroundColor: c.accent,
     paddingHorizontal: space.md,
   },
-  // The signature fills: Sponsored and Available now. Dark words on tangerine (6.8:1).
+  // The signature fills: Sponsored, Available now and offers. Dark words on vanilla (13:1).
   signature: {
     backgroundColor: c.signature,
   },
@@ -222,7 +221,7 @@ const useStyles = makeStyles((c) => ({
     paddingHorizontal: space.md,
   },
   offer: {
-    backgroundColor: c.primary,
+    backgroundColor: c.signature,
     paddingHorizontal: space.md,
     maxWidth: '100%',
   },

@@ -73,19 +73,31 @@ def create_test_database_if_missing() -> None:
 
 @pytest.fixture(scope="session", autouse=True)
 def migrated_database():
-    """Once per test run: start from empty and apply the real migrations."""
+    """Once per test run: start from empty and apply the real migrations.
+
+    Yields the category tree exactly as the migrations left it (before the
+    per-test cleanup empties the table), as (slug, name_en, name_ar, icon,
+    parent slug or None, sort_order) rows."""
     create_test_database_if_missing()
     with engine.begin() as connection:
         connection.execute(
             text(
-                "DROP TABLE IF EXISTS hire_checks, assist_log, assist_cache, places, "
+                "DROP TABLE IF EXISTS claims, hire_checks, assist_quota, assist_log, assist_cache, "
+                "places, "
                 "follows, banners, stories, "
                 "provider_reports, provider_suggestions, contact_events, "
                 "reviews, providers, categories, alembic_version CASCADE"
             )
         )
     command.upgrade(Config(str(BACKEND_DIR / "alembic.ini")), "head")
-    yield
+    with engine.connect() as connection:
+        migrated_categories = connection.execute(
+            text(
+                "SELECT c.slug, c.name_en, c.name_ar, c.icon, parent.slug, c.sort_order "
+                "FROM categories c LEFT JOIN categories parent ON parent.id = c.parent_id"
+            )
+        ).all()
+    yield [tuple(row) for row in migrated_categories]
     engine.dispose()
 
 
@@ -99,7 +111,9 @@ def empty_tables(migrated_database):
     with engine.begin() as connection:
         connection.execute(
             text(
-                "TRUNCATE assist_log, assist_cache, hire_checks, follows, banners, stories, "
+                "TRUNCATE claims, assist_quota, assist_log, assist_cache, hire_checks, follows, "
+                "banners, "
+                "stories, "
                 "provider_reports, provider_suggestions, contact_events, reviews, "
                 "providers, categories RESTART IDENTITY CASCADE"
             )

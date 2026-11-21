@@ -8,7 +8,7 @@ import { CategoryIcon } from './CategoryIcon';
 
 interface Props {
   uri: string | null;
-  /** Category icon key, shown on a lavender block when there is no photo or it fails to load. */
+  /** Category icon key, shown on a alice-blue block when there is no photo or it fails to load. */
   fallbackIcon: string;
   fallbackIconSize?: number;
   /** Describe the photo for screen readers; leave out when it is decorative. */

@@ -1,14 +1,18 @@
-"""What the assistant costs, and the two limits on it.
+"""What the assistant costs, and the spending caps on it.
 
 - Monthly budget: the sum of cost_usd in assist_log for the current
   calendar month (UTC). At or over ASSIST_MONTHLY_BUDGET_USD the AI is not
   asked any more until the next month.
-- Daily limit: ASSIST_DAILY_LIMIT AI requests per IP per 24 hours. Kept in
-  the process memory like the other rate limits (app/rate_limit.py). Only
-  requests that are really about to reach the AI are counted.
+- Daily budget: the same sum since midnight in Lebanon. At or over
+  ASSIST_DAILY_BUDGET_USD the AI rests until tomorrow, so one bad day (a
+  burst of abuse, a bug that loops) cannot use up the whole month.
+
+Both are checked before each AI request, so several requests at the same
+moment can go slightly over a cap: by a few requests' cost (cents), never more.
+The per-person and per-IP daily allowances are in quota.py.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -16,10 +20,9 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import AssistLog
-from app.rate_limit import limiter
+from app.services.assist import quota
 from app.services.assist.ai_client import Usage, model_info
-
-ONE_DAY = 24 * 60 * 60
+from app.services.opening_hours import BEIRUT
 
 
 def cost_usd(model: str, usage: Usage) -> Decimal:
@@ -40,21 +43,22 @@ def month_start(now: datetime | None = None) -> datetime:
     return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
 
-def month_spend_usd(db: Session) -> Decimal:
+def spend_since_usd(db: Session, start: datetime) -> Decimal:
     total = db.scalar(
-        select(func.coalesce(func.sum(AssistLog.cost_usd), 0)).where(
-            AssistLog.created_at >= month_start()
-        )
+        select(func.coalesce(func.sum(AssistLog.cost_usd), 0)).where(AssistLog.created_at >= start)
     )
     return Decimal(total)
 
 
-def budget_reached(db: Session) -> bool:
+def month_spend_usd(db: Session) -> Decimal:
+    return spend_since_usd(db, month_start())
+
+
+def monthly_budget_reached(db: Session) -> bool:
     return month_spend_usd(db) >= Decimal(str(settings.assist_monthly_budget_usd))
 
 
-def daily_limit_reached(client_ip: str) -> bool:
-    """Counts one AI request for this IP. True if the IP already used up its
-    allowance in the last 24 hours (then nothing is counted)."""
-    key = f"assist:{client_ip}"
-    return limiter.seconds_to_wait(key, settings.assist_daily_limit, ONE_DAY) > 0
+def daily_budget_reached(db: Session) -> bool:
+    lebanon_midnight = datetime.combine(quota.today(), time.min, tzinfo=BEIRUT)
+    spent_today = spend_since_usd(db, lebanon_midnight)
+    return spent_today >= Decimal(str(settings.assist_daily_budget_usd))

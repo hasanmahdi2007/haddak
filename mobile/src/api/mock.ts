@@ -15,6 +15,7 @@ import {
   ApiError,
   type AssistResponse,
   type Banner,
+  type Claim,
   type ContactEventType,
   type Coordinates,
   type HaddakApi,
@@ -88,6 +89,7 @@ function toSummary(provider: ProviderDetail, distance_m: number | null): Provide
     cover_photo_url,
     sponsored,
     sponsor_hook,
+    data_source = null,
   } = provider;
   return {
     id,
@@ -113,6 +115,7 @@ function toSummary(provider: ProviderDetail, distance_m: number | null): Provide
     // Stories and banners are dated from "now", so they never run out in mock mode.
     has_active_story: mockStories(id).length > 0,
     banner_title: mockBanner(id)?.title ?? null,
+    data_source,
     cover_photo_url,
     // The backend works this out in Lebanon time; the mock uses the device clock.
     open_now: isOpenAt(provider.opening_hours, new Date()),
@@ -212,6 +215,10 @@ export function createMockApi(
   const myReviews = new Map<string, Review>();
   // Times of the reports sent in this session, for the 10-per-hour limit.
   let reportTimes: number[] = [];
+  // Claims sent in this session ("Is this your business?"), and their times for the 5-per-hour limit.
+  // Nobody approves them in mock mode: they stay pending.
+  const claims: Claim[] = [];
+  let claimTimes: number[] = [];
   // "Did you hire them?" questions. One starts ready to ask (a call to the
   // plumber yesterday), so the sheet can be seen without waiting 12 hours.
   const hireChecks: MockHireCheck[] = [
@@ -644,7 +651,7 @@ export function createMockApi(
         // Like the backend, refused requests count too.
         reportTimes.push(now);
         find((p) => p.id === providerId);
-        const reasons: ReportReason[] = ['wrong_info', 'not_real', 'closed', 'offensive', 'other'];
+        const reasons: ReportReason[] = ['wrong_info', 'not_real', 'closed', 'offensive', 'remove_my_business', 'other'];
         if (!reasons.includes(input.reason)) throw new ApiError(422, 'Unknown reason');
         if ((input.note ?? '').length > 500) throw new ApiError(422, 'note is too long');
         if (__DEV__) console.log('[mock] report:', providerId, input);
@@ -849,6 +856,33 @@ export function createMockApi(
         if (check.answer !== null) throw new ApiError(409, 'This hire check was already answered');
         check.answer = answer;
         if (answer === 'hired') hiredProviderIds.add(check.provider_id);
+      }),
+
+    // Same rules as POST /providers/{id}/claim (docs/API.md).
+    claimProvider: (providerId, input) =>
+      respondAuth(() => {
+        const now = Date.now();
+        claimTimes = claimTimes.filter((time) => now - time < HOUR_MS);
+        if (claimTimes.length >= 5) {
+          throw new ApiError(429, 'Too many requests', Math.ceil((claimTimes[0] + HOUR_MS - now) / 1000));
+        }
+        claimTimes.push(now);
+        const provider = find((p) => p.id === providerId);
+        if (provider.claimed) throw new ApiError(409, 'This listing already has an owner');
+        if (ownKind !== 'none' || createdOwn) throw new ApiError(409, 'You already have a provider profile');
+        if (claims.some((c) => c.provider_id === providerId && c.status === 'pending')) {
+          throw new ApiError(409, 'You already asked to claim this listing');
+        }
+        if ((input.message ?? '').length > 500) throw new ApiError(422, 'message is too long');
+        const claim: Claim = {
+          id: `00000000-0000-4000-d000-${String(now).slice(-12).padStart(12, '0')}`,
+          provider_id: providerId,
+          status: 'pending',
+          created_at: new Date(now).toISOString(),
+        };
+        claims.push(claim);
+        if (__DEV__) console.log('[mock] claim:', providerId, input);
+        return claim;
       }),
 
     controls: {

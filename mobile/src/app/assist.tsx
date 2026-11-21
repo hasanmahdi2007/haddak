@@ -34,7 +34,7 @@ import { AssistCard } from '@/components/AssistCard';
 import { Button } from '@/components/Button';
 import { IconButton } from '@/components/IconButton';
 import { JarakMark } from '@/components/JarakMark';
-import { Txt } from '@/components/Txt';
+import { Txt, useTypeScale } from '@/components/Txt';
 import { useI18n } from '@/i18n';
 import { useCategories } from '@/lib/categories';
 import { EMERGENCY_NUMBERS } from '@/lib/emergency';
@@ -49,7 +49,7 @@ import {
   useAssist,
 } from '@/lib/useAssist';
 import { useVoice, type VoiceProblem } from '@/lib/useVoice';
-import { elevation, makeStyles, opacity, radius, size, space, type as typeScale, useTheme } from '@/theme';
+import { elevation, makeStyles, opacity, radius, size, space, type as typeLatin, useTheme } from '@/theme';
 
 // Web only: the field shows focus itself, so the browser's ring is turned off.
 const NO_FOCUS_RING = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : null;
@@ -60,6 +60,7 @@ export default function AssistScreen() {
   const { colors } = useTheme();
   const { s, f, plural, row, rtl, textAlign, writingDirection, language, distance } = useI18n();
   const styles = useStyles();
+  const typeScale = useTypeScale();
   const params = useLocalSearchParams<{ text?: string; listen?: string }>();
   const { byId } = useCategories();
 
@@ -161,16 +162,22 @@ export default function AssistScreen() {
       return;
     }
     setBusy(null);
+    // Some OpenStreetMap listings have no number: say so instead of opening nothing.
+    const phone = detail.phone;
+    if (!phone) {
+      setNotice(s.provider.noPhone);
+      return;
+    }
     api.logContactEvent(provider.id, type).catch(() => undefined);
     const url =
       type === 'whatsapp'
         ? // The assistant's draft when there is one, otherwise the usual greeting.
-          whatsappUrl(detail.whatsapp ?? detail.phone, draft ?? s.provider.greeting)
-        : telUrl(detail.phone);
+          whatsappUrl(detail.whatsapp ?? phone, draft ?? s.provider.greeting)
+        : telUrl(phone);
     try {
       await Linking.openURL(url);
     } catch {
-      setNotice(type === 'whatsapp' ? s.provider.whatsappFailed : f(s.provider.callFailed, { phone: detail.phone }));
+      setNotice(type === 'whatsapp' ? s.provider.whatsappFailed : f(s.provider.callFailed, { phone }));
     }
   }
 
@@ -281,8 +288,9 @@ export default function AssistScreen() {
   );
 
   /**
-   * The summary ("Plumber · near you · 1 km") as one compact lavender row that opens the
-   * full list, with Read aloud as a small white disc at its end when there is something to read.
+   * The summary ("Plumber · near you · 1 km") as one compact alice-blue row that opens the
+   * full list (a round black arrow says so), with Read aloud as a small white disc at its
+   * end when there is something to read.
    */
   const summaryRow = (u: Understood, summary: string, spoken: string[] | null) => (
     <View style={[styles.summary, { flexDirection: row }]}>
@@ -296,7 +304,9 @@ export default function AssistScreen() {
         <Txt role="title" color="onAccent" numberOfLines={2} style={styles.noteText}>
           {summary}
         </Txt>
-        <ForwardIcon color={colors.onAccent} size={size.icon} strokeWidth={size.lineBold} />
+        <View style={styles.summaryGo}>
+          <ForwardIcon color={colors.onPrimary} size={size.iconSmall} strokeWidth={size.lineBold} />
+        </View>
       </Pressable>
       {spoken ? (
         <Pressable
@@ -581,6 +591,7 @@ export default function AssistScreen() {
                   // Tall while nothing is asked yet; once there is an answer it shrinks, so the answer starts higher.
                   style={[
                     styles.input,
+                    typeScale.input,
                     phase.status === 'idle' ? styles.inputTall : null,
                     NO_FOCUS_RING,
                     { textAlign, writingDirection },
@@ -701,7 +712,7 @@ const useStyles = makeStyles((c) => ({
     paddingEnd: space.lg,
     paddingVertical: space.xs,
   },
-  // A little air between the tangerine Jarak AI mark and the name.
+  // A little air between the vanilla Jarak AI mark and the name.
   barMark: {
     marginEnd: space.xs,
   },
@@ -737,7 +748,7 @@ const useStyles = makeStyles((c) => ({
     paddingHorizontal: space.sm,
     paddingTop: space.xs,
   },
-  // A lavender disc with the microphone: the "listening" sign.
+  // An alice-blue disc with the microphone: the "listening" sign.
   listeningDisc: {
     width: size.buttonLarge,
     height: size.buttonLarge,
@@ -756,7 +767,7 @@ const useStyles = makeStyles((c) => ({
     alignItems: 'flex-start',
   },
   input: {
-    ...typeScale.input,
+    ...typeLatin.input,
     flex: 1,
     minWidth: 0,
     minHeight: size.touch,
@@ -813,7 +824,7 @@ const useStyles = makeStyles((c) => ({
   head: {
     gap: space.sm,
   },
-  // The summary: one lavender row that opens the full list, Read aloud at its end.
+  // The summary: one alice-blue row that opens the full list, Read aloud at its end.
   summary: {
     alignItems: 'center',
     gap: space.xs,
@@ -835,6 +846,15 @@ const useStyles = makeStyles((c) => ({
   },
   summaryPressed: {
     opacity: opacity.pressed,
+  },
+  // The round black "open" arrow of the founder's reference.
+  summaryGo: {
+    width: size.arrowDisc,
+    height: size.arrowDisc,
+    borderRadius: radius.pill,
+    backgroundColor: c.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   readButton: {
     width: size.touch,

@@ -1,7 +1,7 @@
 import { Text, type TextProps, type TextStyle } from 'react-native';
 
 import { useI18n } from '@/i18n';
-import { type ColorTokens, type TypeRole, type as typeScale, useTheme } from '@/theme';
+import { type ColorTokens, type TypeRole, type as typeLatin, typeArabic, useTheme } from '@/theme';
 
 type ColorName = {
   [K in keyof ColorTokens]: ColorTokens[K] extends string ? K : never;
@@ -36,6 +36,14 @@ function textOf(children: unknown): string {
   return '';
 }
 
+/**
+ * The type scale for the app language: Urbanist roles in English, Beiruti and
+ * Readex Pro in Arabic (Urbanist has no Arabic letters). Text fields use it too.
+ */
+export function useTypeScale() {
+  return useI18n().rtl ? typeArabic : typeLatin;
+}
+
 /** The only text component: applies a type role, a colour token and the reading direction. */
 export function Txt({
   role = 'body',
@@ -57,8 +65,12 @@ export function Txt({
         ? 'right'
         : 'left'
       : i18n.textAlign;
+  // Arabic words get the Arabic fonts, even in the English app (a provider's Arabic
+  // name, the "عربي" language pill): Urbanist has no Arabic letters.
+  const arabicText = content ? contentRtl : ARABIC.test(textOf(rest.children));
+  const scale = i18n.rtl || arabicText ? typeArabic : typeLatin;
   const base: TextStyle = {
-    ...typeScale[role],
+    ...scale[role],
     color: colors[color],
     textAlign: center ? 'center' : textAlign,
     writingDirection: direction,

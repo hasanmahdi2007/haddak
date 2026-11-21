@@ -53,7 +53,7 @@ interface Props {
   mode: 'create' | 'edit';
   /** The saved listing, when editing. */
   initial?: OwnProvider;
-  /** Drawn at the top of the scrolling page (the lavender intro block when creating). */
+  /** Drawn at the top of the scrolling page (the alice-blue intro block when creating). */
   header?: ReactNode;
   onSaved: (own: OwnProvider) => void;
 }
@@ -170,7 +170,7 @@ function timeout<T>(ms: number): Promise<T> {
 
 /**
  * The business form, used to create a listing (`join.tsx`) and to edit it
- * (`business-edit.tsx`). One white block per topic on the lavender ground:
+ * (`business-edit.tsx`). One white block per topic on the ghost-white ground:
  * what you do, how people reach you, where you are, opening hours, photos,
  * proof. The send button is docked under the page, above the keyboard.
  *
@@ -520,7 +520,7 @@ export function ProviderForm({ mode, initial, header, onSaved }: Props) {
   );
 }
 
-/** A white block on the lavender ground: a title, an optional one-line note, then its fields. */
+/** A white block on the ghost-white ground: a title, an optional one-line note, then its fields. */
 function Section({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
   const styles = useStyles();
   return (

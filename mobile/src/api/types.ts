@@ -58,6 +58,11 @@ export interface ProviderSummary {
   /** Title of the offer running now, or null. */
   banner_title: string | null;
   /**
+   * 'osm': imported from OpenStreetMap; the profile shows "Data © OpenStreetMap contributors".
+   * Optional: older backends do not send it.
+   */
+  data_source?: 'osm' | null;
+  /**
    * Structured price, used by the price filter (docs/AI_ASSISTANT.md, "Prices").
    * Optional: older backends do not send them, and most providers have only `price_text`.
    */
@@ -113,7 +118,8 @@ export type OpeningHours = Partial<Record<DayKey, TimeRange[]>>;
 
 export interface ProviderDetail extends ProviderSummary {
   description: string;
-  phone: string;
+  /** Null only for an OpenStreetMap listing that came without a number: no WhatsApp or Call then. */
+  phone: string | null;
   /** Null means "same as phone". */
   whatsapp: string | null;
   photos: string[];
@@ -378,13 +384,29 @@ export interface SuggestionInput {
 }
 
 /** Why a listing is reported (POST /providers/{id}/reports). */
-export type ReportReason = 'wrong_info' | 'not_real' | 'closed' | 'offensive' | 'other';
+export type ReportReason = 'wrong_info' | 'not_real' | 'closed' | 'offensive' | 'remove_my_business' | 'other';
 
 /** Body of POST /providers/{id}/reports. Nothing about the sender is stored. */
 export interface ReportInput {
   reason: ReportReason;
   /** Up to 500 characters. */
   note?: string | null;
+}
+
+/** Body of POST /providers/{id}/claim ("Is this your business? Claim it"). Both optional. */
+export interface ClaimInput {
+  /** Up to 500 characters. */
+  message?: string | null;
+  /** Signed link to a proof photo in the private `verification-docs` bucket. */
+  verification_doc_url?: string | null;
+}
+
+/** A claim as the claimer sees it. The founder approves or rejects it. */
+export interface Claim {
+  id: string;
+  provider_id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
 }
 
 /** Error body: {"detail": "human-readable message"}. */
@@ -450,4 +472,9 @@ export interface HaddakApi {
   getPendingHireChecks(): Promise<{ items: HireCheck[] }>;
   /** Answer once. 404 if not mine, 409 if already answered. */
   answerHireCheck(checkId: string, answer: HireAnswer): Promise<void>;
+  /**
+   * Ask to own a listing nobody owns. 409 if it has an owner, if I already have a
+   * profile, or if I already asked. 429 after 5 in an hour.
+   */
+  claimProvider(providerId: string, input: ClaimInput): Promise<Claim>;
 }

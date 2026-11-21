@@ -291,7 +291,7 @@ const useStyles = makeStyles((c) => ({
     paddingTop: space.xs,
     gap: space.xxl,
   },
-  // A white tile: the email and Sign out on one line, My business under it as a lavender block.
+  // A white tile: the email and Sign out on one line, My business under it as a alice-blue block.
   account: {
     backgroundColor: c.surface,
     borderRadius: radius.lg,

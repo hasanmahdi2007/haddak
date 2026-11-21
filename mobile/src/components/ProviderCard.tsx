@@ -36,14 +36,14 @@ interface Props {
 /**
  * One search result: a white card lifted off the ground by the one soft shadow.
  * Top: photo, name, "category · area", then the trust line. A verified provider
- * gets the mint Verified pill; one that is not gets the grey "Not verified" pill,
+ * gets the black Verified pill; one that is not gets the grey "Not verified" pill,
  * and "Listed by the community" when nobody has claimed the listing.
  * Bottom: a faint inset strip that keeps rating, distance and price in the same three
  * columns on every card, so a list can be compared at a glance.
  *
- * Sponsored (paid, shown above the results): the same card as a solid lavender
- * block, with a small tangerine "Sponsored" pill and one line written by the sponsor.
- * Text on lavender is dark in both themes.
+ * Sponsored (paid, shown above the results): the same card as a solid alice-blue
+ * block, with a small vanilla "Sponsored" pill and one line written by the sponsor.
+ * Text on alice-blue is dark in both themes.
  *
  * A provider with an update gets a ring around the photo (StoryRing), and one
  * with a running offer gets an ink tag with the offer's title.
@@ -107,7 +107,7 @@ export function ProviderCard({ provider, onPress, onOpenStory, plain = false }: 
       ]}
     >
       <View style={[styles.top, { flexDirection: row }]}>
-        {/* The ring is ink on the lavender sponsored card, tangerine everywhere else. */}
+        {/* The ring is ink on the alice-blue sponsored card, vanilla everywhere else. */}
         <Pressable
           disabled={!canOpenStory}
           onPress={onOpenStory}
@@ -231,7 +231,7 @@ const useStyles = makeStyles((c) => ({
     rowGap: space.xs,
     marginTop: space.sm,
   },
-  // The faint inset strip inside the white card (white on the lavender sponsored card).
+  // The faint inset strip inside the white card (white on the alice-blue sponsored card).
   facts: {
     backgroundColor: c.surfaceInset,
     borderRadius: radius.md,

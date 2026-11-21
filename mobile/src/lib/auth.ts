@@ -4,6 +4,7 @@ import {
   isAuthPKCECodeVerifierMissingError,
   isAuthRetryableFetchError,
 } from '@supabase/supabase-js';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import { type ReactNode, useEffect, useSyncExternalStore } from 'react';
@@ -202,6 +203,8 @@ export type AuthFailure =
   | 'linkExpired'
   /** The link was opened on another phone (or app) than the one that asked for it. */
   | 'otherDevice'
+  /** "Sign in" was chosen, but this email has no account yet. */
+  | 'noAccount'
   | 'other';
 
 export type AuthResult = { ok: true } | { ok: false; failure: AuthFailure; retryAfterS: number | null };
@@ -225,6 +228,11 @@ function toFailure(error: unknown, step: 'send' | 'verify'): AuthResult {
     }
     // Supabase's built-in mailer only writes to the project's team until custom SMTP is set up.
     if (error.code === 'email_address_not_authorized') return fail('notAllowed');
+    // Asked to sign in (not to create an account) with an email Supabase doesn't know:
+    // "Signups not allowed for otp".
+    if (step === 'send' && (error.code === 'otp_disabled' || /signups? not allowed/i.test(error.message))) {
+      return fail('noAccount');
+    }
     if (step === 'send' && (error.code === 'email_address_invalid' || error.code === 'validation_failed')) {
       return fail('invalidEmail');
     }
@@ -238,25 +246,46 @@ function toFailure(error: unknown, step: 'send' | 'verify'): AuthResult {
   return fail('other');
 }
 
-/**
- * Where the link in the email sends the user back to: `exp://<computer>:8081/--/auth-callback`
- * in Expo Go, `haddak://auth-callback` in a real build. Supabase only follows it if it
- * matches the project's allowed redirect URLs (Auth -> URL Configuration).
- */
-export function signInRedirectUrl(): string {
+/** The app's own link back: `exp://<computer>:8081/--/auth-callback` in Expo Go, `haddak://auth-callback` in a real build. */
+function appCallbackUrl(): string {
+  const hostUri = Constants.expoConfig?.hostUri;
+  // Linking.createURL can answer haddak:// inside Expo Go, which Expo Go cannot open,
+  // so Expo Go's own link is built here from the computer's address.
+  const inExpoGo =
+    Constants.executionEnvironment === ExecutionEnvironment.StoreClient || Constants.appOwnership === 'expo';
+  if (inExpoGo && hostUri) return `exp://${hostUri}/--/auth-callback`;
   return Linking.createURL('auth-callback');
 }
 
 /**
- * Step 1: email the user a sign-in link (and a 6-digit code, if the email template
- * shows one). A new email address gets an account.
+ * Where the link in the email sends the user. Email links open in a browser, and a
+ * browser shows an empty page for an app link, so when the backend is set we go through
+ * its small `/auth/open` page, which passes the code on to the app. Supabase only follows
+ * it if it matches the project's allowed redirect URLs (Auth -> URL Configuration).
  */
-export async function sendCode(email: string): Promise<AuthResult> {
+export function signInRedirectUrl(): string {
+  const app = appCallbackUrl();
+  const apiUrl = (process.env.EXPO_PUBLIC_API_URL ?? '').trim().replace(/\/+$/, '');
+  if (!apiUrl) return app;
+  return `${apiUrl}/auth/open?app=${encodeURIComponent(app)}`;
+}
+
+export type AuthMode = 'signUp' | 'signIn';
+
+/**
+ * Step 1: email the user a sign-in link (and a 6-digit code, if the email template
+ * shows one). "signUp" makes an account for a new address (an existing one simply
+ * signs in); "signIn" only works for an address that already has an account.
+ */
+export async function sendCode(email: string, mode: AuthMode = 'signUp'): Promise<AuthResult> {
   if (!supabase) return fail('notConfigured');
   try {
+    const redirect = signInRedirectUrl();
+    // Shown in the Expo terminal, to see which link the email will carry.
+    if (__DEV__) console.log('[Haddak auth] email link returns to', redirect);
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { shouldCreateUser: true, emailRedirectTo: signInRedirectUrl() },
+      options: { shouldCreateUser: mode === 'signUp', emailRedirectTo: redirect },
     });
     if (error) return toFailure(error, 'send');
     codeSentAt = Date.now();

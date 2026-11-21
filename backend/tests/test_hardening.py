@@ -360,6 +360,7 @@ def test_each_request_is_logged_without_position_or_secrets(client, db, caplog):
 GOOD_KEY = "a-long-random-admin-key-1234567890"
 GOOD_SECRET = "a-long-random-jwt-secret-1234567890"
 JWKS_URL = "https://example.supabase.co/auth/v1/.well-known/jwks.json"
+GOOD_QUOTA_SECRET = "a-long-random-quota-secret-1234567890"
 
 
 def make_settings(**values) -> Settings:
@@ -369,6 +370,7 @@ def make_settings(**values) -> Settings:
         "supabase_jwks_url": "",
         "admin_api_key": "",
         "allow_dev_tokens": False,
+        "assist_quota_secret": GOOD_QUOTA_SECRET,
     }
     return Settings(_env_file=None, **{**defaults, **values})
 
@@ -383,6 +385,13 @@ def make_settings(**values) -> Settings:
         {"admin_api_key": GOOD_KEY, "supabase_jwt_secret": GOOD_SECRET},  # no JWKS URL
         # Development tokens must be off in production.
         {"admin_api_key": GOOD_KEY, "supabase_jwks_url": JWKS_URL, "allow_dev_tokens": True},
+        # The allowance hashes need a real secret, or IPs could be recovered.
+        {"admin_api_key": GOOD_KEY, "supabase_jwks_url": JWKS_URL, "assist_quota_secret": ""},
+        {
+            "admin_api_key": GOOD_KEY,
+            "supabase_jwks_url": JWKS_URL,
+            "assist_quota_secret": "change-me",
+        },
     ],
 )
 def test_production_refuses_to_start_with_unsafe_settings(values):

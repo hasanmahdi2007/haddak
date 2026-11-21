@@ -62,10 +62,23 @@ class Settings(BaseSettings):
     # Model for Arabizi sentences (Lebanese Arabic in Latin letters), which
     # Haiku misreads more often. Empty = no routing, ASSIST_MODEL for all.
     assist_model_arabizi: str = "claude-sonnet-5-5"
-    # AI requests per IP per day. Requests answered without the AI do not count.
-    assist_daily_limit: int = 30
-    # Spending cap per calendar month (UTC), in US dollars.
+    # Free AI requests per day (Lebanon time), see app/services/assist/quota.py.
+    # Requests answered without the AI do not count, and over the allowance
+    # the free keyword search answers instead: nobody is ever blocked.
+    # A signed-in account:
+    assist_daily_limit_signed_in: int = 30
+    # A phone that is not signed in (identified by the app's random install id):
+    assist_daily_limit_anonymous: int = 15
+    # Everyone behind one IP address together. Higher, because many phones on
+    # Alfa and Touch share one public address.
+    assist_daily_limit_per_ip: int = 100
+    # Spending caps in US dollars: per day (Lebanon time), so one bad day
+    # cannot use up the month, and per calendar month (UTC).
+    assist_daily_budget_usd: float = 1.0
     assist_monthly_budget_usd: float = 10.0
+    # Secret for hashing who used the allowance (never stored in clear).
+    # Any long random string; changing it only resets today's counts.
+    assist_quota_secret: str = ""
 
     @field_validator("database_url")
     @classmethod
@@ -103,6 +116,8 @@ def production_problems(settings: Settings) -> list[str]:
         problems.append("SUPABASE_JWKS_URL is empty, so no real sign-in would work")
     if settings.allow_dev_tokens:
         problems.append("ALLOW_DEV_TOKENS must be false")
+    if not is_real_secret(settings.assist_quota_secret):
+        problems.append("ASSIST_QUOTA_SECRET is empty or still a placeholder")
     return problems
 
 

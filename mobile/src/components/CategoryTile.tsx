@@ -7,15 +7,14 @@ import { elevation, makeStyles, press, radius, size, space, useTheme, type Color
 import { CategoryIcon } from './CategoryIcon';
 import { Txt } from './Txt';
 
-/** The colour of a tile. Text on lavender and mint is always dark, in both themes. */
-export type TileTone = 'accent' | 'mint' | 'plain';
+/** The colour of a tile's icon well: alice blue or vanilla. The tile itself is always white. */
+export type TileTone = 'alice' | 'vanilla';
 
-const TONES: Record<TileTone, { bg: keyof ColorTokens; fg: 'onAccent' | 'onMint' | 'text' }> = {
-  // The founder asked for every category tile in one calm colour (2026-11-16):
-  // white tiles, with lavender only on the icon. The tone names are kept so callers need no change.
-  accent: { bg: 'surface', fg: 'text' },
-  mint: { bg: 'surface', fg: 'text' },
-  plain: { bg: 'surface', fg: 'text' },
+// Every tile is white (the founder asked for one calm colour, 2026-11-16); only the icon
+// well is coloured, and the icon on it is always black (12:1 or more on both pastels).
+const TONES: Record<TileTone, keyof ColorTokens> = {
+  alice: 'accent',
+  vanilla: 'signature',
 };
 
 interface Props {
@@ -30,7 +29,7 @@ interface Props {
 }
 
 /**
- * A category in the grid: one solid colour block. The icon sits at the top, the
+ * A category in the grid: a white card. The icon sits at the top, the
  * name at the bottom, and a small arrow in the corner says what a tap does:
  * a chevron opens more choices, a diagonal arrow goes straight to the results.
  */
@@ -38,7 +37,7 @@ export function CategoryTile({ icon, label, tone, grow = 1, hasChildren, onPress
   const { colors } = useTheme();
   const { s, f, row, rtl } = useI18n();
   const styles = useStyles();
-  const { bg, fg } = TONES[tone];
+  const well = TONES[tone];
   const Arrow = hasChildren ? (rtl ? ChevronLeft : ChevronRight) : rtl ? ArrowUpLeft : ArrowUpRight;
 
   return (
@@ -49,19 +48,22 @@ export function CategoryTile({ icon, label, tone, grow = 1, hasChildren, onPress
       android_ripple={{ color: colors.surfaceTintStrong }}
       style={({ pressed }) => [
         styles.tile,
-        { flex: grow, backgroundColor: colors[bg] },
+        { flex: grow },
         pressed ? styles.pressed : null,
       ]}
     >
       <View style={[styles.top, { flexDirection: row }]}>
-        {/* The icon sits in a pale purple well, the one touch of colour on a white tile. */}
-        <View style={styles.iconWell}>
-          <CategoryIcon icon={icon} color={colors.primary} size={size.iconLarge} />
+        {/* The icon sits in an alice-blue or vanilla well, the one touch of colour on a white tile. */}
+        <View style={[styles.iconWell, { backgroundColor: colors[well] }]}>
+          <CategoryIcon icon={icon} color={colors.text} size={size.iconLarge} />
         </View>
-        <Arrow color={colors.textSubtle} size={size.iconSmall} strokeWidth={size.lineBold} />
+        {/* The round black "open" button of the founder's reference, small. */}
+        <View style={styles.go}>
+          <Arrow color={colors.onPrimary} size={size.iconSmall} strokeWidth={size.lineBold} />
+        </View>
       </View>
       {/* A long single word (Dermatologist) shrinks a little instead of breaking in the middle. */}
-      <Txt role="action" color={fg} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.85}>
+      <Txt role="action" numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.85}>
         {label}
       </Txt>
     </Pressable>
@@ -71,6 +73,7 @@ export function CategoryTile({ icon, label, tone, grow = 1, hasChildren, onPress
 const useStyles = makeStyles((c) => ({
   tile: {
     minWidth: 0,
+    backgroundColor: c.surface,
     minHeight: size.tile,
     borderRadius: radius.lg,
     padding: space.md + space.xs,
@@ -80,6 +83,14 @@ const useStyles = makeStyles((c) => ({
     overflow: 'hidden',
     boxShadow: elevation.card,
   },
+  go: {
+    width: size.arrowDisc,
+    height: size.arrowDisc,
+    borderRadius: radius.pill,
+    backgroundColor: c.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   pressed: {
     backgroundColor: c.surfaceInset,
     transform: [{ scale: press.scale }],
@@ -88,7 +99,6 @@ const useStyles = makeStyles((c) => ({
     width: size.tileIconBox,
     height: size.tileIconBox,
     borderRadius: radius.md,
-    backgroundColor: c.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
