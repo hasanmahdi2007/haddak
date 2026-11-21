@@ -10,7 +10,7 @@ What has been built, how it was checked, and what is still open. Newest entry fi
 | GitHub | Private repo https://github.com/hasanmahdi2007/haddak, CI running |
 | Local database | Postgres 16 + PostGIS in Docker, port 5433, seeded |
 | Backend | All version 1 endpoints built and tested (449 tests), plus assistant, prices, places, hire checks and "Available now"; Docker image ready; migrations up to 0008 |
-| Mobile app | All version 1 screens built (lavender "Blocks" design, light and dark, English and Arabic), plus sign-in, sign-up, stats, reviews, report, share/QR, stories, Jarak AI, hire checks, "Available now" and the poster. Checked in mock web builds; phone tests pending. Microphone needs a development build (in progress) |
+| Mobile app | All version 1 screens built ("Pastel" design: ghost white, alice blue, vanilla and black, Urbanist; English and Arabic), plus sign-in, sign-up, stats, reviews, report, share/QR, stories, Jarak AI, hire checks, "Available now" and the poster. Checked in mock web builds; phone tests pending. Microphone needs a development build (in progress) |
 | Hosting | Not started (plan in `SYSTEM_DESIGN.md` section 6) |
 
 ## Validation benchmark (from `PROJECT.md`)
@@ -24,6 +24,45 @@ The app is judged in the first area by this, not by code:
 Current: 0 real providers (app not released). Seed data only.
 
 ## Log
+
+### 2026-11-21 — Production database live; ready to deploy
+
+**Why:** the founder wants real users testing as soon as possible, so everything that does not need the founder's own accounts was set up and checked against the real hosted database.
+- **Hosted database (Supabase, Postgres 17):** PostGIS and pg_trgm in the `extensions` schema; the backend gets its own login role `haddak_api` (owns the tables, no superuser, no access to Supabase's `auth`/`storage`, 30 s statement timeout, 60 s idle-in-transaction timeout, 20 connections). Its password was made on the laptop and only its SCRAM hash was sent to Supabase; the plain value lives in the git-ignored `backend/.env.production`. All migrations applied through the session pooler.
+- **Found by running against the real thing:** the project is in Seoul, not Frankfurt (API placed in Render Singapore; move recommended, see `DEPLOY.md`); the Security Advisor flagged `normalize_name()` (migration 0013, fixed search path); the base categories only ever came from `seed.py`, so the hosted database had 7 of 58 and two without a parent (migration 0014, full tree as reference data); the OpenStreetMap import held a transaction open while waiting minutes for Overpass and made two round trips per shop (now reads first, fetches outside any transaction, writes in one flush).
+- **Real listings:** 3,002 OpenStreetMap shops and practices across Lebanon imported as unverified listings (in four regions, because Overpass times out on the whole country at once): Beirut and Mount Lebanon 1,508, South 218, North 159, Bekaa 1,117. Most are pharmacies (848 in the first region alone). **Only 196 have a phone number**, so most cannot be called or messaged until their owner claims them or the founder adds the number; this is the main gap for launch. No sample (seed) providers are in production.
+- **Deploy setup:** `render.yaml` (Docker, Singapore, health check, deploys only after checks pass, TRUST_PROXY, generated admin and quota secrets); `mobile/eas.json` (dev client, preview APK and Play bundle against the hosted API); `.github/workflows/backup.yml` (weekly encrypted `pg_dump`, 30 days); mobile CI (type check, lint); backend CI adds formatting and `pip-audit` and tests on Postgres 17; Dependabot; GitHub vulnerability alerts and secret push protection on; `*.env` ignored and the stray empty `backend.env` removed; runbook `docs/DEPLOY.md`.
+- **Checked:** the production Docker image was built and run in production mode against the live database (health ok, `/docs` 404, categories, a pharmacy search near Beirut, Jarak's keyword answer); a production dump was encrypted, decrypted and restored into a fresh Postgres 17 with everything intact; migration 0014 left the seeded local database byte-for-byte the same; 679 backend tests, ruff, format, `pip-audit`, `tsc` and ESLint clean.
+
+### 2026-11-21 — Ready for production: AI limits and database lock
+
+**Why:** before deploying, make sure one person or a script cannot run up the Claude bill, and that the database is not readable through Supabase's own API.
+- **Jarak's free daily allowance** (`backend/app/services/assist/quota.py`, migration 0011): 15 AI searches a day per phone when signed out, 30 per signed-in account, 100 for everyone on one IP (Alfa and Touch put many phones behind one address). Counted only when the AI is really asked; over it, the free keyword search answers. Kept in the database, so restarts and redeploys no longer reset it (the old per-IP count lived in memory). Stored as a keyed hash of day + who: no IP, account or install id in the table, and days cannot be linked.
+- **Spending caps:** new $1 per day (Lebanon time) on top of the $10 per month, so a bad day cannot use up the month.
+- **Burst limit:** 20 assistant requests per minute per IP (429).
+- **Database lock** (migration 0012): Row Level Security on every table with no policies, and no privileges for Supabase's `anon` and `authenticated` roles, now and for future tables. The backend, as owner, is unaffected.
+- **Server:** request bodies over 64 KB get 413 (also when sent in chunks); `/docs` and `/openapi.json` are off in production; production refuses to start without `ASSIST_QUOTA_SECRET`.
+- **App:** `src/lib/deviceId.ts` makes a random install id once; sent as `X-Haddak-Device` with Jarak requests only.
+- **Checked:** new tests for each rule (allowance per phone, per account, per IP, invented install ids, refused requests not counted, nothing identifying stored, survives restart, next day, daily budget, 429; RLS on every table, privileges revoked, rows hidden even with a stray grant; 413 with and without Content-Length; docs off in production); full backend suite, ruff, `tsc` and ESLint clean.
+
+### 2026-11-17 — "Pastel" theme across the app
+
+**Founder decision:** a soft pastel dashboard look from his reference replaces the purple and tangerine palette; later the same day he removed honeydew (no green except WhatsApp).
+- Tokens (`mobile/src/theme/tokens.ts`): ghost-white ground, white cards, alice blue for the Home hero, info panels and done notices, vanilla for Jarak AI, Sponsored, offers and Available now, eerie black for buttons, chosen chips and round arrow buttons; the `mint` token became `trust` (the black Verified pill); `success` (green) removed. Radius: cards 24, insets 16. Softer shadow.
+- Type: Urbanist for Latin (loaded in `_layout.tsx`), Beiruti and Readex Pro kept for Arabic; `Txt` picks the set by language or by the words themselves; new `badge` role; text fields use `useTypeScale()`.
+- Components: outlined chips that turn black when chosen (distance, filters, hours and day choices), alice-blue List / Map and poster tracks, black Verified pill and map disc, open status as a black dot, category tiles with alice-blue and vanilla wells and a round black arrow, vanilla offer block and claim card, pastel stat tiles in My business, round black send on the Ask entry.
+- `mobile/DESIGN.md` rewritten for the theme.
+- Verified: `tsc` and `expo lint` clean; no raw colour outside `tokens.ts`; contrast pairs computed (all text AA). Screenshots at 390 x 844 in a mock web build: Home (English, Arabic), Results list and map, profile, Jarak AI results, My business. **Not verified:** on a phone.
+
+### 2026-11-17 — show everyone, OpenStreetMap import, claim your business
+
+**Founder decisions:** search shows unverified listings by default, always after every verified one; listings are imported from OpenStreetMap (ODbL, with attribution); owners can claim a listing or ask for its removal.
+
+- Docs first: `API.md` (`data_source`, nullable phone for OSM listings, claims, `remove_my_business`), `SCHEMA.md` (migration 0010, `claims` table, OSM import and licence rule), `PROJECT.md` decision log.
+- Backend: migration 0010; `POST /providers/{id}/claim` (5 per hour per IP), `GET /admin/claims`, approve and reject (approval copies proof and moves an unverified listing to pending); Claims tab in `/admin`. `POST /assist` already searched with unverified included, verified first (unchanged, test kept).
+- `scripts/import_osm.py`: one Overpass query for Greater Beirut gave 980 named places in 23 categories (537 pharmacies). Only 63 had a phone and 64 readable hours. Imported into the dev database; a second run updated the same 980 rows.
+- App: "Verified only" starts off; a "Not verified yet: Haddak hasn't checked these" divider above the first unverified result; claim card (tangerine wash) and claim sheet with optional proof; "Data © OpenStreetMap contributors"; no WhatsApp/Call when there is no number. Mock mode has one OSM listing and accepts claims.
+- Checked: 647 backend tests, ruff clean, `tsc --noEmit` and `expo lint` clean. Not checked on a phone.
 
 ### 2026-11-15 (evening) — unverified listings, Supabase project, AI verifier plan
 

@@ -15,10 +15,10 @@ jobs:
       run:
         working-directory: backend
 
-    # A throwaway Postgres + PostGIS, same image and port as docker-compose.yml.
+    # A throwaway Postgres + PostGIS, same Postgres major version as Supabase (17).
     services:
       db:
-        image: postgis/postgis:16-3.4
+        image: postgis/postgis:17-3.5
         env:
           POSTGRES_USER: haddak
           POSTGRES_PASSWORD: haddak
@@ -45,6 +45,13 @@ jobs:
 
       - name: Lint
         run: ruff check .
+
+      - name: Formatting
+        run: ruff format --check .
+
+      # A dependency with a published security hole fails the build.
+      - name: Known vulnerabilities in dependencies
+        run: pip install pip-audit && pip-audit -r requirements.txt
 
       - name: Test
         # The tests create the haddak_test database themselves and migrate it.

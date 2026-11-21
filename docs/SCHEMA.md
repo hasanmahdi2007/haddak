@@ -35,7 +35,7 @@ CREATE TABLE providers (
     category_id           INTEGER NOT NULL REFERENCES categories(id),
     description           TEXT NOT NULL DEFAULT '',
     price_text            TEXT,                     -- free text, e.g. '$20 per lesson'
-    phone                 TEXT NOT NULL,            -- E.164, e.g. '+96170123456'
+    phone                 TEXT,                     -- E.164, e.g. '+96170123456'; NULL only for 'osm'
     whatsapp              TEXT,                     -- E.164; null means same as phone
     location              GEOGRAPHY(Point, 4326) NOT NULL,
     area_name             TEXT NOT NULL,            -- e.g. 'Haret Hreik'
@@ -52,14 +52,17 @@ CREATE TABLE providers (
     show_contact_count    BOOLEAN NOT NULL DEFAULT FALSE,   -- owner's choice: show "contacts this month" publicly
     opening_hours         JSONB,                    -- null means hours not provided; shape below
     source                TEXT NOT NULL DEFAULT 'owner'     -- who created the listing
-                          CHECK (source IN ('owner', 'suggestion')),
+                          CHECK (source IN ('owner', 'suggestion', 'osm')),
+    osm_ref               TEXT UNIQUE,              -- 'node/123' or 'way/456' for OpenStreetMap imports, else NULL
     sponsor_hook          TEXT CHECK (char_length(sponsor_hook) <= 80),  -- one-sentence pitch, shown only while sponsored
     price_amount          NUMERIC(12,2) CHECK (price_amount > 0),        -- structured price, e.g. 15.00
     price_unit            TEXT CHECK (price_unit IN ('hour', 'visit', 'job', 'item', 'month')),
     price_currency        TEXT NOT NULL DEFAULT 'USD' CHECK (price_currency IN ('USD', 'LBP')),
     available_until       TIMESTAMPTZ,                                   -- "Available now" until this moment; NULL = off
     CONSTRAINT providers_price_amount_unit_together
-        CHECK ((price_amount IS NULL) = (price_unit IS NULL))
+        CHECK ((price_amount IS NULL) = (price_unit IS NULL)),
+    CONSTRAINT providers_phone_required
+        CHECK (phone IS NOT NULL OR source = 'osm')    -- OSM places often have no number
 );
 CREATE INDEX providers_location_idx ON providers USING GIST (location);
 CREATE INDEX providers_category_status_idx ON providers (category_id, status);
@@ -105,11 +108,29 @@ CREATE TABLE provider_reports (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     provider_id  UUID NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
     reason       TEXT NOT NULL
-                 CHECK (reason IN ('wrong_info', 'not_real', 'closed', 'offensive', 'other')),
+                 CHECK (reason IN ('wrong_info', 'not_real', 'closed', 'offensive',
+                                   'remove_my_business', 'other')),
     note         TEXT CHECK (char_length(note) <= 500),
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX provider_reports_provider_idx ON provider_reports (provider_id);
+
+-- "Is this your business? Claim it": a signed-in user asks to own a listing
+-- that has no owner (owner_user_id IS NULL). The founder approves or rejects.
+CREATE TABLE claims (
+    id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider_id           UUID NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+    user_id               UUID NOT NULL,             -- Supabase auth user id of the claimer
+    message               TEXT CHECK (char_length(message) <= 500),
+    verification_doc_url  TEXT,                      -- optional proof; private like providers'
+    status                TEXT NOT NULL DEFAULT 'pending'
+                          CHECK (status IN ('pending', 'approved', 'rejected')),
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+    decided_at            TIMESTAMPTZ               -- set when approved or rejected
+);
+-- One open claim per user and listing.
+CREATE UNIQUE INDEX claims_one_pending_idx ON claims (provider_id, user_id) WHERE status = 'pending';
+CREATE INDEX claims_status_created_idx ON claims (status, created_at);
 
 -- A short post by a verified provider. Shown for 24 hours, then simply
 -- filtered out by time (rows are not deleted by any background job).
@@ -203,7 +224,7 @@ CREATE TABLE assist_log (
 CREATE INDEX assist_log_created_idx ON assist_log (created_at);
 ```
 
-Migrations: `0001` created the first four tables; `0002` added `providers.show_contact_count`, `providers.opening_hours` and the `provider_suggestions` table; `0003` added the `unverified` status, made `providers.owner_user_id` nullable, and added `providers.source`, `provider_suggestions.lat` / `lng` and the `provider_reports` table; `0004` added `providers.sponsor_hook` and the `stories`, `banners` and `follows` tables; `0005` added `providers.price_amount`, `price_unit` and `price_currency`; `0006` added `pg_trgm`, `normalize_name()`, the `places` table with its first rows, and the `assist_cache` and `assist_log` tables; `0007` added the `hire_checks` table; `0008` added `providers.available_until`.
+Migrations: `0001` created the first four tables; `0002` added `providers.show_contact_count`, `providers.opening_hours` and the `provider_suggestions` table; `0003` added the `unverified` status, made `providers.owner_user_id` nullable, and added `providers.source`, `provider_suggestions.lat` / `lng` and the `provider_reports` table; `0004` added `providers.sponsor_hook` and the `stories`, `banners` and `follows` tables; `0005` added `providers.price_amount`, `price_unit` and `price_currency`; `0006` added `pg_trgm`, `normalize_name()`, the `places` table with its first rows, and the `assist_cache` and `assist_log` tables; `0007` added the `hire_checks` table; `0008` added `providers.available_until`; `0009` added categories (power, appliance repair, pharmacy); `0010` added `source = 'osm'`, `providers.osm_ref`, made `providers.phone` nullable for `osm` rows only, added the `remove_my_business` report reason and the `claims` table.
 
 ### `providers.status`
 
@@ -222,7 +243,15 @@ Who moves a profile between statuses:
 
 ### `providers.source` and unclaimed listings
 
-`source = 'owner'`: the provider created the profile in the app. `source = 'suggestion'`: the admin published it from a row in `provider_suggestions`; it starts `unverified` with `owner_user_id = NULL` ("listed by the community"). `UNIQUE (owner_user_id)` still means one profile per user: Postgres lets any number of rows have NULL there.
+`source = 'owner'`: the provider created the profile in the app. `source = 'suggestion'`: the admin published it from a row in `provider_suggestions`; it starts `unverified` with `owner_user_id = NULL` ("listed by the community"). `source = 'osm'`: imported from OpenStreetMap by `backend/scripts/import_osm.py` (below); also `unverified` with no owner.
+
+Claiming: a signed-in user sends a claim (`claims` row, `pending`). When the founder approves, `owner_user_id` is set to the claimer, the other pending claims for that listing are rejected, and, if the claim carried proof, the proof is copied to `verification_doc_url` and an `unverified` listing becomes `pending` (the owner's proof rule). `source` does not change on a claim, so an OpenStreetMap listing keeps its attribution.
+
+### OpenStreetMap import (`source = 'osm'`)
+
+`backend/scripts/import_osm.py` asks the public Overpass API once for a bounding box (default Greater Beirut) and maps OSM tags to existing category slugs; tags that map to nothing are skipped and no category is ever created. Only named places are kept. It stores the name, the point (a way's centre), phone and WhatsApp from `phone` / `contact:phone` / `contact:whatsapp` (normalised to `+961…`; NULL when missing or unreadable), simple `opening_hours` (anything complex is left NULL) and the area from `addr:*` tags (else the nearest row in `places`). Rows are `unverified`, `owner_user_id = NULL`, `photos = '{}'`, keyed by `osm_ref` so a re-run updates instead of duplicating. A re-run never touches a claimed listing, nor a listing's status (a rejected one stays rejected).
+
+Licence: OpenStreetMap data is under the ODbL. Haddak shows it with attribution ("Data © OpenStreetMap contributors", via `data_source` in the API). If the database itself (or an extract of it) is ever shared, the OSM-derived part must stay under the ODbL. Owners who did not ask to be listed can claim the listing or report it with "This is my business and I want it removed" (`remove_my_business`); the founder then rejects it. `UNIQUE (owner_user_id)` still means one profile per user: Postgres lets any number of rows have NULL there.
 
 ### `providers.available_until`
 
@@ -240,7 +269,7 @@ A missing day (or an empty list) means closed that day. `NULL` for the whole col
 
 ## Rules the backend enforces
 
-- The public sees providers with status `verified`, `unverified` or `pending`; `rejected` ones answer 404. Only `verified` ones carry the badge, and search returns only those unless the searcher asks for unverified ones too.
+- The public sees providers with status `verified`, `unverified` or `pending`; `rejected` ones answer 404. Only `verified` ones carry the badge, and search returns only those unless the searcher asks for unverified ones too (the app asks by default since 2026-11-17, and the assistant always does; verified ones still come first).
 - Verification is always a human decision made in the admin page.
 - `avg_rating` and `review_count` are recalculated in the same transaction whenever a review is created or changed.
 - A provider cannot review their own profile.
@@ -253,8 +282,14 @@ A missing day (or an empty list) means closed that day. `NULL` for the whole col
 - Contact events are always counted. The public sees a provider's monthly contact count (`whatsapp` + `call`, never views) only when that provider set `show_contact_count`.
 - "Open now" is computed from `opening_hours` in the `Asia/Beirut` timezone; it is not stored.
 - Suggestions and reports are anonymous: no user id and no IP address is stored with them.
+- Claims are only for listings with `owner_user_id IS NULL`; at most one `pending` claim per user and listing; a user who already owns a profile cannot claim another.
 - Structured prices: `price_amount` and `price_unit` are both set or both NULL. `price_text` is only a description; search uses the structured fields.
-- Assistant: `assist_log` and `assist_cache` hold no user id, no IP and no location. The sentence is stored (normalised) only in `assist_log.wanted_text`, and only when its search found nothing. The monthly budget is the sum of `assist_log.cost_usd` in the current UTC month.
+- Assistant: `assist_log` and `assist_cache` hold no user id, no IP and no location. The sentence is stored (normalised) only in `assist_log.wanted_text`, and only when its search found nothing. The monthly budget is the sum of `assist_log.cost_usd` in the current UTC month; the daily budget is the same sum since midnight in Lebanon.
+- `assist_quota` (`subject`, `day`, `used`; primary key `subject, day`): AI requests per person or IP per day (Lebanon time). `subject` is a keyed hash of the day and who (see `AI_ASSISTANT.md`), never an IP, account id or install id. Rows older than two days are deleted.
+- Every table in `public` has Row Level Security on, with no policies (migration 0012), and the Supabase roles `anon` and `authenticated` have no privileges on them. The backend connects as the tables' owner, which Row Level Security does not limit. **A migration that creates a table must also run `ALTER TABLE <name> ENABLE ROW LEVEL SECURITY`**; `tests/test_db_security.py` fails otherwise.
+- Every function in `public` has a fixed search path (migration 0013): **a migration that creates a function must give it `SET search_path = ''`** and call only built-in or schema-qualified functions; `tests/test_db_security.py` fails otherwise.
+- The category tree is reference data that comes from the migrations (0009, 0014), so the hosted database, which is never seeded, has it too. **Changing a category needs a new migration and the same change in `scripts/seed.py`'s `CATEGORIES`**; `tests/test_categories_migration.py` fails when the two disagree.
+- On Supabase the tables are owned by the role `haddak_api` that the backend logs in as (see `DEPLOY.md`); locally they are owned by `haddak`.
 - Place lookup: exact match on `normalize_name()` of `name_en`, `name_ar` or an alias first; otherwise the best `similarity()` of 0.35 or more. Several rows are returned only when they share the English name (same name, different districts).
 - Publishing a suggestion creates the provider and deletes the suggestion in one transaction.
 - Hire checks ("Did you hire them?"): a `whatsapp` or `call` contact event sent with a valid login token creates a `hire_checks` row, unless the same user already has one for that provider with `contacted_at` in the last 7 days (answered or not), or the user owns the provider. Only that user may answer, and only once. A review is "hired through Haddak" when its author has a `hired` answer for that provider (computed when read, so a review written later also counts). `confirmed_hires` = `hired` answers with `answered_at` in the last 90 days. `no_answer` answers are shown to the admin only. Search ranking does not use hire checks yet.

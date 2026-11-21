@@ -39,10 +39,14 @@ The AI never sees the user's location, name, email or any provider data. It sees
 |---|---|---|
 | Skip the AI when the text exactly matches a category or provider name | on | backend |
 | Remembered answers: same normalised sentence → stored settings | on | `assist_cache` table |
-| Requests per IP per day | 30 | `ASSIST_DAILY_LIMIT` |
+| Free AI requests per day, signed-in account | 30 | `ASSIST_DAILY_LIMIT_SIGNED_IN` |
+| Free AI requests per day, phone when signed out | 15 | `ASSIST_DAILY_LIMIT_ANONYMOUS` |
+| Free AI requests per day, everyone on one IP together | 100 | `ASSIST_DAILY_LIMIT_PER_IP` |
+| All assistant requests per minute per IP | 20 (then 429) | `app/rate_limit.py` |
+| Spending cap per day (Lebanon time) | $1 | `ASSIST_DAILY_BUDGET_USD` |
 | Spending cap per calendar month | $10 | `ASSIST_MONTHLY_BUDGET_USD` |
 | Model | `claude-haiku-5-5` for English, French and Arabic script (cheapest). Arabizi goes to `claude-sonnet-5-5` (model routing, below). | `ASSIST_MODEL`, `ASSIST_MODEL_ARABIZI` (empty = no routing) |
-| No key, cap reached, daily allowance used, or AI error | free keyword fallback (below); `unavailable` only when it finds no category, then the app falls back to normal search | backend |
+| No key, a spending cap reached, daily allowance used, or AI error | free keyword fallback (below); `unavailable` only when it finds no category, then the app falls back to normal search | backend |
 
 Every AI request is logged with its token counts and cost (`assist_log`), with no user id.
 
@@ -81,9 +85,11 @@ If the sentence describes an emergency, the app shows emergency numbers built in
 
 ## How the backend does it (settled in the build, 2026-11-16)
 
-Code: `backend/app/services/assist/` (`normalize.py`, `prompt.py`, `ai_client.py`, `cache.py`, `budget.py`, `places.py`, `summary.py`, `service.py`) and `backend/app/routers/assist.py`.
+Code: `backend/app/services/assist/` (`normalize.py`, `prompt.py`, `ai_client.py`, `cache.py`, `budget.py`, `quota.py`, `places.py`, `summary.py`, `service.py`) and `backend/app/routers/assist.py`.
 
-- **Order of checks for a sentence:** exact category name (English, Arabic or slug) or exact provider name → search, no AI; then `assist_cache` (SHA-256 of the normalised sentence, answers kept 30 days); then key set → monthly budget → daily per-IP allowance (counted only when the request is about to reach the AI); then one AI request. Any failure on the way → `unavailable`.
+- **Order of checks for a sentence:** exact category name (English, Arabic or slug) or exact provider name → search, no AI; then `assist_cache` (SHA-256 of the normalised sentence, answers kept 30 days); then key set → monthly budget → today's budget → daily allowance (counted only when the request is about to reach the AI); then one AI request.
+- **Daily allowance (`quota.py`):** each AI request counts against the person (the signed-in account, or else the phone's install id from `X-Haddak-Device`) and against the IP address. The IP allowance is higher because many phones on Alfa and Touch share one public address (carrier NAT), and it is what stops a script that invents a new install id per request. Each count is one atomic insert-or-add in `assist_quota`, so two requests at once cannot both take the last one; a refused request counts for nobody (rolled back). Rows hold `HMAC-SHA256(ASSIST_QUOTA_SECRET, day + who)`, never the IP, account or install id, and are deleted after two days.
+- **Why these numbers:** a real person asks Jarak a few times a day at most, and exact names and remembered sentences are free, so 15 (30 signed in) is never reached by normal use. The worst case is about 1.5 cents per AI request (Sonnet writing the prompt cache); the usual cost is 0.1 to 0.2 cents. The $1 daily cap means abuse can cost at most $1 a day and never the whole month's $10. Any failure on the way → `unavailable`.
 - **Normalising:** lower case, accents and Arabic marks removed (hamza forms → plain letter, ة → ه, ى → ي), punctuation → space, spaces collapsed. The SQL function `normalize_name()` does the same letter rules for place lookup.
 - **The request:** official `anthropic` Python SDK (2.8.0), `messages.parse()` with the Pydantic class `AIResult` as the output schema (structured output). `effort: low`; thinking `disabled` on Haiku 5.5 (Sonnet and Opus 5.5 refuse that, so they get low effort only); `max_tokens` 1024; 8 s timeout, 1 retry. The system prompt (rules, four short examples, the category list from the database in a fixed order) carries a prompt-cache marker and contains no dates or ids.
 - **Checking the answer:** unknown slugs dropped (max 3), radius snapped to 500/1000/5000/20000, a price limit needs an amount and a unit (currency defaults to USD), `q` 2–60 characters, clarify needs a question and 2–4 options that each search for something (one good option becomes a normal search), emergency and off_topic lose all settings. A `refusal` or cut-off answer counts as an AI failure.

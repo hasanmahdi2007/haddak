@@ -11,7 +11,7 @@ The contract between the mobile app and the FastAPI backend. Both sides are buil
 
 Supabase Auth issues the login token. The app sends it as `Authorization: Bearer <access_token>`. The backend verifies the token's signature and reads the user id from the `sub` claim. The token header's `alg` picks the check: ES256/RS256 tokens (real Supabase sign-ins) are verified with the public keys from `SUPABASE_JWKS_URL`, with audience `authenticated` and `exp` required. HS256 development tokens (`scripts/dev_token.py`, signed with `SUPABASE_JWT_SECRET`) are accepted only when `ALLOW_DEV_TOKENS=true`, which is never allowed in production. `alg: none` and any other algorithm get 401.
 
-The app signs in with Supabase's email sign-in (PKCE flow). The email carries a link back to the app (`haddak://auth-callback`, or `exp://<ip>:8081/--/auth-callback` in Expo Go; both are in the project's allowed redirect URLs); the app's `auth-callback` route exchanges the `code` for a session. If the email shows a 6-digit code instead (custom email templates, later), the user types it on the sign-in screen.
+The app signs in with Supabase's email sign-in (PKCE flow). Email links open in a browser, which shows an empty page for an app link, so the email points to the backend page `GET /auth/open?app=<app link>` (outside `/api/v1`). That page passes the `code` (query or `#fragment`) on to the app link: `haddak://auth-callback`, or `exp://<ip>:8081/--/auth-callback` in Expo Go. It only follows `haddak://` and `exp://` links, so it is not an open redirect. Allowed redirect URLs in Supabase: `haddak://**`, `exp://**`, `http://192.168.*.*:8000/auth/open**` (local testing; add the hosted backend's `https://…/auth/open**` at launch). The app's `auth-callback` route exchanges the `code` for a session. If the email shows a 6-digit code instead (custom email templates, later), the user types it on the sign-in screen.
 
 "Auth" below means the header is required; a missing or invalid token gives 401.
 
@@ -41,10 +41,14 @@ Admin routes use the header `X-Admin-Key: <ADMIN_API_KEY>` instead.
   "sponsored": false,                          // verified AND featured_until not passed; show as "Sponsored"
   "sponsor_hook": null,                        // one-sentence pitch; always null unless sponsored
   "has_active_story": false,                   // a story posted in the last 24 hours
-  "banner_title": null }                       // title of the active banner, or null
+  "banner_title": null,                        // title of the active banner, or null
+  "data_source": null }                        // "osm" for a listing imported from OpenStreetMap, else null.
+                                               // The app shows "Data © OpenStreetMap contributors" on those.
 
 // ProviderDetail = ProviderSummary plus:
 { "description": "…", "phone": "+96170123456", "whatsapp": "+96170123456",
+  // phone and whatsapp are null only for an imported OpenStreetMap listing that had no number;
+  // the app then hides WhatsApp and Call.
   "photos": ["https://...", "https://..."],
   "created_at": "2026-11-15T10:00:00Z",
   "opening_hours": { "mon": [["09:00", "13:00"], ["15:00", "19:00"]], "sat": [["10:00", "14:00"]] },  // or null
@@ -57,7 +61,7 @@ Admin routes use the header `X-Admin-Key: <ADMIN_API_KEY>` instead.
 
 // OwnProvider (what the owner and the admin see) = ProviderDetail plus:
 { "status": "pending",                         // "unverified" | "pending" | "verified" | "rejected"
-  "source": "owner",                           // "owner" | "suggestion"
+  "source": "owner",                           // "owner" | "suggestion" | "osm"
   "featured_until": null, "verification_doc_url": "…",
   "show_contact_count": false,
   "available_until": null }                    // when "Available now" turns itself off, or null
@@ -89,6 +93,16 @@ Admin routes use the header `X-Admin-Key: <ADMIN_API_KEY>` instead.
   "created_at": "2026-11-15T10:00:00Z",
   "provider": { "id": "uuid", "name": "Ali Tech", "status": "unverified" } }
 
+// Claim (what the claimer gets back)
+{ "id": "uuid", "provider_id": "uuid", "status": "pending",   // "pending" | "approved" | "rejected"
+  "created_at": "2026-11-17T10:00:00Z" }
+
+// AdminClaim (admin only) = Claim plus:
+{ "user_id": "uuid", "message": "I own this pharmacy.",       // message or null
+  "verification_doc_url": "https://…",                         // proof or null
+  "decided_at": null,
+  "provider": { "id": "uuid", "name": "Pharmacie Hamra", "status": "unverified" } }
+
 // Review
 { "id": "uuid", "author_name": "Rana", "rating": 5, "comment": "Fixed it in an hour.",
   "created_at": "2026-11-15T10:00:00Z", "is_mine": false,
@@ -112,8 +126,9 @@ A provider can be listed without being verified.
 | `rejected` | no, 404 everywhere public | Fake, abusive or duplicate. |
 
 - Public shapes never contain `status` or `verification_doc_url`. `pending` and `unverified` look identical to the public.
-- Search returns verified providers only, unless `include_unverified=true` is sent.
+- Search returns verified providers only, unless `include_unverified=true` is sent. The API default stays `false`, but the app sends `true` by default (founder decision 2026-11-17: show everyone, verified first) and the assistant always searches with unverified included. Verified providers always come first.
 - Verification is a human decision made in the admin page.
+- Listings imported from OpenStreetMap (`source: "osm"`, see `SCHEMA.md`) are `unverified` and unclaimed, carry `data_source: "osm"`, and are shown with "Data © OpenStreetMap contributors".
 
 ## Public endpoints
 
@@ -155,7 +170,7 @@ Response: `{"items": [ProviderSummary], "total": n}`. Order (`sort=best`): all v
 
 ### `POST /assist` (assistant, see `AI_ASSISTANT.md`)
 
-No login needed. Rate limit: `ASSIST_DAILY_LIMIT` (default 30) per IP per day, counted only for requests that reach the AI.
+No login needed. Free AI allowance per day (Lebanon time), counted only for requests that reach the AI: `ASSIST_DAILY_LIMIT_SIGNED_IN` (default 30) per account, or `ASSIST_DAILY_LIMIT_ANONYMOUS` (default 15) per phone when signed out, **and** `ASSIST_DAILY_LIMIT_PER_IP` (default 100) for everyone on one IP address. Over it, the free keyword fallback answers (never an error). The phone is identified by the optional header `X-Haddak-Device`: a random install id (UUID) the app makes once and stores; anything that is not a UUID is ignored. The account comes from the optional `Authorization` token. Without either, only the IP allowance applies.
 
 Request, either a sentence:
 
@@ -203,7 +218,7 @@ Response:
 }
 ```
 
-- `unavailable`: the AI could not be asked (no API key, monthly cap reached, this IP's daily AI allowance used up, or the AI failed) **and** the free keyword fallback found no category in the text. When the fallback does find one, the answer is a normal `results` (with `whatsapp_draft` null). On `unavailable` the app runs a normal name search with the text.
+- `unavailable`: the AI could not be asked (no API key, the monthly or daily spending cap reached, the daily AI allowance used up, or the AI failed) **and** the free keyword fallback found no category in the text. When the fallback does find one, the answer is a normal `results` (with `whatsapp_draft` null). On `unavailable` the app runs a normal name search with the text.
 - `emergency`: the app shows its own built-in emergency numbers. `off_topic`: the app shows one fixed polite line.
 - The AI request is sent only the sentence and the category list. The phone location never leaves the backend.
 
@@ -224,7 +239,20 @@ Details settled in the backend build:
 { "reason": "not_real", "note": "This shop closed years ago." }
 ```
 
-`reason` is required: one of `wrong_info`, `not_real`, `closed`, `offensive`, `other`. `note` is optional, up to 500 characters. Nothing about the sender is stored (no user id, no IP).
+`reason` is required: one of `wrong_info`, `not_real`, `closed`, `offensive`, `remove_my_business`, `other`. `remove_my_business` is "This is my business and I want it removed": the removal path for listings added without the owner's consent (OpenStreetMap imports, suggestions). The founder handles it with Reject listing in the admin page. `note` is optional, up to 500 characters. Nothing about the sender is stored (no user id, no IP).
+
+### `POST /providers/{id}/claim` ("Is this your business? Claim it")
+
+Auth. Body (both optional):
+
+```jsonc
+{ "message": "I am the pharmacist here.", "verification_doc_url": "https://…" }
+```
+
+- Only for a public listing with no owner (`claimed: false`); a claimed listing is 409, an unknown or rejected one 404.
+- `message` up to 500 characters; `verification_doc_url` up to 1000 (a signed link from `verification-docs`, like profile proof).
+- 409 when the user already owns a profile (one profile per user), or already has a `pending` claim for this listing.
+- Returns 201 `Claim` with `status: "pending"`. The founder decides in the admin page. After approval the listing is the user's profile: `GET /me/provider` returns it and the app shows it in My business.
 
 ### `POST /suggestions`
 
@@ -261,6 +289,7 @@ Limits: `name` 1 to 100 characters, `area_name` up to 100, `note` up to 500; `ph
 | `GET /me/feed` | `{"items": [StoryGroup]}`: active stories of the verified providers I follow, grouped by provider; newest story first; at most 30 providers. `distance_m` is null. |
 | `GET /me/hire-checks/pending` | `{"items": [HireCheck]}`: my unanswered hire checks made 12 hours to 14 days ago, newest first, at most 3. Rejected providers are left out. |
 | `POST /me/hire-checks/{id}` | Answer one. Body `{"answer": "hired" \| "not_yet" \| "no_answer"}`. 204. 404 if it is not mine or does not exist; 409 if already answered. |
+| `POST /providers/{id}/claim` | Claim a listing nobody owns. See above. Returns 201 `Claim`. |
 
 Create body:
 
@@ -346,6 +375,9 @@ For providers without fixed hours (a plumber who works when called). The owner s
 | `POST /admin/suggestions/{id}/publish` | Turn a suggestion into a public, unverified listing. Body below. Returns 201 `OwnProvider`. |
 | `GET /admin/reports` | `{"items": [Report], "total": n}`, newest first. Query: `limit` (default 50, max 100), `offset`. |
 | `DELETE /admin/reports/{id}` | Dismiss a report. 204; 404 if there is no such report. |
+| `GET /admin/claims?status=pending` | `{"items": [AdminClaim], "total": n}`, oldest first. `status`: `pending` (default), `approved` or `rejected`. |
+| `POST /admin/claims/{id}/approve` | Give the listing to the claimer. Returns the updated `AdminClaim`. Rules below. |
+| `POST /admin/claims/{id}/reject` | Refuse the claim. Returns the updated `AdminClaim`. 409 unless it is `pending`. |
 | `GET /admin/stories` | `{"items": [AdminStory]}`: active (not expired) stories, newest first, max 200. `AdminStory` = `id`, `provider_id`, `provider_name`, `text`, `image_url`, `created_at`, `expires_at`. |
 | `GET /admin/banners` | `{"items": [AdminBanner]}`: active banners, soonest expiry first, max 200. `AdminBanner` = `provider_id`, `provider_name`, `title`, `text`, `discount_percent`, `starts_at`, `expires_at`. A banner has no id: `provider_id` is what `DELETE /admin/providers/{id}/banner` takes. |
 | `DELETE /admin/stories/{story_id}` | Remove any story. 204; 404 if there is no such story. |
@@ -382,6 +414,15 @@ The body is optional. Any field in it overrides the suggestion's value; a field 
 - `description` only comes from the body (default empty). The suggestion's `note` was written for the admin and is never published.
 - The fields are validated like a profile's (phone format, lengths, coordinate ranges). An unknown `category_id` is 400. An unknown suggestion is 404.
 
+### `POST /admin/claims/{id}/approve`
+
+In one transaction:
+
+- 409 unless the claim is `pending`, 409 if the listing has an owner by now, 409 if the claimer owns another profile meanwhile. Nothing changes then.
+- `owner_user_id` becomes the claimer. `source` stays as it was (an OpenStreetMap listing keeps its attribution).
+- With proof (`verification_doc_url` on the claim), the proof is copied to the listing and the owner's proof rule applies: an `unverified` listing becomes `pending` and waits in the normal verification queue; `pending` and `verified` stay as they are. Without proof the status does not change.
+- The claim becomes `approved` and every other `pending` claim for that listing becomes `rejected`. `decided_at` is set.
+
 ## Details settled during the backend build
 
 - Validation errors (422) return one string in `detail`, not FastAPI's default list.
@@ -398,7 +439,7 @@ The body is optional. Any field in it overrides the suggestion's value; a field 
 - `featured` in public shapes is `true` only for a verified provider whose `featured_until` has not passed. `OwnProvider.featured_until` shows the stored date whatever the status.
 - Following needs a login but not a profile; a user may follow any public provider, including an unverified one or their own. `follower_count` counts every follower.
 - The story limit (5 active) and the banner replace are done with the provider row locked, so two simultaneous posts cannot go over the limit.
-- A listing with no owner (`claimed: false`) cannot be edited through `/me/provider`; claiming it is not built yet. The admin can still verify, reject or feature it.
+- A listing with no owner (`claimed: false`) cannot be edited through `/me/provider` until a claim for it is approved (`POST /providers/{id}/claim`). The admin can still verify, reject or feature it.
 
 ## Rate limits
 
@@ -408,13 +449,15 @@ Write routes are limited per client IP, in the API process's memory (no extra se
 - `PUT /providers/{id}/reviews/mine`, `POST` and `PATCH /me/provider`, `POST /me/provider/stories`, `DELETE /me/provider/stories/{story_id}`, `PUT` and `DELETE /me/provider/banner`, `PUT` and `DELETE /providers/{id}/follow`, `POST /me/hire-checks/{id}`: 20 per minute per IP. One shared allowance across these routes.
 - `POST /suggestions`: 5 per hour per IP (its own allowance). Requests refused for a validation error count too.
 - `POST /providers/{id}/reports`: 10 per hour per IP (its own allowance). Requests refused for a validation error or an unknown provider count too.
-- `POST /assist`: `ASSIST_DAILY_LIMIT` (default 30) requests per IP per 24 hours that reach the AI. Exact name matches, remembered sentences and the `understood` form do not count. Over the limit the free keyword fallback answers instead (HTTP 200, kind `results`, or `unavailable` when it finds no category), never 429.
+- `POST /providers/{id}/claim`: 5 per hour per IP (its own allowance).
+- `POST /assist`: 20 requests per minute per IP, all requests (429 over it). Separately, the free daily AI allowance described under `POST /assist`, kept in the database (table `assist_quota`) so it survives restarts. Exact name matches, remembered sentences and the `understood` form do not count. Over the allowance the free keyword fallback answers instead (HTTP 200, kind `results`, or `unavailable` when it finds no category), never 429.
+- Every route: a request body over 64 KB gets 413 `{"detail": "Request body is too large."}`.
 
 Requests are counted before the login token is checked, so failed attempts use the allowance too. Behind a hosting proxy the client IP is read from `X-Forwarded-For`, counting `PROXY_HOPS` entries from the right so a client cannot fake it.
 
 ## Admin page
 
-`GET /admin` (outside `/api/v1`) serves one static HTML page for the founder: enter the admin key, see profiles by status (Pending, Unverified, Verified, Rejected) with their proof link and their "didn't answer" count for the last 90 days, approve, decline the proof, reject or restore, set founding member and featured-until. A "Suggestions" tab lists suggested providers with Publish (a small form for the fields that are still missing) and Delete. A "Reports" tab lists reported listings with Dismiss and Reject listing. A "Posts" tab lists active stories and banners with Delete (confirmed in the page, not with `window.confirm`). A "Wanted" tab shows `GET /admin/assist/wanted`: this month's assistant spending against the budget, the most asked unmatched requests and the place names that were not found. Each verified profile has Sponsor 7 / 30 / 90 days buttons (sets `featured_until` to today + N) and End sponsorship (sends `featured_until: null`); other statuses show a hint that only verified profiles count as sponsored. It only calls the admin endpoints above and the public `GET /categories`; the key is kept in the browser tab's memory, never stored.
+`GET /admin` (outside `/api/v1`) serves one static HTML page for the founder: enter the admin key, see profiles by status (Pending, Unverified, Verified, Rejected) with their proof link and their "didn't answer" count for the last 90 days, approve, decline the proof, reject or restore, set founding member and featured-until. A "Suggestions" tab lists suggested providers with Publish (a small form for the fields that are still missing) and Delete. A "Reports" tab lists reported listings with Dismiss and Reject listing. A "Claims" tab lists pending claims (listing, message, proof link, user id) with Approve and Reject. A "Posts" tab lists active stories and banners with Delete (confirmed in the page, not with `window.confirm`). A "Wanted" tab shows `GET /admin/assist/wanted`: this month's assistant spending against the budget, the most asked unmatched requests and the place names that were not found. Each verified profile has Sponsor 7 / 30 / 90 days buttons (sets `featured_until` to today + N) and End sponsorship (sends `featured_until: null`); other statuses show a hint that only verified profiles count as sponsored. It only calls the admin endpoints above and the public `GET /categories`; the key is kept in the browser tab's memory, never stored.
 
 ## Photos and proof documents
 

@@ -98,19 +98,23 @@ Full definitions are in `SCHEMA.md`. In short:
 | Fake reviews | Login required, one review per user per provider, no reviewing your own profile. |
 | Inflated stats | Contact events are rate-limited per IP and the same IP, provider and type counts once per 10 minutes (being added, see `PROGRESS.md`). |
 | Proof documents | Private storage bucket. Only the owner and the admin see the link. |
+| Supabase's automatic Data API | Supabase publishes tables in `public` to anyone holding the app's public key. Haddak does not use it, so every table has Row Level Security with no policies and the `anon`/`authenticated` roles have no privileges (migration 0012, checked by `tests/test_db_security.py`). |
+| AI cost abuse | Free daily AI allowance per account or phone and per IP, kept in the database; a daily ($1) and monthly ($10) spending cap; 20 assistant requests per minute per IP. Over the allowance the free keyword search answers. See `AI_ASSISTANT.md`. |
+| Oversized requests | Bodies over 64 KB are refused with 413 before they are read into memory (`app/request_limits.py`). |
+| Route map | The interactive API docs (`/docs`, `/openapi.json`) are off in production. |
 | Secrets | In environment variables. `.env` files are ignored by git from the first commit. |
 | Bad input | Pydantic validates every field (phone format, coordinate ranges, lengths) before any code runs. All SQL goes through SQLAlchemy with bound parameters. |
 
-Known limits in version 1: the rate limiter lives in the API's memory, so it is per process and resets on restart. That is fine with one API instance. With several instances it moves to Redis or the database.
+Known limits in version 1: the per-minute rate limiter lives in the API's memory, so it is per process and resets on restart. That is fine with one API instance (it only stops bursts). The assistant's daily AI allowance is in the database (`assist_quota`), so it survives restarts and would be shared by several instances.
 
 ## 6. Hosting plan
 
-Nothing is hosted yet. This is the plan for when the app is ready for real users. Prices are from memory and change; check each provider's pricing page before paying.
+The database is live on Supabase (migrated, locked, OpenStreetMap listings imported, 2026-11-21); the API is ready to deploy on Render from `render.yaml`. The step-by-step runbook is **`docs/DEPLOY.md`**. Prices are from memory and change; check each provider's pricing page before paying.
 
 | Piece | Where | Cost to start | Notes |
 |---|---|---|---|
-| Database, login, storage | Supabase, region Frankfurt (closest to Lebanon) | Free tier | Free projects pause after about a week with no activity; the paid plan (about $25/month) removes that and adds daily backups. Move to paid when real providers depend on it. |
-| API | A container host in the same region: Render, Railway or Fly.io | Free or about $5–7/month | The backend ships as a Docker image, so any of them works. Free instances sleep when idle and the first request after a sleep is slow; the small paid instance does not sleep. |
+| Database, login, storage | Supabase project `ginifqwdlqkbsptiahun`, region **Seoul** (`ap-northeast-2`; created there by accident, Frankfurt would be closer to Lebanon, see `DEPLOY.md`, "Moving to Frankfurt") | Free tier | Free projects pause after about a week with no activity; the paid plan (about $25/month) removes that and adds daily backups. Move to paid when real providers depend on it. |
+| API | Render, region Singapore (the Render region closest to the database), from `render.yaml` | Free, then Starter $7/month | The backend ships as a Docker image, so any of them works. Free instances sleep when idle and the first request after a sleep is slow; the small paid instance does not sleep. |
 | Android app | Built with Expo's EAS Build, published on Google Play | $25 once | Updates to JavaScript code can be pushed with EAS Update without a new store review. |
 | iPhone app | Later | $99/year | Same codebase. |
 | Domain `haddak.app` | Any registrar | About $15/year | Needed for share links (`haddak.app/p/<code>`) and the QR stickers. Not registered yet. |
@@ -118,11 +122,13 @@ Nothing is hosted yet. This is the plan for when the app is ready for real users
 
 Expected total once live: about $30–40 a month, close to $0 while building.
 
-**Deploy flow.** Push to `main` → GitHub Actions runs lint and tests → the host builds the Docker image from `backend/Dockerfile` → on start the container runs `alembic upgrade head` (applies any new migration) and then starts the API. Configuration is by environment variable: `DATABASE_URL`, `SUPABASE_JWKS_URL`, `ADMIN_API_KEY`, `CORS_ORIGINS`.
+**Deploy flow.** Push to `main` → GitHub Actions runs lint and tests → the host builds the Docker image from `backend/Dockerfile` → on start the container runs `alembic upgrade head` (applies any new migration) and then starts the API. Render deploys only after the GitHub checks pass (`autoDeployTrigger: checksPass`). Configuration is by environment variable (all listed in `render.yaml`): `DATABASE_URL`, `SUPABASE_JWKS_URL`, `ADMIN_API_KEY`, `ASSIST_QUOTA_SECRET`, `ANTHROPIC_API_KEY`, `CORS_ORIGINS`, `ENVIRONMENT=production`. **`TRUST_PROXY=true` is required on any host with a proxy in front (Render, Railway, Fly.io):** without it every user appears as the proxy's address, so all per-IP limits, including the assistant's 100-a-day IP allowance, would be shared by the whole app. On Supabase, `postgis` and `pg_trgm` live in the `extensions` schema, and the backend connects as its own role `haddak_api` (not `postgres`): it owns Haddak's tables, is not a superuser, cannot read Supabase's `auth` or `storage` schemas, and has `statement_timeout` 30 s and `idle_in_transaction_session_timeout` 60 s, so a runaway query or a forgotten transaction cannot hold the database. It connects through Supabase's session pooler (IPv4; the direct address is IPv6 only). Supabase's Security Advisor shows no warnings for our tables (the only notes are "RLS enabled, no policy", which is the intended lock).
 
 **Environments.** Local (Docker database, development token script) and production. A separate staging environment is not worth the cost until there is a second developer.
 
-**Backups.** Supabase's paid plan keeps daily backups. Before that, a weekly `pg_dump` to your own storage is enough.
+**Backups.** Supabase's paid plan keeps daily backups. Until then `.github/workflows/backup.yml` runs `pg_dump` every Monday, encrypts it (the repository is public) and keeps it 30 days as a workflow artifact. Restoring is in `DEPLOY.md`, "Backups"; a restore was tested on 2026-11-21.
+
+**Checks on every push** (`.github/workflows/`): backend lint, formatting, known-vulnerability audit of the dependencies (`pip-audit`) and the full test suite against Postgres 17 + PostGIS (the version Supabase runs); mobile type check and lint. Dependabot opens weekly update pull requests (`.github/dependabot.yml`); GitHub secret scanning with push protection blocks a commit that contains a key.
 
 ## 7. How far this design scales
 

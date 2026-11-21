@@ -1,0 +1,47 @@
+# Render "Blueprint": the Haddak API as a Docker web service.
+# Render reads this file when you choose New → Blueprint and pick this repo.
+# Step-by-step: docs/DEPLOY.md.
+#
+# Values marked `sync: false` are secrets: Render asks for them once in its
+# dashboard and they are never stored in this (public) repository.
+
+services:
+  - type: web
+    name: haddak-api
+    runtime: docker
+    # Singapore: the Render region closest to the Supabase database (Seoul,
+    # ap-northeast-2). Every request makes several database round trips, so
+    # the server must sit near the database, not near the users.
+    region: singapore
+    # Free while testing (sleeps after 15 minutes without requests; the first
+    # request then takes about a minute). Switch to "starter" ($7/month) once
+    # real users depend on it.
+    plan: free
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    # Render calls this; it also checks the database connection.
+    healthCheckPath: /api/v1/health
+    # Deploy every push to main, but only after the GitHub checks pass.
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      # Render's proxy adds the real client IP as the last X-Forwarded-For
+      # entry. Without this, every user shares one IP allowance.
+      - key: TRUST_PROXY
+        value: "true"
+      - key: PROXY_HOPS
+        value: "1"
+      - key: SUPABASE_JWKS_URL
+        value: https://ginifqwdlqkbsptiahun.supabase.co/auth/v1/.well-known/jwks.json
+      # Random values made by Render on the first deploy.
+      - key: ADMIN_API_KEY
+        generateValue: true
+      - key: ASSIST_QUOTA_SECRET
+        generateValue: true
+      # Secrets you paste in Render's dashboard (see docs/DEPLOY.md).
+      - key: DATABASE_URL
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false

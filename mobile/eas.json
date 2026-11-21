@@ -1,0 +1,40 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://haddak-api.onrender.com",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ginifqwdlqkbsptiahun.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_k2lAokWegiSsM9HcMQlCkA_sraiWJYL"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://haddak-api.onrender.com",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ginifqwdlqkbsptiahun.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_k2lAokWegiSsM9HcMQlCkA_sraiWJYL"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

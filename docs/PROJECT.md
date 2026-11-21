@@ -29,6 +29,9 @@ Finding a good professional in Lebanon runs on "who knows someone". Google Maps 
 | Contact | WhatsApp and phone links | No chat system to build |
 | Search v1 | Buttons: category + radius. No AI | No per-search cost; proves the idea first |
 | Search later | AI turns a typed sentence into the same filters | One small model call per search; nothing is rebuilt |
+| Unverified listings in search (2026-11-17) | Shown by default, always after every verified one, below a quiet "Not verified yet" divider. "Verified only" is a switch the user can turn on | An almost empty map loses users before verification can scale; the badge still decides the order |
+| OpenStreetMap import (2026-11-17) | Named shops and practices from OSM are imported as `unverified`, unclaimed listings with attribution. Licence ODbL: shown with "Data © OpenStreetMap contributors"; a shared copy of the database would have to stay ODbL | Fills the map from day one with data we may legally use (unlike Google's) |
+| Claiming listings (2026-11-17) | "Is this your business? Claim it": a signed-in owner asks, the founder approves by hand; "This is my business and I want it removed" is a report reason | Owners listed without consent need a way in, or a way out |
 | Spring Boot | Not used. Revisit only if one specific piece ever needs it | Founder is stronger in Java, but two services are overhead for one person |
 
 ## Google Maps: costs and rules
@@ -37,7 +40,7 @@ Finding a good professional in Lebanon runs on "who knows someone". Google Maps 
 - Showing a Google map inside a native mobile app is a no-cost item on Google's price list.
 - Paid lookups (address to coordinates, autocomplete, Google's places search) have monthly free limits, then cost per 1,000. Haddak avoids them: providers drop their own pin, and search runs on our database.
 - A billing account with a card is required for an API key.
-- **Google's listings may not be copied into our database.** Their terms forbid it. All provider data is collected by us.
+- **Google's listings may not be copied into our database.** Their terms forbid it. Provider data is collected by us, plus OpenStreetMap data (ODbL, with attribution; see `SCHEMA.md`).
 - Fallbacks if pricing changes: Mapbox (free up to 25,000 monthly mobile users) or OpenStreetMap-based maps.
 
 ## Running costs (approximate; check current prices)

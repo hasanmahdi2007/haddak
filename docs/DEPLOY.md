@@ -1,0 +1,148 @@
+# Deploying Haddak
+
+How Haddak runs in production, what is already done, the steps only the
+founder can do (they need the founder's own accounts, passwords or payment), and what to do
+when something goes wrong. Architecture and reasons: `SYSTEM_DESIGN.md` §6.
+
+## What runs where
+
+| Piece | Where | State |
+|---|---|---|
+| Database | Supabase project `ginifqwdlqkbsptiahun`, Postgres 17, region Seoul (`ap-northeast-2`) | **Done (2026-11-21).** Extensions in `extensions`, role `haddak_api`, all migrations applied, OpenStreetMap listings imported, Security Advisor clean. |
+| Sign-in, photo storage | The same Supabase project | Working. Emails still come from Supabase's own sender until SMTP is set (step 2). |
+| API | Render, region Singapore, Docker, from `render.yaml` | Ready; needs the founder's Render account (step 1). The image was built and run against the live database on 2026-11-21. |
+| Android app | Expo EAS Build, profiles in `mobile/eas.json` | Ready; needs the founder's Expo account (step 4). |
+| Backups | GitHub Actions, `.github/workflows/backup.yml`, every Monday | Ready; needs two GitHub secrets (step 3). |
+
+Secrets are never in the repository (it is public). The production values
+made on 2026-11-21 are in **`backend/.env.production`** on the founder's
+laptop, which git ignores: `DATABASE_URL` (the `haddak_api` login),
+`BACKUP_DATABASE_URL` (the same, without `+psycopg`) and `BACKUP_PASSPHRASE`.
+Keep a copy of that file in a password manager: the backups cannot be opened
+without the passphrase.
+
+## Steps only the founder can do
+
+### 1. Put the API online (Render), about 10 minutes
+
+1. Sign up at render.com with GitHub and give it access to the `haddak` repository.
+2. **New → Blueprint**, pick the repository. Render reads `render.yaml` and
+   shows one web service, `haddak-api`.
+3. It asks for the two secrets:
+   - `DATABASE_URL`: copy it from `backend/.env.production`.
+   - `ANTHROPIC_API_KEY`: from console.anthropic.com (leave empty to run
+     Jarak on the free keyword search only).
+4. **Apply.** The first build takes a few minutes. When it is live, open
+   `https://haddak-api.onrender.com/api/v1/health`: it must say `{"status":"ok"}`.
+5. If Render gave the service a different address (the name was taken),
+   tell Claude: it changes `EXPO_PUBLIC_API_URL` in `mobile/eas.json` and the
+   Supabase URLs in step 2.
+6. `ADMIN_API_KEY` was made by Render: open the service → Environment to see
+   it. That is the key for `https://haddak-api.onrender.com/admin`.
+
+The free plan sleeps after 15 minutes without requests, and the first
+request after that takes about a minute. Switch the plan to Starter ($7/month)
+in Render before inviting real users.
+
+### 2. Sign-in emails from "Haddak", about 10 minutes
+
+1. Make a Gmail account for Haddak, turn on 2-step verification, then
+   Google Account → Security → **App passwords** → make one.
+2. Supabase → Authentication → **Emails → SMTP Settings** → enable custom SMTP:
+   host `smtp.gmail.com`, port `465`, username = that Gmail address,
+   password = the app password, sender email = the same address,
+   **sender name `Haddak`**.
+3. Supabase → Authentication → Emails → **Templates**: paste
+   `supabase/templates/sign-in.html` into "Magic link or OTP" and into
+   "Confirm sign up". Subject: `رمز الدخول إلى حدّك / Your Haddak code`.
+   The email then shows a 6-digit code the user types in the app, which
+   works on any phone and network without depending on the link.
+4. Supabase → Authentication → **URL Configuration** (after step 1):
+   - Site URL: `https://haddak-api.onrender.com/auth/open?app=haddak%3A%2F%2Fauth-callback`
+     (replaces `http://localhost:3000`, the cause of "localhost:3000 isn't connected").
+   - Redirect URLs: add `https://haddak-api.onrender.com/auth/open**`.
+     Keep the `exp://**` and `http://192.168.*.*:8000/auth/open**` entries for development.
+
+### 3. Turn on the weekly backup, about 2 minutes
+
+GitHub → the `haddak` repository → Settings → Secrets and variables →
+Actions → **New repository secret**, twice:
+- `BACKUP_DATABASE_URL`: the value from `backend/.env.production`.
+- `BACKUP_PASSPHRASE`: the value from `backend/.env.production`.
+
+Then Actions → "database backup" → **Run workflow** once to check it is green.
+
+### 4. Build the Android test app (EAS), about 20 minutes, mostly waiting
+
+```bash
+npm install -g eas-cli
+cd mobile
+eas login                      # your Expo account
+eas init                       # links the project; accept
+eas build -p android --profile preview
+```
+
+The result is a link to an `.apk` that installs on any Android phone (send
+the link on WhatsApp to testers). It talks to the hosted API, not your laptop.
+For Google Play later: `eas build -p android --profile production` makes the
+`.aab` file the Play Console wants ($25 developer account, then a 14-day
+closed test with at least 12 testers before the public release).
+
+## Every deploy after that
+
+Push to `main`. GitHub runs the checks (`.github/workflows/`); if they pass,
+Render builds the image, the container runs `alembic upgrade head`, then
+starts. Watch it under Render → haddak-api → Events / Logs.
+
+**After each deploy:** open `/api/v1/health`, search once in the app, and
+glance at the logs for errors.
+
+**Migrations must not break the running version.** During a deploy the old
+container serves requests while the new one migrates. So: add columns as
+nullable or with a default; rename or drop in two deploys (first stop using
+it, then remove it). Every new table needs `ENABLE ROW LEVEL SECURITY` and
+every new function `SET search_path = ''` (the tests check both).
+
+## When something goes wrong
+
+| Problem | What to do |
+|---|---|
+| The new version is broken | Render → haddak-api → Events → an earlier deploy → **Rollback**. If that deploy had a migration, the old code still works as long as the rule above was kept. |
+| `/health` fails | Render logs. "Refusing to start in production" lists the missing setting. A database error: check Supabase is not paused (free projects pause after a week without activity; Dashboard → Restore). |
+| Jarak gives only keyword answers to everyone | The daily ($1) or monthly ($10) AI cap was reached, or the Anthropic key is missing. `assist_log` shows the spending. |
+| A leaked key | Change it at its source (Anthropic console, Render environment, or for the database: `ALTER ROLE haddak_api PASSWORD '...'` in the Supabase SQL editor, then update `DATABASE_URL` in Render and the backup secret). Push protection on GitHub blocks most keys before they are pushed. |
+
+## Backups
+
+`.github/workflows/backup.yml` dumps schema `public` (Haddak's tables; not
+Supabase's own accounts or photos) every Monday, encrypted. To restore:
+
+1. GitHub → Actions → "database backup" → a run → download the artifact (a zip
+   with `haddak-YYYY-MM-DD.dump.gpg`).
+2. Decrypt: `gpg --decrypt haddak-YYYY-MM-DD.dump.gpg > haddak.dump` (asks
+   for `BACKUP_PASSPHRASE`).
+3. Into an empty database, with the extensions where Supabase keeps them:
+   ```sql
+   CREATE SCHEMA IF NOT EXISTS extensions;
+   CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA extensions;
+   CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA extensions;
+   ALTER DATABASE <name> SET search_path = public, extensions;  -- then reconnect
+   ```
+   then `pg_restore --no-owner --dbname "<database url>" haddak.dump`.
+   One error, `schema "public" already exists`, is expected and harmless.
+
+Tested on 2026-11-21: a production dump was encrypted, decrypted and
+restored into a fresh Postgres 17 + PostGIS; categories, places, the
+migration version, Row Level Security on all 16 tables and `normalize_name()`
+all came back.
+
+## Moving to Frankfurt (recommended before many users)
+
+The Supabase project was created in Seoul. Lebanon to Seoul is about 250 ms
+each way, so the API sits in Singapore to stay close to the database, and
+users pay about 150 ms per request. A project in Frankfurt (`eu-central-1`),
+with Render in Frankfurt, would cut that to about 60 ms. Moving now is cheap:
+there are no real accounts yet. It means a new Supabase project (free), then
+Claude repeats what was done on 2026-11-21 (extensions, `haddak_api` role,
+migrations, import) and updates `SUPABASE_JWKS_URL`, the app's Supabase URL
+and key, `render.yaml`'s region and the storage bucket.

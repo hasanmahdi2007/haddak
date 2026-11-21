@@ -1,0 +1,39 @@
+# Dependabot opens a pull request when a dependency has a new version or a
+# security fix. The checks in .github/workflows run on each one, so merging
+# is safe once they pass. Grouped into one pull request per ecosystem per week
+# to keep the noise low for a solo founder.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+    groups:
+      backend:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /mobile
+    schedule:
+      interval: weekly
+    groups:
+      # Expo pins its own package versions; let `npx expo install --fix` move
+      # those together with an SDK upgrade instead of one by one.
+      mobile-minor-and-patch:
+        update-types: ["minor", "patch"]
+        exclude-patterns: ["expo*", "react", "react-native", "react-dom"]
+    ignore:
+      - dependency-name: "expo*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-native"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: monthly

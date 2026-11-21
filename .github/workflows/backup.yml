@@ -1,0 +1,62 @@
+name: database backup
+
+# Supabase's free plan keeps no backups you can download, so once a week this
+# saves Haddak's tables (schema `public`) as an encrypted file kept for 30
+# days under this workflow's run ("Artifacts").
+#
+# The repository is public: the dump is encrypted (AES-256, gpg) with
+# BACKUP_PASSPHRASE before it is uploaded, so the file alone is useless.
+# Keep the passphrase somewhere safe outside GitHub: without it the backups
+# cannot be restored. How to restore: docs/DEPLOY.md, "Backups".
+#
+# Secrets (Settings → Secrets and variables → Actions):
+#   BACKUP_DATABASE_URL  postgresql://... (no "+psycopg"), the session pooler
+#   BACKUP_PASSPHRASE    long random string
+
+on:
+  schedule:
+    - cron: "0 1 * * 1" # Mondays 01:00 UTC (03:00 or 04:00 in Lebanon)
+  workflow_dispatch: # also runnable by hand from the Actions tab
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+
+    steps:
+      - name: Check the secrets are set
+        run: |
+          if [ -z "$BACKUP_DATABASE_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::BACKUP_DATABASE_URL and BACKUP_PASSPHRASE must be set"
+            exit 1
+          fi
+
+      - name: Dump the database
+        # pg_dump must be at least the server's version (Supabase runs 17),
+        # so it runs from the official Postgres 17 image.
+        run: |
+          docker run --rm -v "$PWD:/out" -e BACKUP_DATABASE_URL postgres:17 \
+            sh -c 'pg_dump "$BACKUP_DATABASE_URL" --schema=public --no-owner --no-privileges \
+                   --format=custom --file=/out/haddak.dump'
+          ls -l haddak.dump
+
+      - name: Encrypt
+        run: |
+          stamp=$(date -u +%Y-%m-%d)
+          gpg --batch --yes --symmetric --cipher-algo AES256 \
+              --passphrase-fd 0 --output "haddak-$stamp.dump.gpg" haddak.dump <<< "$BACKUP_PASSPHRASE"
+          rm haddak.dump
+          echo "STAMP=$stamp" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: haddak-db-${{ env.STAMP }}
+          path: haddak-${{ env.STAMP }}.dump.gpg
+          retention-days: 30
+          if-no-files-found: error
