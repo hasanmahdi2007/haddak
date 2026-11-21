@@ -34,7 +34,7 @@ services:
       - key: PROXY_HOPS
         value: "1"
       - key: SUPABASE_JWKS_URL
-        value: https://ginifqwdlqkbsptiahun.supabase.co/auth/v1/.well-known/jwks.json
+        value: https://wamwmhanxqvftrwqlyfh.supabase.co/auth/v1/.well-known/jwks.json
       # Random values made by Render on the first deploy.
       - key: ADMIN_API_KEY
         generateValue: true

@@ -113,8 +113,8 @@ The database is live on Supabase (migrated, locked, OpenStreetMap listings impor
 
 | Piece | Where | Cost to start | Notes |
 |---|---|---|---|
-| Database, login, storage | Supabase project `ginifqwdlqkbsptiahun`, region **Seoul** (`ap-northeast-2`; created there by accident, Frankfurt would be closer to Lebanon, see `DEPLOY.md`, "Moving to Frankfurt") | Free tier | Free projects pause after about a week with no activity; the paid plan (about $25/month) removes that and adds daily backups. Move to paid when real providers depend on it. |
-| API | Render, region Singapore (the Render region closest to the database), from `render.yaml` | Free, then Starter $7/month | The backend ships as a Docker image, so any of them works. Free instances sleep when idle and the first request after a sleep is slow; the small paid instance does not sleep. |
+| Database, login, storage | Supabase project `wamwmhanxqvftrwqlyfh`, region **Frankfurt** (`eu-central-1`; moved from Seoul on 2026-11-21, see `DEPLOY.md`) | Free tier | Free projects pause after about a week with no activity; the paid plan (about $25/month) removes that and adds daily backups. Move to paid when real providers depend on it. |
+| API | Render, region Frankfurt (next to the database, about 60 ms from Lebanon), from `render.yaml` | Free, then Starter $7/month | The backend ships as a Docker image, so any of them works. Free instances sleep when idle and the first request after a sleep is slow; the small paid instance does not sleep. |
 | Android app | Built with Expo's EAS Build, published on Google Play | $25 once | Updates to JavaScript code can be pushed with EAS Update without a new store review. |
 | iPhone app | Later | $99/year | Same codebase. |
 | Domain `haddak.app` | Any registrar | About $15/year | Needed for share links (`haddak.app/p/<code>`) and the QR stickers. Not registered yet. |
@@ -134,7 +134,7 @@ Expected total: $0 a month while testing (free tiers, $25 once for Google Play);
 
 **Knowing when it breaks.** Crash reports go to Sentry when `SENTRY_DSN` is set (`app/error_tracking.py`; errors only, no IP, query string, body or auth headers). `.github/workflows/uptime.yml` runs `backend/scripts/smoke_test.py` against the live API every 30 minutes once the repository variable `API_URL` is set; a red run emails the founder. Run the same script by hand after every deploy.
 
-**Speed and region.** A search makes about seven database round trips (pool ping, begin, four queries, end). Measured on 2026-11-21 from Lebanon straight to the Seoul database: about 2.5 s per search. From Render Singapore (about 80 ms to Seoul) it is about 0.6 s of database time; with the API and database both in Frankfurt it would be under 0.05 s, plus about 60 ms from Lebanon. This is the main reason to move to Frankfurt before launch.
+**Speed and region.** A search makes about seven database round trips (pool ping, begin, four queries, end), so the API must sit next to the database. Measured on 2026-11-21 from a laptop in Lebanon: about 2.5 s per search against the old Seoul database, 0.8 s against Frankfurt. With Render also in Frankfurt the database part is a few milliseconds and the user mostly waits for the trip from Lebanon to Frankfurt and back (about 60 ms).
 
 **Account deletion and policies.** `DELETE /api/v1/me` and the in-app "Account and privacy" screen delete everything about a user (Google Play requirement); `/privacy`, `/terms` and `/delete-account` are served by the API.
 

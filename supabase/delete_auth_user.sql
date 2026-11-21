@@ -1,7 +1,7 @@
 -- Haddak: lets the API delete a user's sign-in account (DELETE /api/v1/me).
 --
 -- Run once in the Supabase SQL editor of the hosted project (as `postgres`).
--- Safe to run again. Applied to project ginifqwdlqkbsptiahun on 2026-11-21.
+-- Safe to run again. Applied to project wamwmhanxqvftrwqlyfh (Frankfurt) on 2026-11-21.
 --
 -- Why a function and not a Supabase secret key on the server: the secret
 -- (service role) key can read and change everything, every user's files

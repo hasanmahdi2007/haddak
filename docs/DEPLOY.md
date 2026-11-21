@@ -8,9 +8,9 @@ when something goes wrong. Architecture and reasons: `SYSTEM_DESIGN.md` §6.
 
 | Piece | Where | State |
 |---|---|---|
-| Database | Supabase project `ginifqwdlqkbsptiahun`, Postgres 17, region Seoul (`ap-northeast-2`) | **Done (2026-11-21).** Extensions in `extensions`, role `haddak_api`, migrations up to 0015, OpenStreetMap listings imported, `supabase/delete_auth_user.sql` and `supabase/storage_setup.sql` applied, Security Advisor clean. |
+| Database | Supabase project `wamwmhanxqvftrwqlyfh` (`haddak-eu`), Postgres 17, region Frankfurt (`eu-central-1`) | **Done (2026-11-21).** Extensions in `extensions`, role `haddak_api`, migrations up to 0015, OpenStreetMap listings imported, `supabase/delete_auth_user.sql` and `supabase/storage_setup.sql` applied, Security Advisor clean. |
 | Sign-in, photo storage | The same Supabase project | Working. Emails still come from Supabase's own sender until SMTP is set (step 2). |
-| API | Render, region Singapore, Docker, from `render.yaml` | Ready; needs the founder's Render account (step 1). The image was built and run against the live database on 2026-11-21. |
+| API | Render, region Frankfurt, Docker, from `render.yaml` | Ready; needs the founder's Render account (step 1). The image was built and run against the live database on 2026-11-21. |
 | Android app | Expo EAS Build, profiles in `mobile/eas.json` | Ready; needs the founder's Expo account (step 4). |
 | Backups | GitHub Actions, `.github/workflows/backup.yml`, every Monday | Ready; needs two GitHub secrets (step 3). |
 
@@ -168,13 +168,23 @@ restored into a fresh Postgres 17 + PostGIS; categories, places, the
 migration version, Row Level Security on all 16 tables and `normalize_name()`
 all came back.
 
-## Moving to Frankfurt (recommended before many users)
+## Region: Frankfurt (moved on 2026-11-21)
 
-The Supabase project was created in Seoul. Lebanon to Seoul is about 250 ms
-each way, so the API sits in Singapore to stay close to the database, and
-users pay about 150 ms per request. A project in Frankfurt (`eu-central-1`),
-with Render in Frankfurt, would cut that to about 60 ms. Moving now is cheap:
-there are no real accounts yet. It means a new Supabase project (free), then
-Claude repeats what was done on 2026-11-21 (extensions, `haddak_api` role,
-migrations, import, `supabase/storage_setup.sql`, `supabase/delete_auth_user.sql`) and updates `SUPABASE_JWKS_URL`, the app's Supabase URL
-and key, `render.yaml`'s region and the storage bucket.
+The first Supabase project was created in Seoul by accident (Lebanon to Seoul
+is about 250 ms each way, and a search makes about seven database round
+trips, so a search took about 2.5 s). On 2026-11-21, before any real users,
+everything moved to Frankfurt: a new project `wamwmhanxqvftrwqlyfh`
+(`haddak-eu`, made with the Supabase CLI), set up like the old one
+(extensions, `haddak_api` role, migrations, `supabase/storage_setup.sql`,
+`supabase/delete_auth_user.sql`), and the data copied with `pg_dump
+--data-only` (categories and places come from the migrations and were
+identical). Sign-in settings (Site URL, redirect URLs, 6-digit codes) were
+pushed with `supabase config push`. Render runs in Frankfurt too.
+
+The Seoul project (`ginifqwdlqkbsptiahun`) is **paused**, not deleted; the
+free plan allows two active projects. Delete it from the dashboard once
+Frankfurt has run without trouble for a while.
+
+The email template can only be set after custom SMTP is on (a free-plan
+rule): after step 2.2, Claude pushes it with `supabase config push`, or paste
+`supabase/templates/sign-in.html` by hand as in step 2.3.

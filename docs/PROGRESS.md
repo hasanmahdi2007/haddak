@@ -8,10 +8,10 @@ What has been built, how it was checked, and what is still open. Newest entry fi
 |---|---|
 | Project docs | Written: PROJECT, V1_SCOPE, SCHEMA, API, SYSTEM_DESIGN, TASKS, this log |
 | GitHub | Public repo https://github.com/hasanmahdi2007/haddak; CI (backend, mobile), weekly encrypted backup, uptime check, Dependabot |
-| Database | Local: Postgres + PostGIS in Docker, seeded. Production: Supabase (Seoul), migrations up to 0015, 3,002 OpenStreetMap listings |
+| Database | Local: Postgres + PostGIS in Docker, seeded. Production: Supabase (Frankfurt), migrations up to 0015, 3,002 OpenStreetMap listings |
 | Backend | All version 1 endpoints plus assistant, claims, account deletion and policy pages (693 tests); production image checked against the live database |
 | Mobile app | All version 1 screens built ("Pastel" design: ghost white, alice blue, vanilla and black, Urbanist; English and Arabic), plus sign-in, sign-up, stats, reviews, report, share/QR, stories, Jarak AI, hire checks, "Available now" and the poster. Checked in mock web builds; phone tests pending. Microphone needs a development build (in progress) |
-| Hosting | Database live; API ready for Render; waits on the founder's accounts (`DEPLOY.md`) |
+| Hosting | Database live in Frankfurt; API live on Render (`haddak-api.onrender.com`); still to do: Gmail sender and email template, backup secrets, first APK (`DEPLOY.md`) |
 
 ## Validation benchmark (from `PROJECT.md`)
 
@@ -24,6 +24,15 @@ The app is judged in the first area by this, not by code:
 Current: 0 real providers (app not released). Seed data only.
 
 ## Log
+
+### 2026-11-21 (evening) — Moved to Frankfurt; API live on Render
+
+**Why:** the Seoul database made every search take about 2.5 s from Lebanon (about seven round trips of 250 ms). With no real users yet, moving was cheap.
+- New Supabase project `wamwmhanxqvftrwqlyfh` (`haddak-eu`, Frankfurt) made with the Supabase CLI after the founder paused the Seoul project (the free plan allows two active projects). Same setup as Seoul: extensions, `haddak_api` role with a fresh password (only its SCRAM hash sent), storage buckets and rules, `delete_auth_user`, migrations 0001–0015.
+- Data copied from Seoul with a data-only dump; categories and places come from the migrations and were checked identical first (same checksum). 3,002 listings, 196 with phones. All 16 tables owned by `haddak_api`, Row Level Security on, no grants to `anon`/`authenticated`.
+- Sign-in settings pushed with `supabase config push`: Site URL and redirect URLs (fixes "localhost:3000"), and **6-digit codes**: new projects default to 8 digits, which the app's code boxes would not have accepted. The email template must wait for custom SMTP (free-plan rule).
+- `render.yaml` (Frankfurt, new JWKS URL), `mobile/eas.json` and the local `.env` files point at Frankfurt; `backend/.env.production` now holds the Frankfurt values.
+- **Measured:** a search from a laptop in Lebanon, 0.8 s against Frankfurt instead of 2.5 s against Seoul. Account deletion tested on the new database with a throwaway sign-in account. The Render service (first deploy) passed every outside check.
 
 ### 2026-11-21 — What Google Play and a live service need: account deletion, policies, monitoring
 
