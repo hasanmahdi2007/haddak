@@ -2,7 +2,7 @@
 #   docker build -t haddak-api .
 #   docker run -p 8000:8000 --env-file .env haddak-api
 
-FROM python:3.12-slim
+FROM python:3.15-slim
 
 # Do not write .pyc files; print logs immediately instead of buffering them.
 ENV PYTHONDONTWRITEBYTECODE=1 \
