@@ -13,6 +13,7 @@ Sources are linked inline. Where sources disagree or are weak (vendor blogs, rep
 - **The strongest wedge is power.** Solar, batteries, inverters and generators are an urgent, recurring and badly served need, and installer quality is a known problem.
 - **The cheapest demand channel is WhatsApp itself.** A Haddak WhatsApp number that answers "I need an electrician in Hamra" reaches older people and people who will not install an app.
 - **The diaspora is the one group that will pay for convenience** in fresh dollars, and the only place where taking a cut makes sense soon.
+- **The signature feature is "Is this price fair?"** (idea 9, expanded 2026-11-24). No price dataset for tradespeople exists in Lebanon, so Haddak can own one, by region, built from a founder survey and then from real customers.
 
 **Top 5 by impact divided by effort** (details in section 6):
 
@@ -205,13 +206,74 @@ Ideas are grouped by theme. Two are marked as gimmicks. Several more are marked 
 - **Revenue or growth:** It makes "Verified" mean something, and it justifies a higher featured price.
 - **Main risk:** Fraud and cash drain for a student. Only start once revenue exists, with a hard monthly cap.
 
-#### 9. Fair price guide
+#### 9. "Is this price fair?" (السعر منيح؟): the signature feature
 
-- **What:** A public page and in-app card per category and area: "Typical price to replace a 200Ah gel battery in Beirut: $X–$Y (from 23 providers)". It is built from the structured prices already in the database and from quotes (idea 7). Add one cheap AI call per week to write the plain-language summary.
-- **Why Lebanon:** Prices in a dollarised, post-crisis economy are confusing and people fear being overcharged. Haddak's public prices are already its differentiator (`PROJECT.md`).
-- **Effort:** S–M (an aggregate query plus a page).
-- **Revenue or growth:** Shareable content and search traffic ("سعر بطارية ليثيوم لبنان"). Journalists cite it, which brings free press.
-- **Main risk:** Too few data points early. Only show a range when there are 5 or more prices.
+Expanded 2026-11-24 after a talk with the founder. This is the one feature that sets Haddak apart from Toters and the booking apps. Toters brings you things; Haddak finds you the right person, at a fair price.
+
+- **What:**
+  - Every common job, per region, shows a **typical price and a middle range**. For example: "Fixing a water heater, Beirut: usually $20, most pay $15–30 (23 jobs, Sep–Nov 2026)".
+  - Jarak answers "the mechanic wants $80 for brake pads, is that fair?" from the same data.
+  - Businesses whose prices match what customers say get a **"Fair price" badge** and rank higher.
+- **Why Lebanon:**
+  - The biggest fear when calling a tradesman is being overcharged, in dollars, with no reference point.
+  - Prices in central Beirut are much higher than in the South, so a national average would mislead.
+  - **No dataset exists.** A search in November 2026 found no survey of what plumbers, electricians or mechanics charge in Lebanon; the results were about US towns called Lebanon. Official prices exist only for a few regulated things, such as the generator price per kWh the Energy Ministry sets every month ([L'Orient Today](https://today.lorientlejour.com/article/1546224/generator-rates-in-lebanon-at-highest-since-april.html)). Whoever collects this data first owns it, and it cannot be copied because it grows from Haddak's own customers.
+
+**Where the data comes from, in order:**
+
+1. **The founder's own survey (start here).**
+   - Look at public price menus on business Instagram pages, and message businesses on WhatsApp for a quote like a normal customer.
+   - Target: about 15 common jobs × 5 regions × 5 businesses, a few weekends of work.
+   - Record each price by hand with its source and date. Never scrape Instagram automatically (its terms forbid automated collection), and never republish a business's menu image. Only the aggregated numbers are shown.
+   - Shown as "Haddak survey, Dec 2026".
+2. **Prices businesses post in the app** (structured prices already exist). Shown as "the business's price", separate from what customers paid.
+3. **At claim time, the owner gives a price level** (the founder's idea, see below), plus prices for 3–5 common jobs if they want.
+4. **Customers' answers after a job.** The "Did you hire them?" follow-up (idea 6, already built) adds one question: "How much did you pay?". This is the part that grows over time.
+
+**Price level for shops with many items (the founder's idea):**
+- A clothing shop or a mechanic cannot list every item. So the one required price step at claim is a single tap: **"Compared with similar places in your area, your prices are: below / about the same / above"**.
+- Haddak shows the area's typical range next to the choice so the owner has an anchor.
+- Owners will tend to pick "about the same", so the label shown is "Owner says: about the same". Once there are 5 or more customer answers, it also shows "Customers say: …".
+- Owners may also add a few representative items (for example "jeans: $25") instead of a full list.
+- Everything beyond this one tap stays optional. Making owners list full prices would stop them from joining.
+
+**Stopping fake and joke answers** (the same layered approach LinkedIn uses for salaries: hard limits, then an outlier check per group; [LinkedIn Salary paper](https://arxiv.org/pdf/1703.09845)):
+
+| Layer | Rule | Stops |
+|---|---|---|
+| Real customers only | Only signed-in users who contacted that business through the app can answer | Strangers and competitors |
+| One answer each | One answer per user, per business, per job | One person spamming |
+| Hard limits | The job is picked from a list, and the price must fall in that job's sensible range (for example a haircut is $1–100) | Joke numbers like 99999999999 |
+| Median, not average | Show the median and the middle half (25th–75th percentile); drop answers far outside that range | Anything extreme that gets through |
+| Minimum count | Show a range only with 5+ answers from 5+ people; otherwise "not enough data yet" or the business's own price | One person deciding the price |
+| Fresh data | Use only the last 6 months, and show the dates | Old prices in a fast-moving economy |
+
+With answers of $20, $25, $30 and $99,999,999,999, the average is useless, but the median is still $27.50.
+
+**Regions before cities:**
+- Start with 5 regions: Beirut, Mount Lebanon, North, South, Bekaa.
+- Show a city or neighbourhood only once it has 5+ answers of its own.
+
+**"The price didn't match" report:**
+- After a job, a customer can say "the price was higher than listed".
+- Only users who contacted that business through the app can send it, once per contact.
+- The owner is told and can update their price.
+- Repeated reports (for example 3+ from different people in 90 days) remove the "Fair price" badge and show a neutral line such as "Some customers paid more than the listed price".
+- Never use words like "liar" or "scam": state counts, not accusations, to stay fair to owners and out of legal trouble.
+
+- **Effort:**
+  - S for the survey data and display (an aggregate query and a card).
+  - M for customer answers, the price-level tap, reports and the badge.
+  - The survey itself is founder time.
+- **Revenue or growth:**
+  - Shareable content and search traffic ("سعر بطارية ليثيوم لبنان"); journalists cite it, which brings free press.
+  - Fair businesses gain ranking, which pulls more honest businesses onto Haddak.
+  - It makes Jarak more useful than any search box.
+- **Main risks:**
+  - Thin data early: mitigated by the founder's survey and the minimum count.
+  - Owners angry at being shown as "above": the label is relative and factual, and owners can respond by updating prices.
+  - Prices moving with the currency: mitigated by the 6-month window and showing dates.
+- **When:** after the closed test (14 days, 12 testers). Start the founder's survey during the test, since it needs no code.
 
 ### C. Older users
 
@@ -332,7 +394,7 @@ Jarak AI already uses Claude Haiku 5.5 at about $0.10 per million input tokens a
 | 6 | "Did you hire them?" | Trust, monetisation | S | High | Core |
 | 7 | Quote, receipt and warranty cards | Trust, provider tool | M | Medium | Test |
 | 8 | Haddak Promise | Trust | S + L ops | Medium | Later |
-| 9 | Fair price guide | Trust, growth | S–M | Medium | Later (needs data) |
+| 9 | "Is this price fair?" | Trust, growth | S→M | High | Signature (after closed test; survey starts now) |
 | 10 | Family circle | Older users, diaspora | M | Medium | Test |
 | 11 | Book for family from abroad | Diaspora, revenue | L | High (if it works) | Concierge test first |
 | 12 | Available now and emergency mode | Crisis | S–M | Medium–high | Core |
