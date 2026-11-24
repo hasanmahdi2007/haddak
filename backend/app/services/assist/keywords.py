@@ -342,11 +342,11 @@ CATEGORY_WORDS: dict[str, list[str]] = {
     "mechanic": [
         "mechanic", "mecanicien", "mecanique", "garage", "mikanik", "mekanik", "mikaniki",
         "mekaniki", "mekanike", "mecaniki", "engine", "brakes", "brake", "frein", "freins",
-        "frem", "fram", "tires", "tyres", "tire", "pneu", "pneus", "dawelib", "dawlib",
-        "dawleb", "dewleb", "vidange", "oil change", "ghayyer zeit", "gearbox",
+        "frem", "fram", "vidange", "oil change", "ghayyer zeit", "gearbox",
         "boite de vitesse", "radiateur", "radiator", "amortisseur", "suspension",
-        "check engine", "won t start", "wont start", "ميكانيك", "ميكانيكي", "كراج", "دواليب",
+        "check engine", "won t start", "wont start", "ميكانيك", "ميكانيكي", "كراج",
         "فرام", "زيت السيارة",
+        # Tyre words moved to "tyres" (tree v2).
     ],
     "car-electrician": [
         "car electrician", "auto electrician", "electricien auto", "kahrabji siyarat",
@@ -406,6 +406,406 @@ CATEGORY_WORDS: dict[str, list[str]] = {
         "videographer", "videaste", "video", "videos", "vidio", "fidyo", "filming",
         "wedding video", "montage", "drone", "cinematographer", "clip",
         "مصور فيديو", "فيديو", "تصوير فيديو", "مونتاج",
+    ],
+    # -----------------------------------------------------------------------
+    # Category tree v2 (migration 0017). Words that already mean an older
+    # category ("furniture" = carpenter, "shoes" = shoe repair, "phone" = phone
+    # repair) stay there; the shops below get their own phrases instead
+    # ("furniture store", "shoe shop", "phone shop").
+    # -----------------------------------------------------------------------
+    # --- Doctors ---
+    "optician": [
+        "optician", "opticien", "optique", "glasses", "eyeglasses", "sunglasses", "lunettes",
+        "contact lenses", "lentilles", "nadarat", "naddarat", "nadara", "نظارات", "نظارة",
+        "نضارات", "عدسات",
+    ],
+    "medical-lab": [
+        "lab", "laboratory", "laboratoire", "labo", "blood test", "analyse de sang",
+        "analyses", "ma5tabar", "makhtabar", "mokhtabar", "ta7lil", "ta7alil", "ta7lil dam",
+        "مختبر", "تحليل", "تحاليل", "تحليل دم", "فحص دم",
+    ],
+    "physiotherapist": [
+        "physio", "physiotherapist", "physiotherapy", "physiotherapie", "kine",
+        "kinesitherapeute", "kinesitherapie", "3ilej fizye2e", "3ilaj fiziya2i",
+        "علاج فيزيائي", "فيزيو", "علاج طبيعي",
+    ],
+    "hospital": [
+        "hospital", "hospitals", "hopital", "mustashfa", "mestashfa", "mistashfa",
+        "urgences", "مستشفى", "مستشفيات",
+    ],
+    # --- Home repair ---
+    "locksmith": [
+        "locksmith", "serrurier", "serrure", "key", "keys", "spare key", "key copy",
+        "mfete7", "mfeti7", "mafeti7", "mafati7", "lock", "locked out", "door lock",
+        "مفاتيحي", "مفتاح", "مفاتيح", "قفل", "نسخ مفتاح",
+    ],
+    "cleaning": [
+        "cleaning", "cleaner", "cleaning lady", "house cleaning", "deep cleaning", "menage",
+        "femme de menage", "nettoyage maison", "tanzif byout", "tanzifet", "شركة تنظيف",
+        "تنظيف بيوت", "تنظيفات", "عاملة تنظيف",
+    ],
+    "movers": [
+        "movers", "moving", "moving company", "removals", "demenagement", "demenageur",
+        "na2el 3afesh", "na2l 3afsh", "3afesh", "3afsh", "نقل عفش", "نقل اثاث", "عفش",
+    ],
+    "pest-control": [
+        "pest control", "exterminator", "insecticide", "cockroaches", "cockroach", "termites",
+        "ants", "mice", "rats", "sarasir", "sarsour", "rash mbidet", "mbidet",
+        "desinsectisation", "مبيدات", "رش مبيدات", "صراصير", "صرصور", "نمل", "فيران",
+        "حشرات",
+    ],
+    "water-tank-cleaning": [
+        "water tank", "tank cleaning", "water tank cleaning", "tanzif khazzan",
+        "tanzif 5azzan", "تنظيف خزان", "تنظيف خزانات", "تعقيم خزان",
+    ],
+    "glass-aluminium": [
+        "glass", "glazier", "vitrier", "aluminium", "aluminum", "alminyom", "alaminyom",
+        "2zez", "zjej", "window frame", "fenetre", "قزاز", "زجاج", "المنيوم", "الومنيوم",
+        "شبابيك",
+    ],
+    "tiler": [
+        "tiler", "tiles", "tiling", "carreleur", "carrelage", "ballat", "mballet", "blat",
+        "ceramic", "ceramique", "بلاط", "مبلط", "تبليط", "سيراميك", "رخام",
+    ],
+    "welder": [
+        "welder", "welding", "blacksmith", "soudeur", "soudure", "ferronnier", "7addad",
+        "haddad", "ironwork", "metal work", "حداد", "حدادة", "تلحيم", "لحام حديد",
+    ],
+    "upholsterer": [
+        "upholsterer", "upholstery", "tapissier", "mnajjed", "mnajed", "tanjid",
+        "reupholster", "sofa repair", "منجد", "تنجيد",
+    ],
+    # --- Car services ---
+    "tyres": [
+        "tires", "tyres", "tire", "pneu", "pneus", "dawelib", "dawlib", "dawleb",
+        "dewleb", "kawchouk", "flat tire", "flat tyre", "دواليب", "دولاب", "كاوتشوك",
+    ],
+    "car-parts": [
+        "car parts", "spare parts", "auto parts", "pieces detachees", "pieces auto",
+        "2ita3 ghiyar", "ita3 ghiyar", "2ita3 sayyarat", "قطع غيار", "قطع سيارات",
+    ],
+    "driving-school": [
+        "driving school", "driving lessons", "driving instructor", "auto ecole", "permis",
+        "driving license", "swa2a", "sewa2a", "t3allem swa2a", "سواقة", "تعليم سواقة",
+        "مدرسة سواقة", "رخصة سوق",
+    ],
+    "fuel-station": [
+        "fuel", "petrol", "gas station", "petrol station", "station essence", "essence",
+        "benzine", "benzin", "mahattet benzine", "بنزين", "محطة", "محطة بنزين",
+    ],
+    "car-rental": [
+        "car rental", "rent a car", "rental car", "location voiture", "location de voiture",
+        "ta2jir sayyarat", "استئجار سيارة", "تأجير سيارات", "ايجار سيارة",
+    ],
+    "towing": [
+        "towing", "tow truck", "tow", "breakdown", "depanneuse", "depannage", "winch",
+        "sa7eb sayyara", "ونش", "رافعة", "سحب سيارات", "سحب سيارة",
+    ],
+    # --- Tutoring ---
+    "nursery": [
+        "nursery", "daycare", "day care", "kindergarten", "garderie", "creche", "7adane",
+        "hadane", "7adana", "rawda", "حضانة", "روضة",
+    ],
+    "language-school": [
+        "language school", "language courses", "language institute", "ecole de langues",
+        "cours de langue", "langues", "languages", "lughat", "spanish", "german", "italian",
+        "turkish", "espagnol", "allemand", "almani", "isbani", "معهد لغات", "مدرسة لغات",
+        "لغات", "الماني", "اسباني",
+    ],
+    # --- Fitness and beauty ---
+    "sports-shop": [
+        "sports shop", "sports store", "sport shop", "sportswear", "sports equipment",
+        "articles de sport", "ادوات رياضة", "ادوات رياضية", "ملابس رياضة",
+    ],
+    "spa-massage": [
+        "spa", "massage", "massages", "masaj", "mesaj", "moroccan bath",
+        "7ammam maghrebe", "سبا", "مساج", "تدليك", "حمام مغربي",
+    ],
+    # --- Food & drink ---
+    "food-drink": [
+        "food", "eat", "eating", "akel", "akl", "nourriture", "manger", "hungry", "jou3an",
+        "اكل", "اكلة", "جوعان",
+    ],
+    "restaurant": [
+        "restaurant", "restaurants", "resto", "mat3am", "mata3em", "dinner", "lunch",
+        "ghada", "3asha", "diner", "مطعم", "مطاعم", "غدا", "عشا",
+    ],
+    "shawarma-manakish": [
+        "shawarma", "shawerma", "chawarma", "manakish", "man2oushe", "man2ouche", "mana2ish",
+        "mankoushe", "manaeesh", "zaatar", "za3tar", "falafel", "felefel", "fatayer",
+        "la7m b3ajin", "شاورما", "مناقيش", "منقوشة", "فلافل", "زعتر", "فطاير", "لحم بعجين",
+    ],
+    "fast-food": [
+        "fast food", "burger", "burgers", "pizza", "fries", "frites", "sandwich",
+        "sandwiches", "crispy", "chicken sandwich", "برغر", "بيتزا", "سندويش", "سندويشات",
+    ],
+    "cafe": [
+        "cafe", "coffee", "coffee shop", "espresso", "cappuccino", "latte", "ahwe", "2ahwe",
+        "ahweh", "maqha", "nescafe", "argileh", "arguile", "nargileh", "2argile", "قهوة",
+        "مقهى", "كافيه", "كوفي شوب", "اركيلة", "نرجيلة",
+    ],
+    "bakery": [
+        "bakery", "bakeries", "boulangerie", "bread", "khebez", "5ebez", "khobz", "ka3ek",
+        "ka3k", "croissant", "kaak", "خبز", "كعك", "كعكة",
+        # Not "فرن" alone: it is also the start of the place name "فرن الشباك".
+        "فرن خبز", "فرن مناقيش",
+    ],
+    "juice-ice-cream": [
+        "ice cream", "icecream", "glace", "gelato", "booza", "bouza", "juice", "juices",
+        "jus", "cocktail", "smoothie", "بوظة", "عصير", "عصائر", "كوكتيل",
+        "ايس كريم",
+    ],
+    "catering": [
+        "catering", "caterer", "traiteur", "buffet", "tamwin", "party food", "تموين",
+        "بوفيه", "تموين حفلات",
+    ],
+    # --- Groceries ---
+    "groceries": [
+        "groceries", "grocery", "epicerie", "samane", "sameni", "bi2ale", "سمانة", "بقالة",
+        "بقال",
+    ],
+    "supermarket": [
+        "supermarket", "super market", "supermarche", "hypermarket", "hypermarche", "market",
+        "سوبرماركت", "سوبر ماركت", "ماركت",
+    ],
+    "mini-market": [
+        "mini market", "minimarket", "convenience store", "dekkene", "dekkeneh", "dikkene",
+        "dekkan", "دكانة", "دكان", "ميني ماركت",
+    ],
+    "greengrocer": [
+        "greengrocer", "vegetables", "veggies", "fruits", "fruit", "legumes", "khedra",
+        "5edra", "khodra", "khodarji", "5odarji", "fawake", "خضرة", "خضار", "خضرجي",
+        "فواكه", "فاكهة",
+    ],
+    "butcher": [
+        "butcher", "boucher", "boucherie", "meat", "viande", "la7me", "lahme", "la77am",
+        "lahham", "chicken", "farrouj", "لحمة", "لحام", "ملحمة", "فروج",
+    ],
+    "roastery": [
+        "roastery", "roaster", "nuts", "mixed nuts", "torrefaction", "mo7masa", "mahmasa",
+        "mkasarat", "mekassarat", "bzourat", "coffee beans", "محمصة", "مكسرات", "بزورات",
+    ],
+    "water-delivery": [
+        "drinking water", "water delivery", "water gallon", "water gallons", "gallon",
+        "eau potable", "mi lal shereb", "مي للشرب", "مياه للشرب", "مي شرب", "غالون مي",
+        "قناني مي",
+    ],
+    # --- Fashion ---
+    "fashion": ["fashion", "mode", "style", "outfit", "outfits", "ازياء", "موضة"],
+    "kids-clothes": [
+        "kids clothes", "children clothes", "baby clothes", "kids clothing",
+        "vetements enfants", "vetements bebe", "tyeb wled", "تياب ولاد", "ملابس اطفال",
+        "ثياب اطفال", "ملابس ولاد",
+    ],
+    "clothes": [
+        "clothes", "clothing", "vetements", "fringues", "boutique", "tyeb", "tiyeb",
+        "thiyab", "malabes", "dress", "dresses", "robe", "jeans", "shirt", "chemise",
+        "kanze", "تياب", "ثياب", "ملابس", "قميص", "كنزة",
+    ],
+    "shoes": [
+        "shoe shop", "shoe store", "shoes shop", "sneakers", "boots", "heels",
+        "talons hauts", "espadrilles", "سكربينة", "جزمة", "صبابيط",
+    ],
+    "bags-accessories": [
+        "bag", "bags", "handbag", "handbags", "sac a main", "accessories", "accessoires",
+        "wallet", "wallets", "shanta", "shante", "shonat", "شنطة", "شنط", "جزدان",
+        "اكسسوارات", "محفظة",
+    ],
+    "jewellery": [
+        "jewellery", "jewelry", "jeweler", "jeweller", "bijouterie", "bijoux", "gold",
+        "dahab", "sayegh", "necklace", "bracelet", "mjawharat", "مجوهرات", "دهب", "ذهب",
+        "صايغ", "خاتم", "اسوارة",
+    ],
+    "perfume-cosmetics": [
+        "perfume", "perfumes", "parfum", "parfums", "parfumerie", "cologne", "3otour",
+        "3utur", "cosmetics", "cosmetiques", "عطور", "عطر", "مستحضرات تجميل", "كوزمتيك",
+    ],
+    # --- Home shops ---
+    "home-shops": [
+        "home shop", "home store", "home goods", "household", "maison", "ادوات منزلية",
+        "ادوات منزل",
+    ],
+    "hardware": [
+        "hardware", "hardware store", "quincaillerie", "bricolage", "tools", "drill",
+        "screws", "khurdawat", "5erdawet", "kherdawet", "خردوات", "عدة", "براغي", "مسامير",
+        "دريل",
+    ],
+    "furniture": [
+        "furniture store", "furniture shop", "sofa", "sofas", "couch", "kanabe", "kanabeyet",
+        "salon set", "mattress", "matelas", "اثاث", "كنباية", "كنبايات", "تخت", "فرشة",
+    ],
+    "appliance-store": [
+        "appliance store", "appliances store", "magasin electromenager", "buy fridge",
+        "new fridge", "new washing machine", "اجهزة منزلية", "ادوات كهربائية منزلية",
+        "محل ادوات كهربائية",
+    ],
+    "electrical-supplies": [
+        "electrical supplies", "electrical store", "materiel electrique", "lawazem kahraba",
+        "لوازم كهرباء", "لوازم كهربائية", "ادوات كهرباء", "محل كهرباء",
+    ],
+    "paint-shop": [
+        "paint shop", "paint store", "paints", "bouya", "boya", "دهانات", "بوية",
+        "محل دهانات",
+    ],
+    "lighting": [
+        # Not "led": "wled" (kids) without its "w" prefix would read as "led".
+        "lighting", "lights", "lamps", "chandelier", "luminaire", "lustre", "led lights",
+        "spot lights", "انارة", "اضاءة", "ثريا", "ثريات", "نجفة",
+    ],
+    "curtains": [
+        "curtains", "curtain", "blinds", "rideau", "rideaux", "baradi", "bardaye", "برادي",
+        "برداية", "ستائر", "ستارة",
+    ],
+    "gas-cylinders": [
+        "gas", "gas cylinder", "gas cylinders", "gas bottle", "gas delivery", "cooking gas",
+        "bouteille de gaz", "2annine ghaz", "annine ghaz", "ghaz", "غاز", "قنينة غاز",
+        "قناني غاز", "جرة غاز",
+    ],
+    # --- Pets ---
+    "pets": [
+        "pets", "pet", "animals", "animaux", "7ayawanet", "hayawanat", "7ayawen", "حيوانات",
+        "حيوانات اليفة", "حيوان",
+    ],
+    "vet": [
+        "vet", "veterinarian", "veterinary", "veterinaire", "veto", "animal doctor",
+        "7akim 7ayawanet", "bay6ari", "baytari", "بيطري", "طبيب بيطري", "دكتور حيوانات",
+        "حكيم حيوانات",
+    ],
+    "pet-shop": [
+        "pet shop", "pet store", "pet food", "animalerie", "cat food", "dog food",
+        "akel 2tat", "akel kleb", "اكل قطط", "اكل كلاب", "محل حيوانات",
+    ],
+    "pet-grooming": [
+        "pet grooming", "dog grooming", "grooming", "toilettage", "7ala2et kleb",
+        "حلاقة كلاب", "تحميم كلاب", "تزيين حيوانات",
+    ],
+    # --- Everyday services ---
+    "everyday-services": [
+        "everyday services", "daily services", "errands", "khadamet", "خدمات", "خدمات يومية",
+    ],
+    "laundry": [
+        "laundry", "laundromat", "dry cleaning", "dry cleaner", "pressing", "blanchisserie",
+        "masbagha", "masba8a", "ironing", "repassage", "مصبغة", "كوي", "غسيل تياب",
+        "تنظيف جاف",
+    ],
+    "printing": [
+        "printing", "print", "prints", "photocopy", "photocopies", "photocopie", "copies",
+        "imprimerie", "impression", "tbe3a", "taba3a", "طباعة", "تصوير اوراق", "مطبعة",
+        "فوتوكوبي",
+    ],
+    "money-transfer": [
+        "money transfer", "transfer money", "send money", "western union", "omt", "whish",
+        "bureau de change", "change money", "sarraf", "seraf", "7awale", "تحويل اموال",
+        "تحويل مصاري", "صراف", "صيرفة", "حوالة",
+    ],
+    "real-estate": [
+        # Not "apartment" alone: it is one letter from the French "appartement"
+        # in "repeindre mon appartement" (a painter).
+        "real estate", "estate agent", "realtor", "apartment for rent", "rent",
+        "for rent", "flat for rent", "immobilier", "agence immobiliere", "she22a", "shi22a",
+        "3a2arat", "simsar", "semsar", "عقارات", "شقة", "شقق", "سمسار", "ايجار",
+        "مكتب عقارات",
+    ],
+    "travel-agency": [
+        "travel agency", "travel agent", "travel", "flight", "flights", "plane ticket",
+        "tickets", "billet d avion", "agence de voyage", "safar", "tazkara", "visa", "سفر",
+        "تذاكر", "تذكرة طيارة", "فيزا", "مكتب سفريات",
+    ],
+    "lawyer": [
+        "lawyer", "lawyers", "attorney", "avocat", "legal", "legal advice", "mo7ami",
+        "mu7ami", "mouhami", "court", "tribunal", "محامي", "محامية", "محامين", "قانوني",
+        "محكمة",
+    ],
+    "accountant": [
+        "accountant", "accounting", "bookkeeping", "comptable", "comptabilite", "tax",
+        "taxes", "impots", "mo7aseb", "mu7asib", "mouhaseb", "dara2ib", "محاسب", "محاسبة",
+        "ضرائب", "ضريبة",
+    ],
+    "insurance": [
+        "insurance", "assurance", "assurances", "ta2min", "ta2meen", "car insurance",
+        "health insurance", "تأمين", "تامين صحي",
+    ],
+    # --- Phones & electronics (shops; repairs are under tech repair) ---
+    "phones-electronics": [
+        "phones and electronics", "electronics store", "gadgets store",
+        "تلفونات والكترونيات",
+    ],
+    "phone-shop": [
+        "phone shop", "mobile shop", "phone store", "buy phone", "buy a phone", "new phone",
+        "cellular", "recharge", "sim card", "khatt tlifon", "tashrij", "محل تلفونات",
+        "محل خليوي", "تشريج", "شريحة", "خط تلفون",
+    ],
+    "computer-shop": [
+        "computer shop", "computer store", "laptop shop", "buy laptop", "buy a laptop",
+        "new laptop", "informatique", "magasin informatique", "pc shop", "محل كمبيوتر",
+        "محل لابتوب",
+    ],
+    "electronics-shop": [
+        # Not "charger": a broken charger ("chargeur el laptop 5erb") is a repair.
+        "electronics shop", "magasin electronique", "headphones", "earphones", "speakers",
+        "سماعات", "محل الكترونيات",
+    ],
+    # --- Events ---
+    "events": [
+        "events", "event", "occasion", "occasions", "evenement", "7aflet", "munasabat",
+        "مناسبات", "مناسبة", "حفلات",
+    ],
+    "florist": [
+        "florist", "fleuriste", "flowers", "flower shop", "bouquet", "roses", "zhour",
+        "zuhur", "wared", "زهور", "ورد", "ازهار", "باقة ورد",
+    ],
+    "wedding-planner": [
+        "wedding planner", "event planner", "party planner", "wedding organizer",
+        "organisateur", "zaffe", "zaffeh", "منظم اعراس", "منظم حفلات", "تنظيم اعراس", "زفة",
+    ],
+    "party-supplies": [
+        "party supplies", "party decoration", "decorations", "balloons", "ballons",
+        "cotillons", "zine", "zineh", "بالونات", "بالون", "زينة", "زينة حفلات",
+    ],
+    "event-venue": [
+        "event venue", "venue", "wedding venue", "wedding hall", "reception hall",
+        "banquet hall", "salle des fetes", "salle de reception", "salet afrah", "صالة",
+        "قاعة", "صالة افراح", "صالة مناسبات",
+    ],
+    # --- Books & gifts ---
+    "books-gifts": [
+        "books and gifts", "librairie papeterie", "kteb w hadaya", "كتب وهدايا",
+    ],
+    "bookshop": [
+        "bookshop", "bookstore", "books", "novels", "librairie", "livres", "kteb", "kteeb",
+        "kitab", "كتب", "كتاب", "روايات", "مكتبة",
+    ],
+    "stationery": [
+        "stationery", "school supplies", "papeterie", "fournitures scolaires", "pens",
+        "notebooks", "copybooks", "2artasiye", "artasiye", "qirtasiya", "قرطاسية",
+        "ادوات مدرسية", "دفاتر", "اقلام",
+    ],
+    "gift-shop": [
+        "gift", "gifts", "gift shop", "presents", "cadeau", "cadeaux", "souvenirs", "hdiye",
+        "hdeye", "hadiye", "hadaya", "هدية", "هدايا", "تحف",
+    ],
+    "toy-shop": [
+        "toys", "toy", "toy shop", "toy store", "jouets", "jouet", "al3ab", "le3ab", "lo3ab",
+        "العاب", "العاب ولاد", "لعبة",
+    ],
+    # --- Volunteering & NGOs ---
+    "volunteering": [
+        "volunteer", "volunteering", "benevolat", "benevole", "tatawwo3", "tatawo3",
+        "metatawe3", "تطوع", "متطوع", "متطوعين",
+    ],
+    "ngo": [
+        "ngo", "ngos", "charity", "charities", "association", "organisation", "jam3iyye",
+        "jam3iye", "jam3iyet", "جمعية", "جمعيات", "جمعية خيرية", "مؤسسة خيرية", "خيرية",
+    ],
+    "community-centre": [
+        "community centre", "community center", "youth center", "social centre",
+        "centre communautaire", "markaz ijtima3e", "مركز اجتماعي", "نادي اجتماعي",
+        "مركز شباب",
+    ],
+    "food-bank": [
+        "food bank", "food aid", "food donations", "free food", "food parcels",
+        "banque alimentaire", "7esas ghiza2iye", "بنك طعام", "مساعدات غذائية", "حصص غذائية",
+        "كرتونة اعاشة", "اعاشة",
     ],
 }
 
@@ -561,6 +961,7 @@ STOP_WORDS = {
     "want", "looking", "someone", "somebody", "who", "can", "fix", "repair", "broken",
     "stopped", "working", "not", "please", "good", "best", "cheap", "with", "this", "that",
     "there", "where", "what", "how", "any", "anyone", "guy", "man", "woman", "today",
+    "class", "classes",  # one letter from "glasses" (optician)
     "tomorrow", "home", "house", "help", "find", "get", "have", "has", "your", "you",
     "our", "kids", "son", "daughter", "wife", "father", "mother",
     # Arabizi

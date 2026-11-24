@@ -20,6 +20,8 @@ ignore = ["B008"]
 # place list is wide table rows, like the seed data.
 "app/services/assist/prompt.py" = ["E501"]
 "alembic/versions/0006_places_and_assistant.py" = ["E501"]
+# The frozen category tree with its search words, one category per line.
+"alembic/versions/0017_category_tree_v2.py" = ["E501"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]

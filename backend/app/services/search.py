@@ -12,9 +12,15 @@ from app.services.opening_hours import beirut_day_and_time
 
 # Ranking, in this order (each rule only decides between providers that are
 # equal on all the rules before it):
+#   0. Only with a text search (q): providers whose NAME matches come first,
+#      before those found through their category or area. Someone typing
+#      "Ali Tech" wants Ali Tech, not every tech shop nearby.
 #   1. Verified before not verified. Non-verified providers ('unverified' and
 #      'pending') are only in the results when the searcher switched on
 #      "include unverified", and then they ALL come after the verified ones.
+#   1b. Among non-verified providers: those with a phone or WhatsApp number
+#      before those with neither (OpenStreetMap listings often have no
+#      number, and a listing you cannot call is less useful).
 #   2. Featured first. Only counts for verified providers: a featured date on
 #      a non-verified provider is ignored.
 #   3. Weighted rating, best first (explained just below).
@@ -30,9 +36,32 @@ PRIOR_RATING = 3.5
 
 # The `sort` choices (docs/API.md):
 #   best     - the ranking above
-#   distance - verified first, then nearest first
+#   distance - rules 0, 1 and 1b above, then nearest first
 #   price    - cheapest structured price first, then the ranking above
 SORT_CHOICES = ("best", "distance", "price")
+
+# Text search (q): a category also matches when its English or Arabic name is
+# SIMILAR to q (pg_trgm's similarity(): 0 = nothing alike, 1 = equal), so a
+# typo like "plumbr" still finds plumbers (similarity 0.5 to "plumber").
+CATEGORY_SIMILARITY_THRESHOLD = 0.4
+
+# Categories whose name or one of whose aliases CONTAINS the search text, or
+# whose name is similar to it. :q is already normalised and :pattern is
+# '%' + q + '%' with q LIKE-escaped (escape character: backslash), so a "%"
+# or "_" typed by the user is matched literally. similarity() comes from
+# pg_trgm (migration 0006); the categories table is small (about 150 rows),
+# so scoring every row is cheap.
+MATCHING_CATEGORIES_SQL = text(
+    r"""
+    SELECT id FROM categories
+    WHERE normalize_name(name_en) LIKE :pattern ESCAPE '\'
+       OR normalize_name(name_ar) LIKE :pattern ESCAPE '\'
+       OR EXISTS (SELECT 1 FROM unnest(aliases) AS a(alias)
+                  WHERE normalize_name(a.alias) LIKE :pattern ESCAPE '\')
+       OR similarity(normalize_name(name_en), :q) >= :threshold
+       OR similarity(normalize_name(name_ar), :q) >= :threshold
+    """
+)
 
 # "Open now" in SQL. For today's day key (e.g. 'mon') it looks at each
 # [open, close] pair in the provider's opening_hours and keeps the provider
@@ -54,10 +83,48 @@ EXISTS (
 
 def category_with_children_ids(db: Session, category_id: int) -> list[int]:
     """The category's own id plus the ids of its direct children."""
+    return categories_with_children_ids(db, [category_id])
+
+
+def categories_with_children_ids(db: Session, category_ids: list[int]) -> list[int]:
+    """These categories' own ids plus the ids of their direct children."""
+    if not category_ids:
+        return []
     query = select(Category.id).where(
-        or_(Category.id == category_id, Category.parent_id == category_id)
+        or_(Category.id.in_(category_ids), Category.parent_id.in_(category_ids))
     )
     return list(db.scalars(query))
+
+
+def normalized_search_text(db: Session, q: str | None) -> str | None:
+    """The search text after normalize_name() (lower case, one form of each
+    Arabic letter, no accents), or None when there is nothing to search for.
+
+    The database does it, so it is exactly the rule used on the columns.
+    """
+    if q is None or not q.strip():
+        return None
+    normalized = db.scalar(select(func.normalize_name(q.strip())))
+    # normalize_name() deletes the Arabic stretching character, so a q made
+    # only of those becomes empty; an empty text would "match" everything.
+    return normalized or None
+
+
+def escape_like(value: str) -> str:
+    """Make LIKE treat %, _ and the backslash itself as plain text."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def text_search_category_ids(db: Session, normalized_q: str) -> list[int]:
+    """Categories matching the search text, plus every child of a matching
+    group: "doctors" (or "أطباء") also finds dentists and pharmacies."""
+    params = {
+        "pattern": f"%{escape_like(normalized_q)}%",
+        "q": normalized_q,
+        "threshold": CATEGORY_SIMILARITY_THRESHOLD,
+    }
+    matching = list(db.scalars(MATCHING_CATEGORIES_SQL, params))
+    return categories_with_children_ids(db, matching)
 
 
 def search_providers(
@@ -70,6 +137,7 @@ def search_providers(
     category_id: int | None = None,
     category_ids: list[int] | None = None,
     name_contains: str | None = None,
+    text_query: str | None = None,
     include_unverified: bool = False,
     max_price: float | None = None,
     price_unit: str | None = None,
@@ -78,7 +146,7 @@ def search_providers(
     available_now: bool = False,
     now: datetime | None = None,
     sort: str = "best",
-    limit: int = 30,
+    limit: int = 20,
     offset: int = 0,
 ) -> tuple[list[tuple[Provider, float]], int]:
     """Return (rows, total). Each row is (provider, distance in metres).
@@ -89,6 +157,10 @@ def search_providers(
     category_id is one category (with its children); category_ids is a list
     of them (used by the assistant, which may pick two or three). Both may
     be combined: a provider matching any of them is kept.
+    name_contains keeps providers whose name contains the text (used by the
+    assistant). text_query is the app's search box (q in docs/API.md): the
+    name, the category (or its group) or the area may match, and name
+    matches are ranked first.
     max_price keeps providers whose structured price in that unit and
     currency is at most max_price (it needs price_unit). open_now and
     available_now need `now`, the current moment (open_now turns it into
@@ -122,6 +194,22 @@ def search_providers(
         # without it a search for "%" would match every provider. With it,
         # whatever the user typed is matched literally.
         filters.append(Provider.name.icontains(name_contains.strip(), autoescape=True))
+    # Text search: name OR category OR area. Both sides go through
+    # normalize_name(), so "Achrafié" finds "achrafie" and Arabic letter forms
+    # (أ / ا, ة / ه) do not matter.
+    normalized_q = normalized_search_text(db, text_query)
+    name_matches = None
+    if normalized_q is not None:
+        # autoescape=True: % and _ typed by the user are plain text, not
+        # LIKE wildcards (as in name_contains above).
+        name_matches = func.normalize_name(Provider.name).contains(normalized_q, autoescape=True)
+        area_matches = func.normalize_name(Provider.area_name).contains(
+            normalized_q, autoescape=True
+        )
+        matching_categories = text_search_category_ids(db, normalized_q)
+        filters.append(
+            or_(name_matches, Provider.category_id.in_(matching_categories), area_matches)
+        )
     if max_price is not None:
         # Providers without a structured price (NULL) never pass these tests,
         # so they are left out, as docs/API.md says.
@@ -142,6 +230,13 @@ def search_providers(
 
     # 3. Ordering: see "Ranking" at the top of this file.
     is_verified = case((Provider.status == "verified", 1), else_=0)
+    # Rule 1b: 1 for verified providers (they always have a phone) and for
+    # non-verified ones with a phone or WhatsApp number; 0 for the rest.
+    has_contact = case(
+        (Provider.status == "verified", 1),
+        (or_(Provider.phone.is_not(None), Provider.whatsapp.is_not(None)), 1),
+        else_=0,
+    )
     is_featured = case(
         (and_(Provider.status == "verified", Provider.featured_until >= today), 1), else_=0
     )
@@ -149,15 +244,22 @@ def search_providers(
         Provider.review_count * Provider.avg_rating + PRIOR_REVIEW_COUNT * PRIOR_RATING
     ) / (Provider.review_count + PRIOR_REVIEW_COUNT)
 
+    # Rule 0 (name matches first) only exists when there is a text search.
+    name_first = []
+    if name_matches is not None:
+        name_first = [case((name_matches, 1), else_=0).desc()]
+
     best_order = [
+        *name_first,
         is_verified.desc(),
+        has_contact.desc(),
         is_featured.desc(),
         weighted_rating.desc(),
         distance_m.asc(),
         Provider.id,  # final tie-break so paging is stable
     ]
     if sort == "distance":
-        order = [is_verified.desc(), distance_m.asc(), Provider.id]
+        order = [*name_first, is_verified.desc(), has_contact.desc(), distance_m.asc(), Provider.id]
     elif sort == "price":
         # Providers without a structured price go last.
         order = [Provider.price_amount.asc().nulls_last(), *best_order]

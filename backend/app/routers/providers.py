@@ -67,6 +67,8 @@ def search(
     lng: float = Query(ge=-180, le=180),
     radius_m: int = Query(ge=100, le=50000),
     category_id: int | None = None,
+    # Search box text: matches the provider's name, its category (or the
+    # category's group, aliases included) or its area. Name matches first.
     q: str | None = Query(default=None, min_length=2, max_length=60),
     # False (the default): verified providers only. True: also unverified ones.
     include_unverified: bool = False,
@@ -80,7 +82,8 @@ def search(
     # True: only providers marked "Available now".
     available_now: bool = False,
     sort: Literal["best", "distance", "price"] = "best",
-    limit: int = Query(default=30, ge=1, le=100),
+    # The app pages 20 at a time and asks for up to 100 for the map.
+    limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ):
@@ -94,7 +97,7 @@ def search(
         radius_m=radius_m,
         today=current_date(),
         category_id=category_id,
-        name_contains=q,
+        text_query=q,
         include_unverified=include_unverified,
         max_price=max_price,
         price_unit=price_unit,

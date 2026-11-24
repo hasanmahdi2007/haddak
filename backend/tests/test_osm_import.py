@@ -1,6 +1,7 @@
 """OpenStreetMap import: tag mapping, phones, hours (no network), and the upsert."""
 
 import importlib.util
+import sys
 import uuid
 from pathlib import Path
 
@@ -9,6 +10,7 @@ from sqlalchemy import select
 
 from app.models import Provider
 from app.services.osm_import import (
+    TAG_RULES,
     build_query,
     category_slug,
     element_to_listing,
@@ -18,6 +20,9 @@ from app.services.osm_import import (
     parse_overpass,
 )
 from tests.conftest import make_category
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+from seed import CATEGORIES  # noqa: E402  (the category tree, as in the migrations)
 
 KNOWN = {
     "pharmacy",
@@ -251,3 +256,173 @@ def test_save_listings_inserts_then_updates_and_leaves_claimed_alone(db):
     db.expire_all()
     assert db.get(Provider, pharmacy.id).status == "rejected"
     assert db.get(Provider, rows["node/5"].id).name == "Owner's own name"
+
+
+# ---------- category tree v2 (migration 0017) ----------
+
+# Every slug of the tree, as on a migrated database.
+ALL_SLUGS = {
+    *KNOWN,
+    "optician",
+    "medical-lab",
+    "hospital",
+    "locksmith",
+    "movers",
+    "tyres",
+    "car-parts",
+    "driving-school",
+    "fuel-station",
+    "nursery",
+    "restaurant",
+    "shawarma-manakish",
+    "fast-food",
+    "cafe",
+    "bakery",
+    "kids-clothes",
+    "clothes",
+    "hardware",
+    "vet",
+    "lawyer",
+    "accountant",
+    "real-estate",
+    "phone-shop",
+    "computer-shop",
+    "electronics-shop",
+    "ngo",
+    "food-bank",
+}
+
+
+@pytest.mark.parametrize(
+    "tags, expected",
+    [
+        ({"shop": "optician"}, "optician"),
+        ({"healthcare": "laboratory"}, "medical-lab"),
+        ({"amenity": "hospital", "healthcare": "hospital"}, "hospital"),
+        ({"craft": "key_cutter"}, "locksmith"),
+        ({"office": "moving_company"}, "movers"),
+        ({"shop": "tyres"}, "tyres"),
+        ({"shop": "car_parts"}, "car-parts"),
+        ({"amenity": "driving_school"}, "driving-school"),
+        ({"amenity": "fuel"}, "fuel-station"),
+        ({"amenity": "childcare"}, "nursery"),
+        ({"amenity": "restaurant", "cuisine": "lebanese"}, "restaurant"),
+        ({"amenity": "cafe"}, "cafe"),
+        ({"shop": "bakery"}, "bakery"),
+        ({"shop": "doityourself"}, "hardware"),
+        ({"amenity": "veterinary"}, "vet"),
+        ({"office": "lawyer"}, "lawyer"),
+        ({"office": "tax_advisor"}, "accountant"),
+        ({"office": "estate_agent"}, "real-estate"),
+        ({"office": "association"}, "ngo"),
+        ({"amenity": "food_bank"}, "food-bank"),
+    ],
+)
+def test_new_tags_map_to_the_new_categories(tags, expected):
+    assert category_slug(tags, ALL_SLUGS) == expected
+
+
+@pytest.mark.parametrize(
+    "cuisine, expected",
+    [
+        ("shawarma", "shawarma-manakish"),
+        ("Lebanese", "shawarma-manakish"),
+        ("burger;falafel", "shawarma-manakish"),  # several values, one is enough
+        ("manaeesh", "shawarma-manakish"),
+        ("arab", "shawarma-manakish"),
+        ("burger", "fast-food"),
+        ("pizza;burger", "fast-food"),
+        (None, "fast-food"),
+    ],
+)
+def test_fast_food_with_a_lebanese_cuisine_is_shawarma_and_manakish(cuisine, expected):
+    tags = {"amenity": "fast_food"}
+    if cuisine is not None:
+        tags["cuisine"] = cuisine
+    assert category_slug(tags, ALL_SLUGS) == expected
+    # Without the refined category in the database, it stays fast food.
+    assert category_slug(tags, ALL_SLUGS - {"shawarma-manakish"}) == "fast-food"
+
+
+@pytest.mark.parametrize(
+    "clothes, expected",
+    [
+        ("children", "kids-clothes"),
+        ("babies;children", "kids-clothes"),
+        ("women;children", "kids-clothes"),
+        ("women", "clothes"),
+        (None, "clothes"),
+    ],
+)
+def test_clothes_for_children_are_kids_clothes(clothes, expected):
+    tags = {"shop": "clothes"}
+    if clothes is not None:
+        tags["clothes"] = clothes
+    assert category_slug(tags, ALL_SLUGS) == expected
+
+
+def test_a_social_facility_is_a_food_bank_only_when_it_says_so():
+    food_bank = {"amenity": "social_facility", "social_facility": "food_bank"}
+    care_home = {"amenity": "social_facility", "social_facility": "nursing_home"}
+    assert category_slug(food_bank, ALL_SLUGS) == "food-bank"
+    assert category_slug(care_home, ALL_SLUGS) is None
+
+
+def test_phone_computer_and_electronics_shops_are_shops_not_repairs():
+    assert category_slug({"shop": "mobile_phone"}, ALL_SLUGS) == "phone-shop"
+    assert category_slug({"shop": "computer"}, ALL_SLUGS) == "computer-shop"
+    assert category_slug({"shop": "electronics"}, ALL_SLUGS) == "electronics-shop"
+    # A repairer's own tag still means repair.
+    assert category_slug({"craft": "electronics_repair"}, ALL_SLUGS) == "tech-repair"
+
+
+def test_the_query_asks_for_the_new_keys_and_values():
+    query = build_query((33.8, 35.45, 33.93, 35.6))
+    for line in (
+        '["office"="lawyer"]',
+        '["amenity"="fast_food"]',
+        '["shop"="clothes"]',
+        '["social_facility"="food_bank"]',
+        '["healthcare"="laboratory"]',
+    ):
+        assert line + '["name"](33.8,35.45,33.93,35.6);' in query
+
+
+def test_every_rule_points_at_a_category_of_the_tree():
+    slugs = {slug for slug, *_ in CATEGORIES}
+    slugs |= {child[0] for *_, children in CATEGORIES for child in children}
+    assert {slug for _, _, slug in TAG_RULES} <= slugs
+
+
+def test_a_remapped_listing_moves_on_the_next_import_unless_claimed(db):
+    """shop=mobile_phone listings imported before tree v2 sat in phone-repair;
+    the next import moves the unclaimed ones to phone-shop."""
+    script = load_script()
+    ids = {slug: make_category(db, slug).id for slug in ("phone-repair", "phone-shop")}
+    shops = {
+        "elements": [
+            {
+                "type": "node",
+                "id": n,
+                "lat": 33.86,
+                "lon": 35.52,
+                "tags": {"shop": "mobile_phone", "name": f"Phone shop {n}"},
+            }
+            for n in (1, 2)
+        ]
+    }
+    script.save_listings(db, parse_overpass(shops, set(ids)), ids)
+    db.commit()
+    rows = {p.osm_ref: p for p in db.scalars(select(Provider))}
+    # As the old import left them.
+    for provider in rows.values():
+        provider.category_id = ids["phone-repair"]
+    rows["node/2"].owner_user_id = uuid.uuid4()  # claimed
+    db.commit()
+
+    script.save_listings(db, parse_overpass(shops, set(ids)), ids)
+    db.commit()
+    db.expire_all()
+
+    assert db.get(Provider, rows["node/1"].id).category_id == ids["phone-shop"]
+    assert db.get(Provider, rows["node/2"].id).category_id == ids["phone-repair"]

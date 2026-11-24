@@ -51,6 +51,9 @@ class Category(Base):
     icon: Mapped[str] = mapped_column(Text)
     parent_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"))
     sort_order: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    # Extra search words (migration 0016): Lebanese Arabic spellings, Arabizi,
+    # English synonyms. Used by the text search and the app's category filter.
+    aliases: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default=text("'{}'"))
 
 
 class Provider(Base):

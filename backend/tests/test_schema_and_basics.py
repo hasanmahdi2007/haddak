@@ -27,7 +27,17 @@ def test_categories_are_flat_and_ordered_by_sort_order(client, db):
     items = response.json()
     assert [item["slug"] for item in items] == ["tech-repair", "music-lessons", "piano-lessons"]
     assert items[2]["parent_id"] == music.id
-    assert set(items[0]) == {"id", "slug", "name_en", "name_ar", "icon", "parent_id", "sort_order"}
+    assert set(items[0]) == {
+        "id",
+        "slug",
+        "name_en",
+        "name_ar",
+        "icon",
+        "parent_id",
+        "sort_order",
+        "aliases",
+    }
+    assert items[0]["aliases"] == []  # none given: the column's default
 
 
 def test_migration_created_the_indexes(db):
@@ -38,6 +48,9 @@ def test_migration_created_the_indexes(db):
     assert "USING gist (location)" in indexes["providers_location_idx"]
     assert "providers_category_status_idx" in indexes
     assert "contact_events_provider_time_idx" in indexes
+    # Trigram indexes for fuzzy category matching in text search (0016).
+    assert "gin_trgm_ops" in indexes["categories_name_en_trgm_idx"]
+    assert "gin_trgm_ops" in indexes["categories_name_ar_trgm_idx"]
 
 
 def test_location_column_is_geography_point(db):

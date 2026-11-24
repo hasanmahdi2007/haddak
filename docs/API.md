@@ -162,7 +162,7 @@ A provider can be listed without being verified.
 | `price_currency` | string | `USD` (default) or `LBP` |
 | `open_now` | bool | default `false`; `true` keeps providers whose opening hours say open now (Beirut time), and also providers marked "Available now" (with or without hours). Other providers with no hours are left out. |
 | `available_now` | bool | default `false`; `true` keeps only providers marked "Available now" (`available_until` in the future). |
-| `sort` | string | `best` (default, the order below) or `distance` (nearest first; verified still before non-verified) or `price` (cheapest structured price first, then the default order) |
+| `sort` | string | `best` (default, the order below) or `distance` (nearest first; with `q` name matches still first, verified before non-verified, and among non-verified those with a phone first) or `price` (cheapest structured price first, then the default order) |
 | `limit` | int | default 20, max 100. The app pages 20 at a time (`offset` 0, 20, 40…) and asks for up to 100 for the map. |
 | `offset` | int | default 0 |
 

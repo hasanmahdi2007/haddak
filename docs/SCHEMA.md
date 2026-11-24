@@ -418,7 +418,7 @@ Inputs: `lat`, `lng`, `radius_m`, optional `category_id` (matches the category o
    4. `distance_m`, ascending;
    5. `id`, so paging is stable.
 
-   `sort=distance`: verified first, then `distance_m`, then `id`. `sort=price`: `price_amount` ascending (NULL last), then the order above.
+   `sort=distance`: with `q`, name matches first; then verified first; among non-verified, those with a phone or WhatsApp first; then `distance_m`, then `id`. `sort=price`: `price_amount` ascending (NULL last), then the order above.
 
 ## Seed data (development only)
 

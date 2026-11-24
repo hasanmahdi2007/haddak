@@ -77,7 +77,7 @@ def migrated_database():
 
     Yields the category tree exactly as the migrations left it (before the
     per-test cleanup empties the table), as (slug, name_en, name_ar, icon,
-    parent slug or None, sort_order) rows."""
+    parent slug or None, sort_order, aliases as a tuple) rows."""
     create_test_database_if_missing()
     with engine.begin() as connection:
         connection.execute(
@@ -93,11 +93,13 @@ def migrated_database():
     with engine.connect() as connection:
         migrated_categories = connection.execute(
             text(
-                "SELECT c.slug, c.name_en, c.name_ar, c.icon, parent.slug, c.sort_order "
+                "SELECT c.slug, c.name_en, c.name_ar, c.icon, parent.slug, c.sort_order, "
+                "c.aliases "
                 "FROM categories c LEFT JOIN categories parent ON parent.id = c.parent_id"
             )
         ).all()
-    yield [tuple(row) for row in migrated_categories]
+    # aliases arrives as a list; a tuple keeps each row hashable (usable in a set).
+    yield [(*row[:6], tuple(row[6])) for row in migrated_categories]
     engine.dispose()
 
 

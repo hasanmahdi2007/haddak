@@ -18,9 +18,9 @@ from app.schemas import PHONE_PATTERN
 # (OSM key, OSM value, our category slug). Each rule becomes one line of the
 # Overpass query, and an element takes the slug of the FIRST rule it matches.
 # A slug that is not in the categories table is skipped: the import never
-# invents categories. Left out on purpose because we have no fitting
-# category: shop=bakery (bread and man'oushe are not sweets), shop=hardware,
-# shop=doityourself, shop=car_parts, amenity=driving_school.
+# invents categories. The list follows the "OSM tags" column of the category
+# tables in docs/SCHEMA.md. Some rules are refined by a second tag in
+# refine_slug() (fast food -> shawarma & manakish, clothes -> kids' clothes).
 TAG_RULES: list[tuple[str, str, str]] = [
     ("amenity", "pharmacy", "pharmacy"),
     ("healthcare", "pharmacy", "pharmacy"),
@@ -36,9 +36,11 @@ TAG_RULES: list[tuple[str, str, str]] = [
     ("shop", "car_repair", "mechanic"),
     ("craft", "car_repair", "mechanic"),
     ("amenity", "car_wash", "car-wash"),
-    ("shop", "mobile_phone", "phone-repair"),
-    ("shop", "computer", "laptop-repair"),
-    ("shop", "electronics", "tech-repair"),
+    # Phone, computer and electronics SHOPS (tree v2). Before 0017 these went
+    # to the repair categories; only a repairer's own tag means repair now.
+    ("shop", "mobile_phone", "phone-shop"),
+    ("shop", "computer", "computer-shop"),
+    ("shop", "electronics", "electronics-shop"),
     ("craft", "electronics_repair", "tech-repair"),
     ("craft", "electrician", "electrician"),
     ("craft", "plumber", "plumber"),
@@ -56,7 +58,125 @@ TAG_RULES: list[tuple[str, str, str]] = [
     ("craft", "photographer", "photographer"),
     ("leisure", "fitness_centre", "fitness"),
     ("amenity", "music_school", "music-lessons"),
+    # --- Category tree v2 (migration 0017) ---
+    # Doctors
+    ("shop", "optician", "optician"),
+    ("healthcare", "laboratory", "medical-lab"),
+    ("healthcare", "physiotherapist", "physiotherapist"),
+    ("amenity", "hospital", "hospital"),
+    ("healthcare", "hospital", "hospital"),
+    # Home repair
+    ("shop", "locksmith", "locksmith"),
+    ("craft", "locksmith", "locksmith"),
+    ("craft", "key_cutter", "locksmith"),
+    ("craft", "cleaning", "cleaning"),
+    ("office", "moving_company", "movers"),
+    ("craft", "pest_control", "pest-control"),
+    ("craft", "glaziery", "glass-aluminium"),
+    ("shop", "glaziery", "glass-aluminium"),
+    ("craft", "window_construction", "glass-aluminium"),
+    ("craft", "tiler", "tiler"),
+    ("craft", "metal_construction", "welder"),
+    ("craft", "blacksmith", "welder"),
+    ("craft", "welder", "welder"),
+    ("craft", "upholsterer", "upholsterer"),
+    # Car services
+    ("shop", "tyres", "tyres"),
+    ("shop", "car_parts", "car-parts"),
+    ("amenity", "driving_school", "driving-school"),
+    ("amenity", "fuel", "fuel-station"),
+    ("amenity", "car_rental", "car-rental"),
+    # Tutoring
+    ("amenity", "kindergarten", "nursery"),
+    ("amenity", "childcare", "nursery"),
+    ("amenity", "language_school", "language-school"),
+    # Fitness and beauty
+    ("shop", "sports", "sports-shop"),
+    ("shop", "massage", "spa-massage"),
+    # Food & drink. fast_food becomes shawarma-manakish when its cuisine says
+    # so (refine_slug), otherwise fast-food.
+    ("amenity", "restaurant", "restaurant"),
+    ("amenity", "fast_food", "fast-food"),
+    ("amenity", "cafe", "cafe"),
+    ("shop", "bakery", "bakery"),
+    ("amenity", "ice_cream", "juice-ice-cream"),
+    ("shop", "ice_cream", "juice-ice-cream"),
+    ("craft", "caterer", "catering"),
+    # Groceries
+    ("shop", "supermarket", "supermarket"),
+    ("shop", "convenience", "mini-market"),
+    ("shop", "general", "mini-market"),
+    ("shop", "greengrocer", "greengrocer"),
+    ("shop", "butcher", "butcher"),
+    ("shop", "nuts", "roastery"),
+    ("shop", "coffee", "roastery"),
+    ("shop", "water", "water-delivery"),
+    # Fashion. clothes becomes kids-clothes when its `clothes` tag says
+    # children or babies (refine_slug).
+    ("shop", "baby_goods", "kids-clothes"),
+    ("shop", "clothes", "clothes"),
+    ("shop", "boutique", "clothes"),
+    ("shop", "shoes", "shoes"),
+    ("shop", "bag", "bags-accessories"),
+    ("shop", "fashion_accessories", "bags-accessories"),
+    ("shop", "jewelry", "jewellery"),
+    ("shop", "perfumery", "perfume-cosmetics"),
+    ("shop", "cosmetics", "perfume-cosmetics"),
+    # Home shops
+    ("shop", "hardware", "hardware"),
+    ("shop", "doityourself", "hardware"),
+    ("shop", "furniture", "furniture"),
+    ("shop", "appliance", "appliance-store"),
+    ("shop", "electrical", "electrical-supplies"),
+    ("shop", "paint", "paint-shop"),
+    ("shop", "lighting", "lighting"),
+    ("shop", "curtain", "curtains"),
+    ("shop", "gas", "gas-cylinders"),
+    # Pets
+    ("amenity", "veterinary", "vet"),
+    ("shop", "pet", "pet-shop"),
+    ("shop", "pet_grooming", "pet-grooming"),
+    # Everyday services
+    ("shop", "laundry", "laundry"),
+    ("shop", "dry_cleaning", "laundry"),
+    ("shop", "copyshop", "printing"),
+    ("craft", "printer", "printing"),
+    ("amenity", "money_transfer", "money-transfer"),
+    ("amenity", "bureau_de_change", "money-transfer"),
+    ("office", "estate_agent", "real-estate"),
+    ("shop", "travel_agency", "travel-agency"),
+    ("office", "travel_agent", "travel-agency"),
+    ("office", "lawyer", "lawyer"),
+    ("office", "accountant", "accountant"),
+    ("office", "tax_advisor", "accountant"),
+    ("office", "insurance", "insurance"),
+    # Events
+    ("shop", "florist", "florist"),
+    ("shop", "party", "party-supplies"),
+    ("amenity", "events_venue", "event-venue"),
+    # Books & gifts
+    ("shop", "books", "bookshop"),
+    ("shop", "stationery", "stationery"),
+    ("shop", "gift", "gift-shop"),
+    ("shop", "toys", "toy-shop"),
+    # Volunteering & NGOs. A food bank is tagged amenity=social_facility +
+    # social_facility=food_bank; matching the second tag alone is enough
+    # (no rule takes other social facilities, such as care homes).
+    ("office", "ngo", "ngo"),
+    ("office", "association", "ngo"),
+    ("office", "charity", "ngo"),
+    ("amenity", "community_centre", "community-centre"),
+    ("amenity", "social_centre", "community-centre"),
+    ("amenity", "food_bank", "food-bank"),
+    ("social_facility", "food_bank", "food-bank"),
 ]
+
+# amenity=fast_food whose `cuisine` tag holds one of these (it may hold
+# several, "shawarma;burger") is a shawarma & manakish place.
+LEBANESE_FAST_FOOD_CUISINES = {"shawarma", "lebanese", "falafel", "manakish", "manaeesh", "arab"}
+
+# shop=clothes whose `clothes` tag holds one of these sells kids' clothes.
+KIDS_CLOTHES_VALUES = {"children", "babies"}
 
 # A more precise category from a second tag, when that category exists.
 # healthcare:speciality=dermatology on a clinic -> dermatologist, and so on.
@@ -125,7 +245,17 @@ def refine_slug(slug: str, tags: dict[str, str]) -> str:
         return "barber"
     if slug == "beauty" and tags.get("beauty") == "nails":
         return "nail-salon"
+    if slug == "fast-food" and tag_values(tags, "cuisine") & LEBANESE_FAST_FOOD_CUISINES:
+        return "shawarma-manakish"
+    if slug == "clothes" and tag_values(tags, "clothes") & KIDS_CLOTHES_VALUES:
+        return "kids-clothes"
     return slug
+
+
+def tag_values(tags: dict[str, str], key: str) -> set[str]:
+    """The values of a tag that may hold several: 'Shawarma; burger' ->
+    {'shawarma', 'burger'}."""
+    return {value.strip().lower() for value in tags.get(key, "").split(";") if value.strip()}
 
 
 def normalize_phone(raw: str | None) -> str | None:

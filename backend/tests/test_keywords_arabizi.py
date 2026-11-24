@@ -194,6 +194,33 @@ def test_tricky_arabizi_sentences(db, text, expected_slugs, extra):
 
 
 @pytest.mark.parametrize(
+    "text, expected_slugs",
+    [
+        ("bade shawarma 2arib", ["shawarma-manakish"]),
+        ("baddé man2oushe za3tar", ["shawarma-manakish"]),
+        ("badde 7akim 7ayawanet la 2ottte", ["vet"]),
+        ("I need a vet for my cat", ["vet"]),
+        ("fi mahattet benzine fet7a hala2?", ["fuel-station"]),
+        ("dawlebe nafes", ["tyres"]),
+        ("بدي مفاتيحي، نسيت المفتاح", ["locksmith"]),
+        ("I need a good lawyer", ["lawyer"]),
+        ("بدي محامي", ["lawyer"]),
+        ("badde 2annine ghaz", ["gas-cylinders"]),
+        ("pharmacie de garde", ["pharmacy"]),
+        ("baddé mo7ami", ["lawyer"]),
+        ("supermarket open now", ["supermarket"]),
+        ("ورد لعيد الام", ["florist"]),
+        ("dry cleaning for my suit", ["laundry"]),
+        ("toy shop near me", ["toy-shop"]),
+    ],
+)  # fmt: skip
+def test_tree_v2_categories_are_understood(db, text, expected_slugs):
+    found = slugs_for(db, text)
+    assert found is not None, text
+    assert found["category_slugs"] == expected_slugs
+
+
+@pytest.mark.parametrize(
     "text",
     [
         "kifak ya habibi, shu akhbarak",

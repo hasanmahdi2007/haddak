@@ -111,6 +111,8 @@ class CategoryOut(BaseModel):
     icon: str
     parent_id: int | None
     sort_order: int
+    # Extra search words, so the app can filter the category screen locally.
+    aliases: list[str]
 
 
 class CategoryBrief(BaseModel):
