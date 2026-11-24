@@ -14,6 +14,12 @@ export interface Category {
   icon: CategoryIcon;
   parent_id: number | null;
   sort_order: number;
+  /**
+   * Extra search words in Arabic, English and Arabizi ("sankari", "plumbr"), so the
+   * "All categories" screen can filter on the phone. Added 2026-11-24; optional so
+   * an older backend without it still works.
+   */
+  aliases?: string[];
 }
 
 /** The category object embedded in a provider (no parent_id / sort_order). */
@@ -191,7 +197,10 @@ export interface SearchParams {
   /** 100 to 50000. */
   radius_m: number;
   category_id?: number;
-  /** 2 to 60 characters; keeps providers whose name contains it (case-insensitive). */
+  /**
+   * 2 to 60 characters. Keeps providers whose name, category (name or alias, also
+   * its parent's) or area matches it; name matches come first.
+   */
   q?: string;
   /** Also return providers Haddak has not verified. Default false. */
   include_unverified?: boolean;
@@ -205,6 +214,7 @@ export interface SearchParams {
   /** Keeps only providers marked "Available now". */
   available_now?: boolean;
   sort?: SearchSort;
+  /** Default 20, max 100. The list pages 20 at a time; the map asks for 100. */
   limit?: number;
   offset?: number;
 }

@@ -25,6 +25,8 @@ type CategoryRow = [
   ar: string,
   icon: string,
   parent: number | null,
+  /** Extra search words (Arabic, English, Arabizi), like the backend's `aliases`. */
+  aliases?: string[],
 ];
 
 // Top-level rows first, then their children. sort_order is the position within the parent.
@@ -34,9 +36,10 @@ const CATEGORY_ROWS: CategoryRow[] = [
   [3, 'laptop-repair', 'Laptop repair', 'تصليح لابتوب', 'laptop', 1],
   [4, 'appliance-repair', 'Home appliances', 'أدوات كهربائية', 'appliance', 1],
 
-  [5, 'home-repairs', 'Home repairs', 'تصليحات البيت', 'home', null],
-  [6, 'plumber', 'Plumber', 'سنكري', 'plumber', 5],
-  [7, 'electrician', 'Electrician', 'كهربجي', 'electrician', 5],
+  // Same slug as the backend ("home-repair"), so Home's short list finds it.
+  [5, 'home-repair', 'Home repairs', 'تصليحات البيت', 'home', null, ['maintenance', 'صيانة']],
+  [6, 'plumber', 'Plumber', 'سنكري', 'plumber', 5, ['sankari', 'sankary', 'plumbing', 'سباك', 'تمديدات']],
+  [7, 'electrician', 'Electrician', 'كهربجي', 'electrician', 5, ['kahrabje', 'kahraba', 'كهربائي']],
   [8, 'house-painter', 'House painter', 'دهّان', 'painter', 5],
   [9, 'ac-technician', 'AC technician', 'تكييف وتبريد', 'ac', 5],
 
@@ -51,7 +54,7 @@ const CATEGORY_ROWS: CategoryRow[] = [
   [17, 'languages', 'English and French', 'إنكليزي وفرنسي', 'languages', 15],
   [18, 'sciences', 'Physics and chemistry', 'فيزياء وكيمياء', 'science', 15],
 
-  [19, 'doctors', 'Doctors', 'أطباء', 'doctor', null],
+  [19, 'doctors', 'Doctors', 'أطباء', 'doctor', null, ['doctor', 'dr', 'hakim', 'حكيم', 'دكتور']],
   [20, 'dermatologist', 'Dermatologist', 'طبيب جلد', 'dermatologist', 19],
   [21, 'dentist', 'Dentist', 'طبيب أسنان', 'dentist', 19],
   [22, 'pediatrician', 'Pediatrician', 'طبيب أطفال', 'pediatrician', 19],
@@ -65,7 +68,7 @@ const CATEGORY_ROWS: CategoryRow[] = [
   [28, 'cakes', 'Cakes and pastry', 'كاتو وباتيسري', 'cake', 26],
 
   [29, 'beauty', 'Barbers and beauty', 'حلاقة وتجميل', 'beauty', null],
-  [30, 'barber', 'Barber', 'حلّاق رجالي', 'barber', 29],
+  [30, 'barber', 'Barber', 'حلّاق رجالي', 'barber', 29, ['7ella2', 'hallak', 'haircut', 'حلاق']],
   [31, 'hair-salon', 'Hair salon', 'صالون نسائي', 'salon', 29],
 
   [32, 'car-services', 'Car services', 'خدمات سيارات', 'car', null],
@@ -83,14 +86,81 @@ const CATEGORY_ROWS: CategoryRow[] = [
   [41, 'fitness', 'Sports and fitness', 'رياضة ولياقة', 'fitness', null],
   [42, 'personal-trainer', 'Personal trainer', 'مدرّب شخصي', 'trainer', 41],
   [43, 'swimming', 'Swimming lessons', 'دروس سباحة', 'swimming', 41],
+
+  // Category tree v2 (docs/SCHEMA.md, 2026-11-24): a few new children under the old
+  // groups, then the new groups. Not every v2 category is here; enough to try the
+  // "All categories" screen, its filter and text search in mock mode.
+  [44, 'pharmacy', 'Pharmacy', 'صيدلية', 'stethoscope', 19, ['pharmacie', 'saydaliyye', 'dawa', 'دوا']],
+  [45, 'optician', 'Optician', 'نظارات', 'glasses', 19, ['glasses', 'nadarat', 'عوينات']],
+  [46, 'hospital', 'Hospital', 'مستشفى', 'hospital', 19, ['mustashfa', 'emergency', 'طوارئ']],
+  [47, 'locksmith', 'Locksmith', 'مفاتيحي', 'key', 5, ['keys', 'mafatihje', 'مفاتيح']],
+  [48, 'movers', 'Movers', 'نقل عفش', 'truck', 5, ['moving', 'na2el 3afesh', 'عفش']],
+  [49, 'tyres', 'Tyres', 'دواليب', 'tyre', 32, ['tires', 'dawalib', 'كوشوك']],
+  [50, 'fuel-station', 'Fuel station', 'محطة بنزين', 'fuel', 32, ['gas station', 'benzine', 'بنزين']],
+
+  [51, 'power', 'Power & energy', 'كهربا وطاقة', 'bolt', null, ['electricity', 'كهربا']],
+  [52, 'solar', 'Solar panels', 'طاقة شمسية', 'bolt', 51, ['solar', 'alwa7', 'ألواح']],
+  [53, 'generator', 'Generators', 'موتير / مولّد', 'bolt', 51, ['moteur', 'motor', 'اشتراك']],
+
+  [54, 'food-drink', 'Food & drink', 'أكل وشرب', 'utensils', null, ['food', 'akl', 'eat', 'أكل']],
+  [55, 'restaurant', 'Restaurant', 'مطعم', 'utensils', 54, ['resto', 'mat3am', 'مطاعم']],
+  [56, 'shawarma-manakish', 'Shawarma & manakish', 'شاورما ومناقيش', 'sandwich', 54, ['falafel', 'فلافل', 'man2oushe', 'manousheh', 'منقوشة', 'shawarma']],
+  [57, 'fast-food', 'Fast food', 'وجبات سريعة', 'burger', 54, ['burger', 'pizza', 'بيتزا', 'برغر']],
+  [58, 'cafe', 'Café', 'كافيه', 'coffee', 54, ['coffee', 'ahwe', 'قهوة']],
+  [59, 'bakery', 'Bakery', 'فرن', 'croissant', 54, ['furn', 'bread', 'خبز', 'كعك']],
+  [60, 'juice-ice-cream', 'Juice & ice cream', 'عصير وبوظة', 'ice-cream', 54, ['juice', '3asir', 'booza', 'بوظة']],
+
+  [61, 'groceries', 'Groceries', 'سمانة وخضرة', 'cart', null, ['grocery', 'sammane']],
+  [62, 'supermarket', 'Supermarket', 'سوبرماركت', 'cart', 61, ['market', 'سوبر ماركت']],
+  [63, 'mini-market', 'Mini-market', 'دكّانة', 'store', 61, ['dekkene', 'دكان', 'ميني ماركت']],
+  [64, 'greengrocer', 'Greengrocer', 'خضرجي', 'apple', 61, ['vegetables', 'khodra', 'خضرة', 'فواكه']],
+  [65, 'butcher', 'Butcher', 'لحّام', 'beef', 61, ['meat', 'la77am', 'لحمة']],
+
+  [66, 'fashion', 'Fashion', 'أزياء', 'shirt', null, ['clothes', 'تياب']],
+  [67, 'clothes', 'Clothes', 'ألبسة', 'shirt', 66, ['boutique', 'tiyab', 'ثياب']],
+  [68, 'shoes', 'Shoes', 'أحذية', 'shoe', 66, ['sneakers', 'sabbat', 'صبابيط']],
+  [69, 'jewellery', 'Jewellery', 'مجوهرات', 'gem', 66, ['jewelry', 'gold', 'dahab', 'دهب']],
+  [70, 'perfume-cosmetics', 'Perfume & cosmetics', 'عطور وتجميل', 'spray', 66, ['perfume', '3otour', 'makeup', 'مكياج']],
+
+  [71, 'home-shops', 'Home shops', 'أدوات ومفروشات', 'sofa', null, ['home', 'furniture']],
+  [72, 'hardware', 'Hardware', 'خردوات وعدّة', 'hammer', 71, ['tools', 'khordawet', 'عدة']],
+  [73, 'furniture', 'Furniture', 'مفروشات', 'sofa', 71, ['sofa', 'كنباي']],
+  [74, 'gas-cylinders', 'Gas cylinders', 'قناني غاز', 'flame', 71, ['gas', 'ghaz', 'غاز']],
+
+  [75, 'pets', 'Pets', 'حيوانات أليفة', 'paw', null, ['pet', 'animals']],
+  [76, 'vet', 'Vet', 'طبيب بيطري', 'stethoscope', 75, ['veterinary', 'بيطري']],
+  [77, 'pet-shop', 'Pet shop', 'محل حيوانات', 'paw', 75, ['cat food', 'dog food', 'أكل قطط']],
+
+  [78, 'everyday-services', 'Everyday services', 'خدمات يومية', 'briefcase', null, ['services']],
+  [79, 'laundry', 'Laundry & dry cleaning', 'مصبغة', 'washing-machine', 78, ['dry cleaning', 'masbagha', 'كوي']],
+  [80, 'printing', 'Printing & copies', 'طباعة وتصوير', 'printer', 78, ['print', 'copies', 'photocopy']],
+  [81, 'money-transfer', 'Money transfer', 'تحويل أموال', 'banknote', 78, ['omt', 'whish', 'western union', 'صيرفة']],
+  [82, 'lawyer', 'Lawyer', 'محامي', 'scale', 78, ['avocat', 'mo7ame', 'محامية']],
+
+  [83, 'phones-electronics', 'Phones & electronics', 'تلفونات وإلكترونيات', 'smartphone', null, ['electronics']],
+  [84, 'phone-shop', 'Phone shop', 'محل تلفونات', 'smartphone', 83, ['mobile', 'iphone', 'خطوط', 'تشريج']],
+  [85, 'computer-shop', 'Computer shop', 'محل كمبيوتر', 'monitor', 83, ['pc', 'laptop shop', 'كمبيوتر']],
+
+  [86, 'events', 'Events', 'مناسبات', 'party', null, ['party', 'wedding', 'عرس']],
+  [87, 'florist', 'Florist', 'زهور', 'flower', 86, ['flowers', 'ward', 'ورد']],
+  [88, 'event-venue', 'Event venue', 'صالة مناسبات', 'venue', 86, ['hall', 'salle', 'صالة']],
+
+  [89, 'books-gifts', 'Books & gifts', 'كتب وهدايا', 'gift', null, ['gifts', 'books']],
+  [90, 'bookshop', 'Bookshop', 'مكتبة', 'book', 89, ['books', 'maktabe', 'كتب']],
+  [91, 'stationery', 'Stationery', 'قرطاسية', 'pencil', 89, ['school supplies', 'قرطاسيه']],
+  [92, 'toy-shop', 'Toy shop', 'ألعاب ولاد', 'blocks', 89, ['toys', 'al3ab', 'العاب']],
+
+  [93, 'volunteering', 'Volunteering & NGOs', 'تطوّع وجمعيات', 'hand-heart', null, ['volunteer', 'charity', 'خيرية']],
+  [94, 'ngo', 'NGO', 'جمعية', 'hand-heart', 93, ['association', 'jam3iyye', 'منظمة']],
+  [95, 'food-bank', 'Food bank', 'بنك طعام', 'soup', 93, ['food aid', 'حصص غذائية']],
 ];
 
 function buildCategories(): Category[] {
   const counters = new Map<number | null, number>();
-  const rows = CATEGORY_ROWS.map(([id, slug, name_en, name_ar, icon, parent_id]) => {
+  const rows = CATEGORY_ROWS.map(([id, slug, name_en, name_ar, icon, parent_id, aliases = []]) => {
     const next = (counters.get(parent_id) ?? 0) + 1;
     counters.set(parent_id, next);
-    return { id, slug, name_en, name_ar, icon, parent_id, sort_order: next };
+    return { id, slug, name_en, name_ar, icon, parent_id, sort_order: next, aliases };
   });
   // API order: by sort_order (ties broken by id so the list is stable).
   return rows.sort((a, b) => a.sort_order - b.sort_order || a.id - b.id);
@@ -781,8 +851,72 @@ const STRUCTURED_PRICES: Record<string, [amount: number, unit: PriceUnit]> = {
 /** Stable fake UUID so links keep working between reloads. */
 const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
+/**
+ * Shops and places "imported from OpenStreetMap" in the v2 categories (all names
+ * invented): not verified, no owner, about half with a number. They make the mock
+ * big enough to show paging ("Showing 20 of N"), map clusters and text search
+ * ("falafel", "فرن", an area name) in mock mode.
+ */
+const OSM_FILL: [name: string, categoryId: number, area: string][] = [
+  ['Falafel Al Hayy', 56, 'Haret Hreik'],
+  ['Manakish Um Ali', 56, 'Haret Hreik'],
+  ['Shawarma Al Mafraq', 56, 'Bir el Abed'],
+  ['Furn Al Saha', 59, 'Haret Hreik'],
+  ['Furn Al Kanise', 59, 'Ghobeiry'],
+  ['Snack Al Jisr', 57, 'Ghobeiry'],
+  ['Burger Spot Hreik', 57, 'Haret Hreik'],
+  ['Ahwet Al Hara', 58, 'Haret Hreik'],
+  ['Café Zawaya', 58, 'Bir el Abed'],
+  ['Booza Al Dayaa', 60, 'Haret Hreik'],
+  ['Juice Corner', 60, 'Rouweiss'],
+  ['Mat3am Al Bayt', 55, 'Chiyah'],
+  ['Supermarket Al Amana', 62, 'Haret Hreik'],
+  ['Dekkene Abou Hassan', 63, 'Haret Hreik'],
+  ['Mini Market Al Nour', 63, 'Bir el Abed'],
+  ['Khodra Al Bustan', 64, 'Ghobeiry'],
+  ['Lahhame Al Kheir', 65, 'Haret Hreik'],
+  ['Boutique Lara', 67, 'Haret Hreik'],
+  ['Shoe Box', 68, 'Bir el Abed'],
+  ['Dahab Al Sharq', 69, 'Ghobeiry'],
+  ['Perfume Lab', 70, 'Haret Hreik'],
+  ['Khordawet Al Mahatta', 72, 'Chiyah'],
+  ['Ghaz Al Dahye', 74, 'Haret Hreik'],
+  ['Pharmacie Al Shifa', 44, 'Haret Hreik'],
+  ['Pharmacie Al Rahma', 44, 'Ghobeiry'],
+  ['Optic Vision', 45, 'Haret Hreik'],
+  ['Masbagha Al Nadafa', 79, 'Haret Hreik'],
+  ['Print Point', 80, 'Bir el Abed'],
+  ['Hreik Money Transfer', 81, 'Haret Hreik'],
+  ['Phone Zone', 84, 'Haret Hreik'],
+  ['Moteur Al Hayy', 53, 'Haret Hreik'],
+  ['Pet Corner', 77, 'Bir el Abed'],
+  ['Ward w Zahr', 87, 'Ghobeiry'],
+  ['Maktabet Al Jil', 90, 'Haret Hreik'],
+  ['Toy Planet', 92, 'Chiyah'],
+  ['Jam3iyyet Al Hayy', 94, 'Haret Hreik'],
+];
+
+const OSM_SEEDS: ProviderSeed[] = OSM_FILL.map(([name, categoryId, area], i) => ({
+  slug: `osm${String(i + 1).padStart(3, '0')}`,
+  name,
+  categoryId,
+  // Spread over about 4 km, with a dense knot near the centre so the map has clusters.
+  at: [i < 12 ? 90 + i * 35 : 300 + ((i * 397) % 3900), (i * 71) % 360],
+  area,
+  price: null,
+  rating: 0,
+  reviews: 0,
+  verified: false,
+  claimed: false,
+  phone: i % 2 === 0 ? `+961000020${String(i).padStart(2, '0')}` : null,
+  dataSource: 'osm',
+  description: '',
+  photos: [],
+  joined: '2026-11-20T09:00:00Z',
+}));
+
 /** Most mock providers are verified; a few are not. distance_m is filled in per request. */
-export const MOCK_PROVIDERS: ProviderDetail[] = SEEDS.map((seed, index) => {
+export const MOCK_PROVIDERS: ProviderDetail[] = [...SEEDS, ...OSM_SEEDS].map((seed, index) => {
   const { lat, lng } = offset(seed.at[0], seed.at[1]);
   return {
     id: uuid(index + 1),

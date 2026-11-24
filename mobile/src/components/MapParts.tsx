@@ -1,5 +1,6 @@
 import { Check, MapPin } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
+import Supercluster from 'supercluster';
 
 import type { Coordinates, ProviderSummary } from '@/api';
 import { useI18n } from '@/i18n';
@@ -23,8 +24,10 @@ export interface ResultsMapProps {
   /** The search position. */
   center: Coordinates;
   radiusM: RadiusM;
-  /** The same providers the list shows. Empty while a search is running. */
+  /** The map's own search: up to 100 providers, best first. Empty while it runs. */
   providers: ProviderSummary[];
+  /** Every match, so the map can say when it shows only the top 100. */
+  total: number;
   loading: boolean;
   onOpenProvider: (provider: ProviderSummary) => void;
 }
@@ -98,6 +101,108 @@ export function screenPoint(
     x: width / 2 + ((lng - shown.longitude) / shown.longitudeDelta) * width,
     y: height / 2 - ((lat - shown.latitude) / shown.latitudeDelta) * height,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Clusters (supercluster, plain JavaScript: no native clustering library)
+// ---------------------------------------------------------------------------
+
+/**
+ * supercluster measures in a world that is 512 units wide at zoom 0 (its tile
+ * "extent"). Working the zoom out against the same 512 makes its `radius` mean
+ * dp on screen.
+ */
+const CLUSTER_WORLD = 512;
+/** Pins closer than about this many dp join one cluster. */
+const CLUSTER_RADIUS = 44;
+/** Past this zoom (a street or a building) nothing is clustered any more. */
+const CLUSTER_MAX_ZOOM = 17;
+
+type PointProps = { id: string };
+export type ClusterIndex = Supercluster<PointProps, Record<string, never>>;
+
+/** A group of pins drawn as one round count. */
+export interface MapCluster {
+  id: number;
+  lat: number;
+  lng: number;
+  count: number;
+}
+
+/**
+ * The clustering index for these providers. Rebuilt only when the providers or the
+ * selection change (100 points take well under a millisecond). The selected provider
+ * is left out, so it always shows its own name pill and is never swallowed.
+ */
+export function buildClusterIndex(providers: ProviderSummary[], selectedId: string | null): ClusterIndex {
+  const index: ClusterIndex = new Supercluster({ radius: CLUSTER_RADIUS, maxZoom: CLUSTER_MAX_ZOOM });
+  index.load(
+    providers
+      .filter((provider) => provider.id !== selectedId)
+      .map((provider) => ({
+        type: 'Feature' as const,
+        properties: { id: provider.id },
+        // GeoJSON order: longitude first.
+        geometry: { type: 'Point' as const, coordinates: [provider.lng, provider.lat] },
+      })),
+  );
+  return index;
+}
+
+/** The zoom level (in supercluster's units) at which `shown` fills a view `width` dp wide. */
+export function zoomFor(shown: MapRegion, width: number): number {
+  if (width <= 0 || shown.longitudeDelta <= 0) return 0;
+  return Math.log2((width * 360) / (shown.longitudeDelta * CLUSTER_WORLD));
+}
+
+/**
+ * Which pins stand alone and which are grouped, for the area on screen. The area is
+ * padded by half a screen on each side, so pins just off the edge are ready when the
+ * user pans. The selected provider always stands alone.
+ */
+export function clusterProviders(
+  index: ClusterIndex,
+  providers: ProviderSummary[],
+  selectedId: string | null,
+  shown: MapRegion,
+  width: number,
+): { clusters: MapCluster[]; singles: ProviderSummary[] } {
+  const byId = new Map(providers.map((provider) => [provider.id, provider]));
+  const singles: ProviderSummary[] = [];
+  const clusters: MapCluster[] = [];
+  const selected = selectedId ? byId.get(selectedId) : undefined;
+  if (selected) singles.push(selected);
+  if (width <= 0) return { clusters, singles: providers };
+
+  const west = Math.max(-180, shown.longitude - shown.longitudeDelta);
+  const east = Math.min(180, shown.longitude + shown.longitudeDelta);
+  const south = Math.max(-85, shown.latitude - shown.latitudeDelta);
+  const north = Math.min(85, shown.latitude + shown.latitudeDelta);
+  for (const feature of index.getClusters([west, south, east, north], zoomFor(shown, width))) {
+    const [lng, lat] = feature.geometry.coordinates;
+    const props = feature.properties;
+    if ('cluster' in props && props.cluster) {
+      clusters.push({ id: props.cluster_id, lat, lng, count: props.point_count });
+    } else {
+      const provider = byId.get((props as PointProps).id);
+      if (provider) singles.push(provider);
+    }
+  }
+  return { clusters, singles };
+}
+
+/**
+ * Where to move the map when a cluster is tapped: centred on it, zoomed in just
+ * far enough for it to split (supercluster knows that zoom). Pins that share one
+ * spot never split; then the map goes to the deepest zoom, where they are drawn
+ * one by one.
+ */
+export function expansionRegion(index: ClusterIndex, cluster: MapCluster, shown: MapRegion, width: number): MapRegion {
+  const zoom = Math.min(index.getClusterExpansionZoom(cluster.id), CLUSTER_MAX_ZOOM + 1);
+  const longitudeDelta = (width * 360) / (CLUSTER_WORLD * 2 ** zoom);
+  // Keep the shape of the area on screen.
+  const ratio = shown.longitudeDelta > 0 ? shown.latitudeDelta / shown.longitudeDelta : 1;
+  return { latitude: cluster.lat, longitude: cluster.lng, longitudeDelta, latitudeDelta: longitudeDelta * ratio };
 }
 
 /** A pin is drawn either as a pill with the name, or as the round mark alone. */
@@ -328,6 +433,46 @@ export function HereDot() {
   return <View style={styles.here} />;
 }
 
+/** A cluster's disc grows a little with its count, so a big group reads as big. */
+export function clusterSize(count: number): number {
+  return count < 10 ? size.touch - space.sm : count < 50 ? size.touch : size.touch + space.sm;
+}
+
+/**
+ * Several pins too close to tell apart: one round count. A white disc with an
+ * ink edge and the number in black, inside a soft alice-blue ring, so it reads as
+ * "a group" next to the black verified dots and the name pills. Tapping it zooms in.
+ */
+export function ClusterPin({ count }: { count: number }) {
+  const styles = useStyles();
+  const disc = clusterSize(count);
+  return (
+    <View style={[styles.clusterHalo, { width: disc + space.sm, height: disc + space.sm }]} collapsable={false}>
+      <View style={[styles.cluster, { width: disc, height: disc }]}>
+        <Txt role="data" ltr maxFontSizeMultiplier={1.2}>
+          {count > 99 ? '99+' : count}
+        </Txt>
+      </View>
+    </View>
+  );
+}
+
+/** "Map shows the top 100 of 240": a white pill at the top of the map, only when there are more. */
+export function MapCappedNote({ shown, total }: { shown: number; total: number }) {
+  const { s, f } = useI18n();
+  const styles = useStyles();
+  if (total <= shown || shown === 0) return null;
+  return (
+    <View pointerEvents="none" style={styles.capped} accessibilityLiveRegion="polite">
+      <View style={styles.cappedPill}>
+        <Txt role="caption" color="textMuted" center>
+          {f(s.results.mapCapped, { shown, total })}
+        </Txt>
+      </View>
+    </View>
+  );
+}
+
 interface DockProps {
   provider: ProviderSummary;
   onPress: () => void;
@@ -481,6 +626,36 @@ const useStyles = makeStyles((c) => ({
     backgroundColor: c.surfaceTint,
     borderWidth: size.lineBold,
     borderColor: c.outline,
+  },
+  // The cluster: soft alice-blue ring, white disc, ink edge, black count.
+  clusterHalo: {
+    borderRadius: radius.pill,
+    backgroundColor: c.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cluster: {
+    borderRadius: radius.pill,
+    backgroundColor: c.surface,
+    borderWidth: size.lineBold,
+    borderColor: c.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  capped: {
+    position: 'absolute',
+    top: space.md,
+    left: space.lg,
+    right: space.lg,
+    alignItems: 'center',
+  },
+  cappedPill: {
+    maxWidth: size.maxContent,
+    backgroundColor: c.surface,
+    borderRadius: radius.pill,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
+    boxShadow: elevation.card,
   },
   here: {
     width: size.mapHere,

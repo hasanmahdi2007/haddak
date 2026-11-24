@@ -44,15 +44,39 @@ export const en = {
     categoriesError: "Couldn't load the categories",
     categoriesErrorBody: 'Check your connection and try again.',
     hasMore: '{name}, opens more choices',
-    searchPlaceholder: 'Search by name',
-    searchHint: 'Type at least 2 letters, then search.',
-    clearSearch: 'Clear the name',
+    // The search bar at the top of Home: names, trades, shops and areas (docs/API.md, 2026-11-24).
+    searchPlaceholder: 'What do you need? Plumber, falafel, pharmacy…',
+    searchLabel: 'Search Haddak',
+    searchHint: 'Type a name, a trade or an area, at least 2 letters, then search.',
+    clearSearch: 'Clear the search',
+    allCategoriesHint: 'Every kind of place, with a filter',
     suggest: 'Know someone good? Suggest them',
     search: 'Search',
     everyone: 'Everyone nearby',
     everyoneHint: 'All categories, best rated first',
   },
 
+  categories: {
+    title: 'All categories',
+    count: '{groups} groups · {n} categories',
+    filterPlaceholder: 'Find a category… bakery, vet, tyres',
+    filterLabel: 'Filter the categories',
+    clearFilter: 'Clear the filter',
+    kinds: {
+      zero: 'No categories',
+      one: '1 category',
+      two: '2 categories',
+      few: '{n} categories',
+      many: '{n} categories',
+      other: '{n} categories',
+    },
+    openGroup: 'Shows its categories',
+    closeGroup: 'Hides its categories',
+    searchEverywhere: 'Search “{q}” everywhere',
+    searchEverywhereHint: 'Names, shops, trades and areas',
+    noMatch: 'No category called “{q}”',
+    noMatchBody: 'It may still be out there: search names, shops and areas for it.',
+  },
   results: {
     everyone: 'Everyone nearby',
     count: {
@@ -92,6 +116,32 @@ export const en = {
     // A quiet line above the first result Haddak has not checked (verified ones always come first).
     unverifiedDivider: 'Not verified yet',
     unverifiedDividerBody: "Haddak hasn't checked these",
+    // Paging (20 at a time) and the end of the list.
+    showing: 'Showing {shown} of {total}',
+    allShown: 'That’s everyone: {total}',
+    loadingMore: 'Loading more',
+    moreError: "Couldn't load more",
+    // Few results: never a dead end, offer the next distance.
+    few: {
+      zero: 'Nobody {where} yet',
+      one: 'Only 1 place {where}',
+      two: 'Only 2 places {where}',
+      few: 'Only {n} places {where}',
+      many: 'Only {n} places {where}',
+      other: 'Only {n} places {where}',
+    },
+    fewBody: 'Go a little further and see who else is around.',
+    fewAction: 'Show {where}',
+    // The map shows at most 100 pins; it says so when there are more.
+    mapCapped: 'Map shows the top {shown} of {total}. Zoom in or pick a category.',
+    mapCluster: {
+      zero: 'No places here',
+      one: '1 place here, tap to zoom in',
+      two: '2 places here, tap to zoom in',
+      few: '{n} places here, tap to zoom in',
+      many: '{n} places here, tap to zoom in',
+      other: '{n} places here, tap to zoom in',
+    },
   },
 
   filter: {

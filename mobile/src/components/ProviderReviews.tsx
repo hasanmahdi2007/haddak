@@ -15,8 +15,8 @@ import { ReviewSheet, reviewErrorText } from './ReviewSheet';
 import { Skeleton } from './Skeleton';
 import { Txt } from './Txt';
 
-/** Reviews asked for at a time. */
-const PAGE = 10;
+/** Reviews asked for at a time (the API's default; every growing list pages 20 at a time). */
+const PAGE = 20;
 /** Reviews shown before "See all". */
 const LATEST = 3;
 
@@ -87,7 +87,12 @@ export function ProviderReviews({ provider, onChanged }: Props) {
     async (offset: number) => {
       try {
         const page = await api.getReviews(provider.id, { limit: PAGE, offset });
-        setItems((current) => (offset === 0 ? page.items : [...current, ...page.items]));
+        // A later page can repeat a review when a new one was posted in between: keep each once.
+        setItems((current) => {
+          if (offset === 0) return page.items;
+          const seen = new Set(current.map((review) => review.id));
+          return [...current, ...page.items.filter((review) => !seen.has(review.id))];
+        });
         setTotal(page.total);
         setState('ready');
       } catch {

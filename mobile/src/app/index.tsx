@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ArrowLeft, ArrowRight, Heart, LocateFixed, MapPin, Mic, Search, UserRound, WifiOff, X } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { type ComponentRef, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
@@ -26,12 +26,12 @@ import { TextLink } from '@/components/TextLink';
 import { Txt, useTypeScale } from '@/components/Txt';
 import { useI18n } from '@/i18n';
 import { requireSignIn } from '@/lib/auth';
-import { useCategories, type CategoryNode } from '@/lib/categories';
+import { homeGroups, useCategories, type CategoryNode } from '@/lib/categories';
 import { useFavourites } from '@/lib/favourites';
 import { useLocation } from '@/lib/location';
 import { DEFAULT_RADIUS, type RadiusM } from '@/lib/radius';
 import { VOICE_AVAILABLE } from '@/lib/useVoice';
-import { elevation, makeStyles, opacity, press, radius, size, space, type as typeScale, useTheme } from '@/theme';
+import { elevation, makeStyles, press, radius, size, space, type as typeScale, useTheme } from '@/theme';
 
 /** Limits of the search endpoint's `q` parameter (docs/API.md). */
 const NAME_MIN = 2;
@@ -61,10 +61,9 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors, dark } = useTheme();
-  const { s, f, row, rtl, end, alignStart, textAlign, writingDirection, language, setLanguage, categoryName } =
-    useI18n();
+  const { s, f, row, rtl, end, textAlign, writingDirection, language, setLanguage, categoryName } = useI18n();
   const styles = useStyles();
-  const font = useTypeScale().body;
+  const font = useTypeScale().bodyLarge;
   const savedCount = useFavourites().list.length;
   const location = useLocation();
   const categories = useCategories();
@@ -73,9 +72,10 @@ export default function HomeScreen() {
   const [openParent, setOpenParent] = useState<CategoryNode | null>(null);
   // The Ask entry is two buttons when the phone can listen; the whole block greys while its text part is pressed.
   const [askPressed, setAskPressed] = useState(false);
+  // The search bar: always on screen, the first thing under the question (UX rules, 2026-11-24).
   const [name, setName] = useState('');
   const [nameFocused, setNameFocused] = useState(false);
-  const [nameOpen, setNameOpen] = useState(false);
+  const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
 
   // Android Back closes the second level before it leaves the app.
   useEffect(() => {
@@ -89,22 +89,30 @@ export default function HomeScreen() {
 
   const query = name.trim();
 
-  // One tap on a category searches. A name of 2+ letters travels with it; a shorter one is ignored.
+  // One tap on a category searches that category. The search bar's words are not carried
+  // along: they search names, trades and areas on their own (see submitName).
   const search = (category?: Category) => {
     router.push({
       pathname: '/results',
       params: {
         radius: String(radiusM),
         ...(category ? { category_id: String(category.id) } : {}),
-        ...(query.length >= NAME_MIN ? { q: query } : {}),
       },
     });
   };
 
-  // The keyboard's search key and the round button: nothing happens until the name is long enough.
+  // The keyboard's search key and the round button. Too short: the field takes focus
+  // instead of doing nothing, so the button never feels dead.
   const submitName = () => {
-    if (query.length >= NAME_MIN) search();
+    if (query.length >= NAME_MIN) {
+      router.push({ pathname: '/results', params: { radius: String(radiusM), q: query } });
+    } else {
+      inputRef.current?.focus();
+    }
   };
+
+  const openAllCategories = () =>
+    router.push({ pathname: '/categories', params: { radius: String(radiusM) } });
 
   const BackIcon = rtl ? ArrowRight : ArrowLeft;
   const ForwardIcon = rtl ? ArrowLeft : ArrowRight;
@@ -116,13 +124,16 @@ export default function HomeScreen() {
         ? s.home.located
         : s.home.fallback;
 
-  // What the grid shows: the top level, or one parent ("All ..." first) and its children.
-  const tiles: { category: Category; label: string; hasChildren: boolean; onPress: () => void }[] =
+  // What the grid shows: a few everyday groups and "All categories" (the rest lives on its
+  // own screen, so Home stays calm with 143 categories), or one parent ("All ..." first) and its children.
+  type Tile = { key: string; icon: string; label: string; hasChildren: boolean; onPress: () => void };
+  const tiles: Tile[] =
     categories.status !== 'ready'
       ? []
       : openParent
         ? [openParent, ...openParent.children].map((category) => ({
-            category,
+            key: String(category.id),
+            icon: category.icon,
             label:
               category.id === openParent.id
                 ? f(s.home.allIn, { name: categoryName(category) })
@@ -130,12 +141,23 @@ export default function HomeScreen() {
             hasChildren: false,
             onPress: () => search(category),
           }))
-        : categories.tree.map((node) => ({
-            category: node,
-            label: categoryName(node),
-            hasChildren: node.children.length > 0,
-            onPress: () => (node.children.length > 0 ? setOpenParent(node) : search(node)),
-          }));
+        : [
+            ...homeGroups(categories.tree).map((node) => ({
+              key: String(node.id),
+              icon: node.icon,
+              label: categoryName(node),
+              hasChildren: node.children.length > 0,
+              onPress: () => (node.children.length > 0 ? setOpenParent(node) : search(node)),
+            })),
+            // Last, on its own row at full width: the way to everything else.
+            {
+              key: 'all',
+              icon: 'all-categories',
+              label: s.home.allCategories,
+              hasChildren: true,
+              onPress: openAllCategories,
+            },
+          ];
 
   return (
     <View style={styles.screen}>
@@ -189,39 +211,65 @@ export default function HomeScreen() {
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + space.xxl }]}
       >
         <View style={[styles.column, styles.stack]}>
-          {/* The alice-blue hero block with black words: the question, where the search is centred, the assistant, search by name. */}
+          {/* The alice-blue hero block with black words: the question, the search bar, the assistant, where the search is centred. */}
           <View style={styles.hero}>
             <Txt role="display" color="onHero" accessibilityRole="header">
               {s.home.question}
             </Txt>
 
-            <View style={[styles.locationRow, { flexDirection: row }]} accessibilityLiveRegion="polite">
-              {location.status === 'locating' ? (
-                <ActivityIndicator size="small" color={colors.onHero} />
-              ) : (
-                <View style={styles.pin}>
-                  <LocationIcon color={colors.onHero} size={size.iconSmall} strokeWidth={size.lineBold} />
-                </View>
-              )}
-              <Txt role="label" color="onHeroMuted" style={styles.locationText}>
-                {locationText}
-              </Txt>
-              {location.status === 'fallback' ? (
+            {/* Search first: one white pill that finds names, trades, shops and areas. */}
+            <View style={[styles.field, { flexDirection: row }, nameFocused ? styles.fieldFocused : null]}>
+              <View style={styles.fieldIcon} pointerEvents="none">
+                <Search color={colors.textMuted} size={size.icon} strokeWidth={size.lineBold} />
+              </View>
+              <TextInput
+                ref={inputRef}
+                value={name}
+                onChangeText={setName}
+                onSubmitEditing={submitName}
+                onFocus={() => setNameFocused(true)}
+                onBlur={() => setNameFocused(false)}
+                placeholder={s.home.searchPlaceholder}
+                placeholderTextColor={colors.textSubtle}
+                accessibilityLabel={s.home.searchLabel}
+                accessibilityHint={s.home.searchHint}
+                returnKeyType="search"
+                enterKeyHint="search"
+                autoCorrect={false}
+                autoCapitalize="none"
+                maxLength={NAME_MAX}
+                selectionColor={colors.accentStrong}
+                numberOfLines={1}
+                style={[styles.fieldInput, font, NO_FOCUS_RING, { textAlign, writingDirection }]}
+              />
+              {name.length > 0 ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityHint={s.home.fallbackHint}
-                  onPress={location.retry}
-                  hitSlop={{ top: space.sm, bottom: space.sm, left: space.xs, right: space.xs }}
-                  style={({ pressed }) => [styles.heroChip, pressed ? styles.heroChipPressed : null]}
+                  accessibilityLabel={s.home.clearSearch}
+                  onPress={() => {
+                    setName('');
+                    inputRef.current?.focus();
+                  }}
+                  hitSlop={{ top: space.xs, bottom: space.xs }}
+                  style={styles.fieldClear}
                 >
-                  <Txt role="label" color="onHero">
-                    {s.home.useMyLocation}
-                  </Txt>
+                  <X color={colors.textMuted} size={size.icon} strokeWidth={size.stroke} />
                 </Pressable>
               ) : null}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={s.home.search}
+                accessibilityHint={s.home.searchHint}
+                onPress={submitName}
+                hitSlop={space.xxs}
+                android_ripple={{ color: colors.primaryPressed, borderless: true }}
+                style={({ pressed }) => [styles.fieldGo, pressed ? styles.askGoPressed : null]}
+              >
+                <ForwardIcon color={colors.onPrimary} size={size.icon} strokeWidth={size.lineBold} />
+              </Pressable>
             </View>
 
-            {/* The assistant: one big white entry that looks like a field. Nothing else competes with it. */}
+            {/* The assistant, right under the search bar: voice users are still one tap from the microphone. */}
             {VOICE_AVAILABLE ? (
               // With a speech module (the development build): the block opens the assistant to type,
               // the round black disc at its end opens it already listening.
@@ -282,68 +330,32 @@ export default function HomeScreen() {
               </Pressable>
             )}
 
-            {/* Search by name stays, one tap away: the assistant took the field's place. */}
-            {nameOpen ? (
-              <View style={[styles.field, { flexDirection: row }, nameFocused ? styles.fieldFocused : null]}>
-                <TextInput
-                  value={name}
-                  onChangeText={setName}
-                  onSubmitEditing={submitName}
-                  onFocus={() => setNameFocused(true)}
-                  onBlur={() => setNameFocused(false)}
-                  // It only appears after "Search by name" was tapped, so the keyboard comes up at once.
-                  autoFocus
-                  placeholder={s.home.searchPlaceholder}
-                  placeholderTextColor={colors.textSubtle}
-                  accessibilityLabel={s.home.searchPlaceholder}
-                  accessibilityHint={s.home.searchHint}
-                  returnKeyType="search"
-                  enterKeyHint="search"
-                  autoCorrect={false}
-                  autoCapitalize="words"
-                  maxLength={NAME_MAX}
-                  selectionColor={colors.accentStrong}
-                  style={[styles.fieldInput, font, NO_FOCUS_RING, { textAlign, writingDirection }]}
-                />
-                {name.length > 0 ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={s.home.clearSearch}
-                    onPress={() => setName('')}
-                    hitSlop={{ top: space.xs, bottom: space.xs }}
-                    style={styles.fieldClear}
-                  >
-                    <X color={colors.textMuted} size={size.icon} strokeWidth={size.stroke} />
-                  </Pressable>
-                ) : null}
+            {/* Where the search is centred: a quiet line that closes the block. */}
+            <View style={[styles.locationRow, { flexDirection: row }]} accessibilityLiveRegion="polite">
+              {location.status === 'locating' ? (
+                <ActivityIndicator size="small" color={colors.onHero} />
+              ) : (
+                <View style={styles.pin}>
+                  <LocationIcon color={colors.onHero} size={size.iconSmall} strokeWidth={size.lineBold} />
+                </View>
+              )}
+              <Txt role="label" color="onHeroMuted" style={styles.locationText}>
+                {locationText}
+              </Txt>
+              {location.status === 'fallback' ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={s.home.search}
-                  accessibilityHint={s.home.searchHint}
-                  accessibilityState={{ disabled: query.length < NAME_MIN }}
-                  onPress={submitName}
-                  hitSlop={space.xs}
-                  style={({ pressed }) => [styles.fieldGo, pressed ? styles.dim : null]}
+                  accessibilityHint={s.home.fallbackHint}
+                  onPress={location.retry}
+                  hitSlop={{ top: space.sm, bottom: space.sm, left: space.xs, right: space.xs }}
+                  style={({ pressed }) => [styles.heroChip, pressed ? styles.heroChipPressed : null]}
                 >
-                  <Search color={colors.onPrimary} size={size.icon} strokeWidth={size.lineBold} />
+                  <Txt role="label" color="onHero">
+                    {s.home.useMyLocation}
+                  </Txt>
                 </Pressable>
-              </View>
-            ) : (
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setNameOpen(true)}
-                style={({ pressed }) => [
-                  styles.nameToggle,
-                  { flexDirection: row, alignSelf: alignStart },
-                  pressed ? styles.heroChipPressed : null,
-                ]}
-              >
-                <Search color={colors.onHero} size={size.iconSmall} strokeWidth={size.lineBold} />
-                <Txt role="label" color="onHero">
-                  {s.home.searchPlaceholder}
-                </Txt>
-              </Pressable>
-            )}
+              ) : null}
+            </View>
           </View>
 
           {/* Distance: one compact row. It applies to whatever is tapped below. */}
@@ -408,8 +420,8 @@ export default function HomeScreen() {
                 <View key={r} style={[styles.gridRow, { flexDirection: row }]}>
                   {cells.map((tile, c) => (
                     <CategoryTile
-                      key={tile.category.id}
-                      icon={tile.category.icon}
+                      key={tile.key}
+                      icon={tile.icon}
                       label={tile.label}
                       tone={TONES[(r + c) % TONES.length]}
                       grow={cells.length === 1 ? 1 : ROW_SHARES[r % 2][c]}
@@ -607,55 +619,51 @@ const useStyles = makeStyles((c) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  nameToggle: {
-    alignItems: 'center',
-    gap: space.sm,
-    minHeight: size.touch,
-    paddingHorizontal: space.lg,
-    borderRadius: radius.pill,
-    backgroundColor: c.heroControl,
-  },
-  // A white pill field inside the alice-blue block.
+  // The search bar: a tall white pill inside the alice-blue block, a magnifier at the
+  // start and the round black go button at the end, like the Ask entry under it.
   field: {
     alignItems: 'center',
-    minHeight: size.button,
+    minHeight: size.buttonLarge + space.xs,
     backgroundColor: c.surface,
     borderRadius: radius.pill,
     borderWidth: size.lineBold,
     borderColor: c.surface,
-    paddingHorizontal: space.xs,
-    marginTop: space.sm,
+    paddingStart: space.md,
+    paddingEnd: space.xs,
+    marginTop: space.xs,
   },
   // The edge turns black on focus.
   fieldFocused: {
     borderColor: c.onHero,
   },
+  fieldIcon: {
+    width: size.icon + space.xs,
+    alignItems: 'center',
+  },
   fieldInput: {
-    ...typeScale.body,
+    ...typeScale.bodyLarge,
     flex: 1,
     minWidth: 0,
-    minHeight: size.segment + space.xs,
+    minHeight: size.touch,
     color: c.text,
-    paddingHorizontal: space.md,
+    paddingHorizontal: space.sm,
     paddingVertical: space.none,
   },
   fieldClear: {
-    width: size.segment + space.xs,
-    height: size.segment + space.xs,
+    width: size.touch - space.xs,
+    height: size.touch - space.xs,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // The round black button inside the field: 40 dp to the eye, 48 with its hitSlop.
+  // The round black go button: 44 dp to the eye, 48 with its hitSlop.
   fieldGo: {
-    width: size.segment + space.xs,
-    height: size.segment + space.xs,
+    width: size.touch - space.xs,
+    height: size.touch - space.xs,
     borderRadius: radius.pill,
     backgroundColor: c.primary,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  dim: {
-    opacity: opacity.pressed,
+    overflow: 'hidden',
   },
   radiusRow: {
     alignItems: 'center',

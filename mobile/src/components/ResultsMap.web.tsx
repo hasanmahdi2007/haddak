@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -7,12 +7,19 @@ import { makeStyles, radius, size, space } from '@/theme';
 
 import {
   CITY_RADIUS,
+  ClusterPin,
   HereDot,
+  MapCappedNote,
   MapProviderCard,
   ProviderDot,
   ProviderPin,
+  buildClusterIndex,
+  clusterProviders,
+  clusterSize,
+  expansionRegion,
   fitRegion,
   layoutPins,
+  type MapRegion,
   metresPerDegree,
   pinZIndex,
   regionFor,
@@ -27,8 +34,8 @@ import { Txt } from './Txt';
  * web build is only used for screenshots, so this plots the same pins, circle and
  * docked card on a plain grey panel, at the same scale the real map would use.
  */
-export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider }: ResultsMapProps) {
-  const { s } = useI18n();
+export function ResultsMap({ center, radiusM, providers, total, loading, onOpenProvider }: ResultsMapProps) {
+  const { s, plural } = useI18n();
   const insets = useSafeAreaInsets();
   const styles = useStyles();
   const pinLabel = usePinLabel();
@@ -36,13 +43,21 @@ export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = providers.find((provider) => provider.id === selectedId) ?? null;
 
-  // The area the panel shows: the asked region, fitted to the panel's shape as a real map would.
-  // There is no zoom here, so this only changes with the search and the panel's size.
-  const shown = fitRegion(regionFor(center, radiusM), panel.width, panel.height);
+  // The area the panel shows: the asked region, fitted to the panel's shape as a real map
+  // would; or, after a cluster was tapped, the area around it. A new search position or
+  // distance goes back to the whole circle.
+  const searchKey = `${center.lat},${center.lng},${radiusM}`;
+  const [zoomed, setZoomed] = useState<{ key: string; region: MapRegion } | null>(null);
+  const fitted = fitRegion(regionFor(center, radiusM), panel.width, panel.height);
+  const shown = zoomed && zoomed.key === searchKey ? fitRegion(zoomed.region, panel.width, panel.height) : fitted;
   const pxPerMetre = panel.width / (shown.longitudeDelta * metresPerDegree(center.lat).lng);
   const circle = radiusM * 2 * pxPerMetre;
-  // The same rule as the real map: a name only where it does not cover another.
-  const forms = layoutPins(providers, selected?.id ?? null, shown, panel.width, panel.height);
+  // The search position on the panel: the middle, until a cluster was zoomed into.
+  const here = screenPoint(center.lat, center.lng, shown, panel.width, panel.height);
+  // The same rules as the real map: close pins become a cluster, and a name only where it does not cover another.
+  const clusterIndex = useMemo(() => buildClusterIndex(providers, selected?.id ?? null), [providers, selected?.id]);
+  const { clusters, singles } = clusterProviders(clusterIndex, providers, selected?.id ?? null, shown, panel.width);
+  const forms = layoutPins(singles, selected?.id ?? null, shown, panel.width, panel.height);
 
   return (
     <View
@@ -67,8 +82,8 @@ export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider
                 {
                   width: circle,
                   height: circle,
-                  left: panel.width / 2 - circle / 2,
-                  top: panel.height / 2 - circle / 2,
+                  left: here.x - circle / 2,
+                  top: here.y - circle / 2,
                 },
               ]}
             />
@@ -79,13 +94,32 @@ export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider
             accessibilityLabel={s.results.mapHere}
             style={[
               styles.spot,
-              { left: panel.width / 2 - size.mapHere / 2, top: panel.height / 2 - size.mapHere / 2 },
+              { left: here.x - size.mapHere / 2, top: here.y - size.mapHere / 2 },
             ]}
           >
             <HereDot />
           </View>
 
-          {providers.map((provider) => {
+          {clusters.map((cluster) => {
+            const { x, y } = screenPoint(cluster.lat, cluster.lng, shown, panel.width, panel.height);
+            const half = (clusterSize(cluster.count) + space.sm) / 2;
+            return (
+              <Pressable
+                key={`cluster-${cluster.id}`}
+                testID="map-cluster"
+                accessibilityRole="button"
+                accessibilityLabel={plural(s.results.mapCluster, cluster.count)}
+                onPress={() =>
+                  setZoomed({ key: searchKey, region: expansionRegion(clusterIndex, cluster, shown, panel.width) })
+                }
+                style={[styles.spot, { left: x - half, top: y - half, zIndex: 1 }]}
+              >
+                <ClusterPin count={cluster.count} />
+              </Pressable>
+            );
+          })}
+
+          {singles.map((provider) => {
             const isSelected = provider.id === selected?.id;
             const form = forms.get(provider.id) ?? 'pill';
             const { x, y } = screenPoint(provider.lat, provider.lng, shown, panel.width, panel.height);
@@ -130,11 +164,15 @@ export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider
         </>
       ) : null}
 
-      <View pointerEvents="none" style={styles.note}>
-        <Txt role="caption" color="textMuted">
-          {s.results.mapWebNote}
-        </Txt>
-      </View>
+      {total > providers.length ? (
+        <MapCappedNote shown={providers.length} total={total} />
+      ) : (
+        <View pointerEvents="none" style={styles.note}>
+          <Txt role="caption" color="textMuted">
+            {s.results.mapWebNote}
+          </Txt>
+        </View>
+      )}
 
       {selected ? (
         <View style={[styles.dock, { paddingBottom: insets.bottom + space.lg }]} pointerEvents="box-none">

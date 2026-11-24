@@ -1,10 +1,11 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, ArrowRight, Badge, List, Map as MapIcon, SearchX, WifiOff, X, Zap } from 'lucide-react-native';
 import { useState } from 'react';
-import { FlatList, Pressable, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { api, type PriceCurrency, type PriceUnit, type ProviderSummary, type SearchSort } from '@/api';
+import { Button } from '@/components/Button';
 import { IconButton } from '@/components/IconButton';
 import { ProviderCard } from '@/components/ProviderCard';
 import { RadiusChips } from '@/components/RadiusChips';
@@ -19,6 +20,7 @@ import { useLocation } from '@/lib/location';
 import { formatPrice } from '@/lib/price';
 import { parseRadius, radiusPhrase, widerRadius, type RadiusM } from '@/lib/radius';
 import { useAsync } from '@/lib/useAsync';
+import { usePagedSearch, type PagedParams } from '@/lib/usePagedSearch';
 import { elevation, makeStyles, radius, size, space, useTheme } from '@/theme';
 
 type ViewMode = 'list' | 'map';
@@ -34,6 +36,12 @@ function numberParam(value: string | undefined): number | undefined {
 
 /** The most paid cards shown above a list of results. */
 const MAX_SPONSORED = 2;
+
+/** The map asks for this many pins at once (the API's maximum) and clusters them. */
+const MAP_LIMIT = 100;
+
+/** Fewer results than this, with a wider distance left: offer it under the list (UX rules, 2026-11-24). */
+const FEW_RESULTS = 5;
 
 /** A loading card in the shape of ProviderCard: photo, two lines, a badge, the facts strip. */
 function CardSkeleton() {
@@ -111,41 +119,40 @@ export default function ResultsScreen() {
   );
 
   // Wait for the position before searching, so the first list is the right one.
-  // Changing the distance or the verification filter runs the search again.
+  // Changing the distance or any filter starts the list again from its first page.
   const locating = locationStatus === 'locating';
-  const search = useAsync(
+  const searchParams: PagedParams | null = locating
+    ? null
+    : {
+        ...coords,
+        radius_m: radiusM,
+        category_id: categoryId,
+        q,
+        include_unverified: !verifiedOnly,
+        max_price: price?.amount,
+        price_unit: price?.unit,
+        price_currency: price?.currency,
+        open_now: openNow || undefined,
+        available_now: availableNow || undefined,
+        sort,
+      };
+  // The list: 20 at a time, the next 20 when the user nears the end.
+  const search = usePagedSearch(searchParams);
+
+  // The map is its own request: up to 100 pins, clustered on the map. It is only asked
+  // for once the map has been opened, then kept up to date with the filters.
+  const [mapOpened, setMapOpened] = useState(false);
+  const mapSearch = useAsync(
     () =>
-      locating
+      searchParams === null || !mapOpened
         ? new Promise<never>(() => undefined)
-        : api.searchProviders({
-            ...coords,
-            radius_m: radiusM,
-            category_id: categoryId,
-            q,
-            include_unverified: !verifiedOnly,
-            max_price: price?.amount,
-            price_unit: price?.unit,
-            price_currency: price?.currency,
-            open_now: openNow || undefined,
-            available_now: availableNow || undefined,
-            sort,
-          }),
-    [
-      locating,
-      coords.lat,
-      coords.lng,
-      radiusM,
-      categoryId,
-      q,
-      verifiedOnly,
-      price?.amount,
-      price?.unit,
-      price?.currency,
-      openNow,
-      availableNow,
-      sort,
-    ],
+        : api.searchProviders({ ...searchParams, limit: MAP_LIMIT, offset: 0 }),
+    [mapOpened, JSON.stringify(searchParams)],
   );
+  const chooseMode = (next: ViewMode) => {
+    if (next === 'map') setMapOpened(true);
+    setMode(next);
+  };
 
   const placeName = atPlace ? (params.place ?? '').trim() : '';
   const where = placeName ? `${radiusPhrase(s, radiusM)} · ${placeName}` : radiusPhrase(s, radiusM);
@@ -162,7 +169,7 @@ export default function ResultsScreen() {
   const title = q ? f(s.results.named, { q }) : category ? categoryName(category) : s.results.everyone;
   const subtitle =
     search.status === 'ready'
-      ? plural(s.results.count, search.data.total, { where })
+      ? plural(s.results.count, search.total, { where })
       : search.status === 'loading'
         ? f(s.results.searching, { where })
         : // A non-breaking space keeps the line's height, so the title does not jump.
@@ -178,7 +185,7 @@ export default function ResultsScreen() {
   // Paid cards get their own labelled section at the top of the list: at most two,
   // and only when browsing a category or everyone (a search by name stays a plain list).
   // Each one is taken out of the list below, so nobody is shown twice.
-  const items = search.status === 'ready' ? search.data.items : [];
+  const items = search.items;
   const sponsoredItems = q ? [] : items.filter((item) => item.sponsored).slice(0, MAX_SPONSORED);
   const sponsoredIds = new Set(sponsoredItems.map((item) => item.id));
   const listItems = items.filter((item) => !sponsoredIds.has(item.id));
@@ -222,7 +229,7 @@ export default function ResultsScreen() {
                     accessibilityRole="tab"
                     accessibilityLabel={label}
                     accessibilityState={{ selected: active }}
-                    onPress={() => setMode(key)}
+                    onPress={() => chooseMode(key)}
                     // 36 dp to the eye; hitSlop makes the touch target 48.
                     hitSlop={{ top: size.segmentSlop, bottom: size.segmentSlop }}
                     android_ripple={{ color: colors.accentSoft }}
@@ -305,7 +312,7 @@ export default function ResultsScreen() {
               onAction={search.reload}
             />
           </View>
-        ) : search.status === 'ready' && search.data.items.length === 0 ? (
+        ) : search.status === 'ready' && search.items.length === 0 ? (
           <View style={styles.column}>
             <StateView
               icon={SearchX}
@@ -343,8 +350,9 @@ export default function ResultsScreen() {
           <ResultsMap
             center={coords}
             radiusM={radiusM}
-            providers={search.status === 'ready' ? search.data.items : []}
-            loading={search.status === 'loading'}
+            providers={mapSearch.status === 'ready' ? mapSearch.data.items : []}
+            total={mapSearch.status === 'ready' ? mapSearch.data.total : 0}
+            loading={mapSearch.status === 'loading'}
             onOpenProvider={openProvider}
           />
         ) : search.status === 'loading' ? (
@@ -415,6 +423,58 @@ export default function ResultsScreen() {
               ) : undefined
             }
             ItemSeparatorComponent={() => <View style={styles.separator} />}
+            // The next 20 when the user is half a screen from the end.
+            onEndReached={search.loadMore}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={
+              <View style={styles.footer}>
+                {/* Few results and a wider distance left: offer it, never a dead end. */}
+                {wider && search.total < FEW_RESULTS && !search.hasMore ? (
+                  <View style={styles.few}>
+                    <Txt role="title" color="onAccent">
+                      {plural(s.results.few, search.total, { where: radiusPhrase(s, radiusM) })}
+                    </Txt>
+                    <Txt role="body" color="textMuted">
+                      {s.results.fewBody}
+                    </Txt>
+                    <Button
+                      label={f(s.results.fewAction, { where: radiusPhrase(s, wider) })}
+                      onPress={() => setRadiusM(wider)}
+                      style={styles.fewButton}
+                    />
+                  </View>
+                ) : null}
+
+                {search.moreError ? (
+                  <View style={styles.footerLine} accessibilityRole="alert">
+                    <Txt role="label" color="textMuted">
+                      {s.results.moreError}
+                    </Txt>
+                    <Button label={s.common.tryAgain} variant="outline" compact onPress={search.loadMore} />
+                  </View>
+                ) : search.loadingMore ? (
+                  <View
+                    style={[styles.footerLine, { flexDirection: row }]}
+                    accessible
+                    accessibilityLabel={s.results.loadingMore}
+                  >
+                    <ActivityIndicator size="small" color={colors.textMuted} />
+                    <Txt role="label" color="textMuted">
+                      {f(s.results.showing, { shown: search.items.length, total: search.total })}
+                    </Txt>
+                  </View>
+                ) : (
+                  // "Showing 20 of 134" while more are coming; "That is everyone: 12" at the end.
+                  <View style={styles.footerLine}>
+                    <Txt role="label" color="textMuted" center accessibilityLiveRegion="polite">
+                      {search.hasMore
+                        ? f(s.results.showing, { shown: search.items.length, total: search.total })
+                        : f(s.results.allShown, { total: search.total })}
+                    </Txt>
+                  </View>
+                )}
+              </View>
+            }
             contentContainerStyle={[styles.list, styles.column, { paddingBottom: insets.bottom + space.xxl }]}
           />
         )}
@@ -508,6 +568,26 @@ const useStyles = makeStyles((c) => ({
   },
   separator: {
     height: space.md,
+  },
+  footer: {
+    gap: space.lg,
+    paddingTop: space.lg,
+  },
+  footerLine: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.sm,
+    minHeight: size.touch,
+  },
+  // "Only 3 places within 1 km": the alice-blue info block with a black button to go wider.
+  few: {
+    backgroundColor: c.accent,
+    borderRadius: radius.lg,
+    padding: space.xl,
+    gap: space.sm,
+  },
+  fewButton: {
+    marginTop: space.sm,
   },
   // The paid section: its heading, the cards, then the heading of the ordinary results.
   sponsored: {

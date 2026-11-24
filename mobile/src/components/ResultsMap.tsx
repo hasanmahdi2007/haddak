@@ -8,10 +8,15 @@ import { makeStyles, motion, size, space, useTheme } from '@/theme';
 
 import {
   CITY_RADIUS,
+  ClusterPin,
   HereDot,
+  MapCappedNote,
   MapProviderCard,
   ProviderDot,
   ProviderPin,
+  buildClusterIndex,
+  clusterProviders,
+  expansionRegion,
   fitRegion,
   layoutPins,
   pinZIndex,
@@ -32,9 +37,9 @@ const PIN_SETTLE_MS = 700;
  * edges. A native view sized by `flex` alone can be measured as zero on Android
  * when its parent's height arrives late; pinned edges cannot.
  */
-export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider }: ResultsMapProps) {
+export function ResultsMap({ center, radiusM, providers, total, loading, onOpenProvider }: ResultsMapProps) {
   const { colors, dark } = useTheme();
-  const { s, language } = useI18n();
+  const { s, language, plural } = useI18n();
   const insets = useSafeAreaInsets();
   const styles = useStyles();
   const pinLabel = usePinLabel();
@@ -64,20 +69,25 @@ export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider
   // from the region the map was asked to show.
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
   const [reported, setReported] = useState<Region | null>(null);
+  const shown = useMemo(
+    () => reported ?? fitRegion(region, mapSize.width, mapSize.height),
+    [reported, region, mapSize.width, mapSize.height],
+  );
+
+  // Pins too close together become one round count (supercluster). Tapping it zooms in
+  // until the group splits. What is left alone is laid out as names or dots below.
+  const clusterIndex = useMemo(() => buildClusterIndex(providers, selected?.id ?? null), [providers, selected?.id]);
+  const { clusters, singles } = useMemo(
+    () => clusterProviders(clusterIndex, providers, selected?.id ?? null, shown, mapSize.width),
+    [clusterIndex, providers, selected?.id, shown, mapSize.width],
+  );
   const forms = useMemo(
     () =>
-      layoutPins(
-        providers,
-        selected?.id ?? null,
-        reported ?? fitRegion(region, mapSize.width, mapSize.height),
-        mapSize.width,
-        mapSize.height,
-        PixelRatio.getFontScale(),
-      ),
-    [providers, selected?.id, reported, region, mapSize],
+      layoutPins(singles, selected?.id ?? null, shown, mapSize.width, mapSize.height, PixelRatio.getFontScale()),
+    [singles, selected?.id, shown, mapSize],
   );
-  // One letter per pin: "p" for a name pill, "d" for a dot.
-  const formsKey = providers.map((provider) => (forms.get(provider.id) === 'dot' ? 'd' : 'p')).join('');
+  // One letter per pin: "p" for a name pill, "d" for a dot; then the clusters and their counts.
+  const formsKey = `${singles.map((provider) => `${provider.id}${forms.get(provider.id) === 'dot' ? 'd' : 'p'}`).join(',')}|${clusters.map((cluster) => `${cluster.id}:${cluster.count}`).join(',')}`;
 
   // A pin is a small view that the map turns into a picture. Redrawing that picture
   // on every frame is wasteful, so a pin only "tracks" its view for a moment after
@@ -140,7 +150,27 @@ export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider
           <HereDot />
         </Marker>
 
-        {providers.map((provider) => {
+        {clusters.map((cluster) => (
+          <Marker
+            key={`cluster-${cluster.id}-${cluster.count}`}
+            coordinate={{ latitude: cluster.lat, longitude: cluster.lng }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            zIndex={1}
+            tracksViewChanges={pinsChanging}
+            accessibilityLabel={plural(s.results.mapCluster, cluster.count)}
+            onPress={(event) => {
+              event.stopPropagation();
+              mapRef.current?.animateToRegion(
+                expansionRegion(clusterIndex, cluster, shown, mapSize.width),
+                motion.base,
+              );
+            }}
+          >
+            <ClusterPin count={cluster.count} />
+          </Marker>
+        ))}
+
+        {singles.map((provider) => {
           const isSelected = provider.id === selected?.id;
           const form = forms.get(provider.id) ?? 'pill';
           return (
@@ -178,6 +208,8 @@ export function ResultsMap({ center, radiusM, providers, loading, onOpenProvider
           );
         })}
       </MapView>
+
+      <MapCappedNote shown={providers.length} total={total} />
 
       {selected ? (
         <View style={[styles.dock, { paddingBottom: insets.bottom + space.lg }]} pointerEvents="box-none">

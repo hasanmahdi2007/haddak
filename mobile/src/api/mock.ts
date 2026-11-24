@@ -1,4 +1,5 @@
 import { isOpenAt } from '@/lib/hours';
+import { normalizeText } from '@/lib/normalize';
 
 import {
   MOCK_CATEGORIES,
@@ -304,8 +305,20 @@ export function createMockApi(
    * searched with their children; null means every category.
    */
   function search(params: SearchParams, categoryIds: number[] | null) {
-    const { lat, lng, radius_m, include_unverified = false, limit = 30, offset = 0 } = params;
-    const name = params.q?.trim().toLowerCase();
+    const { lat, lng, radius_m, include_unverified = false, limit = 20, offset = 0 } = params;
+    // Text search like the backend (docs/API.md): the name, the category or its parent
+    // (English, Arabic or an alias), or the area. Compared after normalizeText().
+    const text = params.q ? normalizeText(params.q) : '';
+    const nameMatches = (p: ProviderDetail) => text !== '' && normalizeText(p.name).includes(text);
+    const categoryMatches = (categoryId: number) => {
+      const own = MOCK_CATEGORIES.find((c) => c.id === categoryId);
+      const parent = own?.parent_id != null ? MOCK_CATEGORIES.find((c) => c.id === own.parent_id) : undefined;
+      return [own, parent].some(
+        (c) => c && [c.name_en, c.name_ar, ...(c.aliases ?? [])].some((word) => normalizeText(word).includes(text)),
+      );
+    };
+    const textMatches = (p: ProviderDetail) =>
+      text === '' || nameMatches(p) || categoryMatches(p.category.id) || normalizeText(p.area_name).includes(text);
     const wanted =
       categoryIds === null
         ? null
@@ -316,7 +329,7 @@ export function createMockApi(
 
     const matches = MOCK_PROVIDERS.filter((p) => include_unverified || p.verified)
       .filter((p) => !wanted || wanted.has(p.category.id))
-      .filter((p) => !name || p.name.toLowerCase().includes(name))
+      .filter(textMatches)
       .map((p) => summary(p, Math.round(haversineM({ lat, lng }, p))))
       .filter((p) => (p.distance_m ?? 0) <= radius_m)
       // A price limit leaves out everyone without a structured price in that unit and currency.
@@ -346,6 +359,11 @@ export function createMockApi(
         const pb = b.price_amount ?? Number.POSITIVE_INFINITY;
         return pa - pb || (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0);
       });
+    }
+    // With a text, providers whose name matches come first (a stable sort keeps the rest in order).
+    if (text !== '') {
+      const byName = new Set(MOCK_PROVIDERS.filter(nameMatches).map((p) => p.id));
+      ranked = [...ranked].sort((a, b) => Number(byName.has(b.id)) - Number(byName.has(a.id)));
     }
     const size = Math.min(Math.max(limit, 1), 100);
     return { items: ranked.slice(offset, offset + size), total: ranked.length };
