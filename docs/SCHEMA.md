@@ -23,8 +23,12 @@ CREATE TABLE categories (
     name_ar     TEXT NOT NULL,
     icon        TEXT NOT NULL,                 -- icon key the app maps to a glyph
     parent_id   INTEGER REFERENCES categories(id),
-    sort_order  INTEGER NOT NULL DEFAULT 0
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    aliases     TEXT[] NOT NULL DEFAULT '{}'   -- 0016: extra search words: Lebanese Arabic,
+                                               -- Arabizi, English synonyms ('sankari', 'سمكري', 'plumbing')
 );
+-- 0016: GIN trigram indexes on normalize_name(name_en), normalize_name(name_ar)
+-- for fuzzy category matching in text search.
 
 CREATE TABLE providers (
     id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -224,7 +228,7 @@ CREATE TABLE assist_log (
 CREATE INDEX assist_log_created_idx ON assist_log (created_at);
 ```
 
-Migrations: `0001` created the first four tables; `0002` added `providers.show_contact_count`, `providers.opening_hours` and the `provider_suggestions` table; `0003` added the `unverified` status, made `providers.owner_user_id` nullable, and added `providers.source`, `provider_suggestions.lat` / `lng` and the `provider_reports` table; `0004` added `providers.sponsor_hook` and the `stories`, `banners` and `follows` tables; `0005` added `providers.price_amount`, `price_unit` and `price_currency`; `0006` added `pg_trgm`, `normalize_name()`, the `places` table with its first rows, and the `assist_cache` and `assist_log` tables; `0007` added the `hire_checks` table; `0008` added `providers.available_until`; `0009` added categories (power, appliance repair, pharmacy); `0010` added `source = 'osm'`, `providers.osm_ref`, made `providers.phone` nullable for `osm` rows only, added the `remove_my_business` report reason and the `claims` table.
+Migrations: `0001` created the first four tables; `0002` added `providers.show_contact_count`, `providers.opening_hours` and the `provider_suggestions` table; `0003` added the `unverified` status, made `providers.owner_user_id` nullable, and added `providers.source`, `provider_suggestions.lat` / `lng` and the `provider_reports` table; `0004` added `providers.sponsor_hook` and the `stories`, `banners` and `follows` tables; `0005` added `providers.price_amount`, `price_unit` and `price_currency`; `0006` added `pg_trgm`, `normalize_name()`, the `places` table with its first rows, and the `assist_cache` and `assist_log` tables; `0007` added the `hire_checks` table; `0008` added `providers.available_until`; `0009` added categories (power, appliance repair, pharmacy); `0010` added `source = 'osm'`, `providers.osm_ref`, made `providers.phone` nullable for `osm` rows only, added the `remove_my_business` report reason and the `claims` table; `0016` adds `categories.aliases` and trigram indexes on the category names; `0017` adds 85 categories (tree v2, below) and aliases for all of them.; `0016` adds `categories.aliases` and trigram indexes on the category names; `0017` adds 85 categories (tree v2, below) and aliases for all of them.
 
 ### `providers.status`
 
@@ -288,13 +292,114 @@ A missing day (or an empty list) means closed that day. `NULL` for the whole col
 - `assist_quota` (`subject`, `day`, `used`; primary key `subject, day`): AI requests per person or IP per day (Lebanon time). `subject` is a keyed hash of the day and who (see `AI_ASSISTANT.md`), never an IP, account id or install id. Rows older than two days are deleted.
 - Every table in `public` has Row Level Security on, with no policies (migration 0012), and the Supabase roles `anon` and `authenticated` have no privileges on them. The backend connects as the tables' owner, which Row Level Security does not limit. **A migration that creates a table must also run `ALTER TABLE <name> ENABLE ROW LEVEL SECURITY`**; `tests/test_db_security.py` fails otherwise.
 - Every function in `public` has a fixed search path (migration 0013): **a migration that creates a function must give it `SET search_path = ''`** and call only built-in or schema-qualified functions; `tests/test_db_security.py` fails otherwise.
-- The category tree is reference data that comes from the migrations (0009, 0014), so the hosted database, which is never seeded, has it too. **Changing a category needs a new migration and the same change in `scripts/seed.py`'s `CATEGORIES`**; `tests/test_categories_migration.py` fails when the two disagree.
+- The category tree is reference data that comes from the migrations (0009, 0014, 0017), so the hosted database, which is never seeded, has it too. **Changing a category needs a new migration and the same change in `scripts/seed.py`'s `CATEGORIES`**; `tests/test_categories_migration.py` fails when the two disagree.
 - Migration 0015 adds `reviews (user_id)`, `claims (user_id)` (for `DELETE /me`), `categories (parent_id)` and `provider_suggestions (category_id)` (foreign keys the Performance Advisor listed).
 - On Supabase only, schema `haddak_private` holds `delete_auth_user(uuid)` (`supabase/delete_auth_user.sql`, applied by hand as `postgres`): a `security definer` function that deletes one `auth.users` row, executable only by `haddak_api`. It is not in a migration because `haddak_api` may not touch `auth`; the backend checks it exists and skips it locally.
 - On Supabase the tables are owned by the role `haddak_api` that the backend logs in as (see `DEPLOY.md`); locally they are owned by `haddak`.
 - Place lookup: exact match on `normalize_name()` of `name_en`, `name_ar` or an alias first; otherwise the best `similarity()` of 0.35 or more. Several rows are returned only when they share the English name (same name, different districts).
 - Publishing a suggestion creates the provider and deletes the suggestion in one transaction.
 - Hire checks ("Did you hire them?"): a `whatsapp` or `call` contact event sent with a valid login token creates a `hire_checks` row, unless the same user already has one for that provider with `contacted_at` in the last 7 days (answered or not), or the user owns the provider. Only that user may answer, and only once. A review is "hired through Haddak" when its author has a `hired` answer for that provider (computed when read, so a review written later also counts). `confirmed_hires` = `hired` answers with `answered_at` in the last 90 days. `no_answer` answers are shown to the admin only. Search ranking does not use hire checks yet.
+
+## Category tree v2 (migration 0017, 2026-11-24)
+
+The founder widened the scope to every paid service and shop (see `PROJECT.md`). 0017 **adds** 85 categories to the 58 from 0014, for 143 in total. Existing slugs are never renamed or moved, so their ids stay the same. `scripts/seed.py`'s `CATEGORIES` holds the same tree, and 0017's frozen copy is what `tests/test_categories_migration.py` compares against. Every category (old and new) also gets `aliases`. The OSM column says which OpenStreetMap tags `services/osm_import.py` maps to that slug ("—" = no reliable OSM tag; filled by owners, suggestions and claims).
+
+New children under existing groups:
+
+| Parent | slug | English | Arabic | icon | OSM tags |
+|---|---|---|---|---|---|
+| doctors | optician | Optician | نظارات | glasses | shop=optician |
+| doctors | medical-lab | Medical lab | مختبر | flask | healthcare=laboratory |
+| doctors | physiotherapist | Physiotherapist | علاج فيزيائي | activity | healthcare=physiotherapist |
+| doctors | hospital | Hospital | مستشفى | hospital | amenity=hospital, healthcare=hospital |
+| home-repair | locksmith | Locksmith | مفاتيحي | key | shop=locksmith, craft=locksmith, craft=key_cutter |
+| home-repair | cleaning | Cleaning | تنظيف | sparkles | craft=cleaning |
+| home-repair | movers | Movers | نقل عفش | truck | office=moving_company |
+| home-repair | pest-control | Pest control | رش مبيدات | bug | craft=pest_control |
+| home-repair | water-tank-cleaning | Water tank cleaning | تنظيف خزانات | container | — |
+| home-repair | glass-aluminium | Glass & aluminium | زجاج وألمنيوم | window | craft=glaziery, shop=glaziery, craft=window_construction |
+| home-repair | tiler | Tiler | مبلّط | grid | craft=tiler |
+| home-repair | welder | Blacksmith & welder | حدّاد | anvil | craft=metal_construction, craft=blacksmith, craft=welder |
+| home-repair | upholsterer | Upholsterer | منجّد | armchair | craft=upholsterer |
+| car-services | tyres | Tyres | دواليب | tyre | shop=tyres |
+| car-services | car-parts | Car parts | قطع سيارات | cog | shop=car_parts |
+| car-services | driving-school | Driving school | مدرسة سواقة | steering | amenity=driving_school |
+| car-services | fuel-station | Fuel station | محطة بنزين | fuel | amenity=fuel |
+| car-services | car-rental | Car rental | تأجير سيارات | car-key | amenity=car_rental |
+| car-services | towing | Towing | سحب سيارات | tow-truck | — |
+| tutoring | nursery | Nursery | حضانة | baby | amenity=kindergarten, amenity=childcare |
+| tutoring | language-school | Language school | مدرسة لغات | languages | amenity=language_school |
+| fitness | sports-shop | Sports shop | أدوات رياضة | trophy | shop=sports |
+| beauty | spa-massage | Spa & massage | سبا ومساج | flower | shop=massage |
+
+New groups (parent row first, then its children):
+
+| Parent | slug | English | Arabic | icon | OSM tags |
+|---|---|---|---|---|---|
+| — | food-drink | Food & drink | أكل وشرب | utensils | |
+| food-drink | restaurant | Restaurant | مطعم | utensils | amenity=restaurant |
+| food-drink | shawarma-manakish | Shawarma & manakish | شاورما ومناقيش | sandwich | amenity=fast_food with `cuisine` containing shawarma, lebanese, falafel, manakish, manaeesh or arab (checked before fast-food) |
+| food-drink | fast-food | Fast food | وجبات سريعة | burger | amenity=fast_food (any other) |
+| food-drink | cafe | Café | كافيه | coffee | amenity=cafe |
+| food-drink | bakery | Bakery | فرن | croissant | shop=bakery |
+| food-drink | juice-ice-cream | Juice & ice cream | عصير وبوظة | ice-cream | amenity=ice_cream, shop=ice_cream |
+| food-drink | catering | Catering | تموين حفلات | chef-hat | craft=caterer |
+| — | groceries | Groceries | سمانة وخضرة | cart | |
+| groceries | supermarket | Supermarket | سوبرماركت | cart | shop=supermarket |
+| groceries | mini-market | Mini-market | دكّانة | store | shop=convenience, shop=general |
+| groceries | greengrocer | Greengrocer | خضرجي | apple | shop=greengrocer |
+| groceries | butcher | Butcher | لحّام | beef | shop=butcher |
+| groceries | roastery | Roastery & nuts | محمصة | nut | shop=nuts, shop=coffee |
+| groceries | water-delivery | Drinking water | مي للشرب | droplets | shop=water |
+| — | fashion | Fashion | أزياء | shirt | |
+| fashion | kids-clothes | Kids' clothes | ألبسة ولاد | baby | shop=baby_goods, shop=clothes with `clothes` containing children or babies (checked before clothes) |
+| fashion | clothes | Clothes | ألبسة | shirt | shop=clothes, shop=boutique |
+| fashion | shoes | Shoes | أحذية | shoe | shop=shoes |
+| fashion | bags-accessories | Bags & accessories | شنط واكسسوارات | bag | shop=bag, shop=fashion_accessories |
+| fashion | jewellery | Jewellery | مجوهرات | gem | shop=jewelry |
+| fashion | perfume-cosmetics | Perfume & cosmetics | عطور وتجميل | spray | shop=perfumery, shop=cosmetics |
+| — | home-shops | Home shops | أدوات ومفروشات | sofa | |
+| home-shops | hardware | Hardware | خردوات وعدّة | hammer | shop=hardware, shop=doityourself |
+| home-shops | furniture | Furniture | مفروشات | sofa | shop=furniture |
+| home-shops | appliance-store | Appliances store | أدوات كهربائية منزلية | fridge | shop=appliance |
+| home-shops | electrical-supplies | Electrical supplies | لوازم كهرباء | plug | shop=electrical |
+| home-shops | paint-shop | Paint shop | دهانات | paint-bucket | shop=paint |
+| home-shops | lighting | Lighting | إنارة | lamp | shop=lighting |
+| home-shops | curtains | Curtains | برادي | blinds | shop=curtain |
+| home-shops | gas-cylinders | Gas cylinders | قناني غاز | flame | shop=gas |
+| — | pets | Pets | حيوانات أليفة | paw | |
+| pets | vet | Vet | طبيب بيطري | stethoscope | amenity=veterinary |
+| pets | pet-shop | Pet shop | محل حيوانات | paw | shop=pet |
+| pets | pet-grooming | Pet grooming | تزيين حيوانات | scissors | shop=pet_grooming |
+| — | everyday-services | Everyday services | خدمات يومية | briefcase | |
+| everyday-services | laundry | Laundry & dry cleaning | مصبغة | washing-machine | shop=laundry, shop=dry_cleaning |
+| everyday-services | printing | Printing & copies | طباعة وتصوير | printer | shop=copyshop, craft=printer |
+| everyday-services | money-transfer | Money transfer | تحويل أموال | banknote | amenity=money_transfer, amenity=bureau_de_change |
+| everyday-services | real-estate | Real estate | مكتب عقارات | building | office=estate_agent |
+| everyday-services | travel-agency | Travel agency | مكتب سفريات | plane | shop=travel_agency, office=travel_agent |
+| everyday-services | lawyer | Lawyer | محامي | scale | office=lawyer |
+| everyday-services | accountant | Accountant | محاسب | calculator | office=accountant, office=tax_advisor |
+| everyday-services | insurance | Insurance | تأمين | shield | office=insurance |
+| — | phones-electronics | Phones & electronics | تلفونات وإلكترونيات | smartphone | |
+| phones-electronics | phone-shop | Phone shop | محل تلفونات | smartphone | shop=mobile_phone (was phone-repair) |
+| phones-electronics | computer-shop | Computer shop | محل كمبيوتر | monitor | shop=computer (was laptop-repair) |
+| phones-electronics | electronics-shop | Electronics shop | محل إلكترونيات | cpu | shop=electronics (was tech-repair; craft=electronics_repair stays tech-repair) |
+| — | events | Events | مناسبات | party | |
+| events | florist | Florist | زهور | flower | shop=florist |
+| events | wedding-planner | Wedding & event planner | منظّم أعراس وحفلات | heart | — |
+| events | party-supplies | Party supplies | لوازم حفلات | party-popper | shop=party |
+| events | event-venue | Event venue | صالة مناسبات | venue | amenity=events_venue |
+| — | books-gifts | Books & gifts | كتب وهدايا | gift | |
+| books-gifts | bookshop | Bookshop | مكتبة | book | shop=books |
+| books-gifts | stationery | Stationery | قرطاسية | pencil | shop=stationery |
+| books-gifts | gift-shop | Gift shop | هدايا | gift | shop=gift |
+| books-gifts | toy-shop | Toy shop | ألعاب ولاد | blocks | shop=toys |
+| — | volunteering | Volunteering & NGOs | تطوّع وجمعيات | hand-heart | |
+| volunteering | ngo | NGO | جمعية | hand-heart | office=ngo, office=association, office=charity |
+| volunteering | community-centre | Community centre | مركز اجتماعي | users | amenity=community_centre, amenity=social_centre |
+| volunteering | food-bank | Food bank | بنك طعام | soup | amenity=food_bank, amenity=social_facility with social_facility=food_bank |
+
+New groups get `sort_order` 14 to 23 in the order above; children are numbered in their table order. Remapping `shop=mobile_phone`, `shop=computer` and `shop=electronics` only moves **unclaimed** OSM rows on the next import (claimed rows are never touched).
 
 ## Search query
 
@@ -303,8 +408,11 @@ Inputs: `lat`, `lng`, `radius_m`, optional `category_id` (matches the category o
 1. Filter: `ST_DWithin(location, point, radius_m)` and `status = 'verified'`. With `include_unverified`, the status filter is `status IN ('verified', 'unverified', 'pending')` instead. `rejected` never matches.
    With `max_price`: `price_amount <= max_price AND price_unit = :unit AND price_currency = :currency` (no structured price = left out). With `open_now`: today's ranges in `opening_hours` (Beirut day and "HH:MM" time) contain the current minute, OR `available_until > now` (marked "Available now"); no hours and not available = left out. With `available_now`: `available_until > now`.
 2. Compute `distance_m = ST_Distance(location, point)`.
+   With `q` (text search, 2026-11-24): keep a provider when `normalize_name(name)` contains `normalize_name(q)`, OR its category or that category's parent matches (normalized `name_en`, `name_ar` or an element of `aliases` contains the normalized `q`, or `similarity()` of `q` with the normalized `name_en`/`name_ar` is 0.4 or more), OR `normalize_name(area_name)` contains it.
 3. Order by:
+   0. with `q` only: providers whose name matches come first;
    1. verified first: every verified provider comes before every non-verified one;
+   1b. among non-verified providers, those with a `phone` or `whatsapp` come before those with neither (OSM listings often have no number);
    2. featured first. Only counts for verified providers: a `featured_until` date on a non-verified one is ignored;
    3. weighted rating, descending: `(review_count * avg_rating + 5 * 3.5) / (review_count + 5)`. This stops one 5-star review from outranking fifty 4.8-star reviews;
    4. `distance_m`, ascending;

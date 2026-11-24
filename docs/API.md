@@ -155,7 +155,7 @@ A provider can be listed without being verified.
 | `lat`, `lng` | float | required |
 | `radius_m` | int | required, 100 to 50000. App chips: 500, 1000, 5000, 20000 ("city") |
 | `category_id` | int | optional; includes child categories |
-| `q` | string | optional, 2 to 60 characters; keeps providers whose name contains it (case-insensitive). Works together with `category_id`. |
+| `q` | string | optional, 2 to 60 characters. Keeps providers where **any** of these match (all compared after `normalize_name()`, so Arabic letter forms, case and accents don't matter): the provider's name contains `q`; or the provider's category or its parent matches `q` (its `name_en`, `name_ar` or one of its `aliases` contains `q`, or is similar to it with pg_trgm `similarity() >= 0.4`, so "sankari", "سنكري" and "plumbr" find plumbers); or `area_name` contains `q`. Works together with `category_id` (both must hold). Providers whose name matches come first (see the order below). |
 | `include_unverified` | bool | default `false`: verified providers only. `true`: also `unverified` and `pending` ones (never `rejected`). |
 | `max_price` | number | optional (> 0); keeps only providers with a structured price `price_amount <= max_price`. Needs `price_unit`; `price_currency` defaults to `USD`. Providers without a structured price are left out when this is set. |
 | `price_unit` | string | `hour`, `visit`, `job`, `item`, `month`; required with `max_price` (422 without it), ignored without it |
@@ -163,10 +163,10 @@ A provider can be listed without being verified.
 | `open_now` | bool | default `false`; `true` keeps providers whose opening hours say open now (Beirut time), and also providers marked "Available now" (with or without hours). Other providers with no hours are left out. |
 | `available_now` | bool | default `false`; `true` keeps only providers marked "Available now" (`available_until` in the future). |
 | `sort` | string | `best` (default, the order below) or `distance` (nearest first; verified still before non-verified) or `price` (cheapest structured price first, then the default order) |
-| `limit` | int | default 30, max 100 |
+| `limit` | int | default 20, max 100. The app pages 20 at a time (`offset` 0, 20, 40…) and asks for up to 100 for the map. |
 | `offset` | int | default 0 |
 
-Response: `{"items": [ProviderSummary], "total": n}`. Order (`sort=best`): all verified providers before all non-verified ones; inside each group featured first, then weighted rating, then distance (see `SCHEMA.md`). Featured placement only counts for verified providers. `sort=price` compares the amount only (providers without a structured price last), so it is most useful together with `max_price`, which fixes the unit and currency.
+Response: `{"items": [ProviderSummary], "total": n}`. `total` counts every match, so the app can show "Showing 20 of 1,240" and knows when to stop loading. Order (`sort=best`): with `q`, providers whose **name** matches come first; then all verified providers before all non-verified ones; among non-verified ones, those with a phone or WhatsApp before those without; inside each group featured first, then weighted rating, then distance (see `SCHEMA.md`). Featured placement only counts for verified providers. `sort=price` compares the amount only (providers without a structured price last), so it is most useful together with `max_price`, which fixes the unit and currency.
 
 ### `POST /assist` (assistant, see `AI_ASSISTANT.md`)
 
