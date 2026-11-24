@@ -45,6 +45,8 @@ Status: `todo`, `doing`, `done`, `blocked`. Update the status when a task change
 | B27 | Production database live on Supabase: extensions in `extensions`, own login role `haddak_api` with timeouts, migrations 0001–0014 applied (0013 fixed function search path, 0014 full category tree), OpenStreetMap listings for all of Lebanon imported, Security Advisor clean. Render blueprint (`render.yaml`), EAS build profiles (`mobile/eas.json`), encrypted weekly backup workflow, mobile CI, formatting and dependency audit in backend CI, Dependabot, runbook `docs/DEPLOY.md`. | done | `test_db_security.py`, `test_categories_migration.py`; production image run against the live database |
 | B29 | Launch requirements and operations: `DELETE /me` (everything about a user, sign-in account through `haddak_private.delete_auth_user`), "Account and privacy" screen in the app (policy links, delete with confirmation, deletes the user's Storage files first), `/privacy`, `/terms`, `/delete-account` pages (Arabic and English), Sentry crash reports (optional, scrubbed), security headers (nosniff, HSTS), `scripts/smoke_test.py`, uptime workflow, migration 0015 (indexes) | done | `test_account_deletion.py`, `test_legal_and_ops.py`; 693 passed; deletion tested on the live database with a throwaway sign-in account; production image smoke-tested against the live database |
 | B30 | Move to Frankfurt: new Supabase project `wamwmhanxqvftrwqlyfh`, same setup, data copied, sign-in settings pushed (6-digit codes, Site URL, redirect URLs), Render region Frankfurt, app and docs switched | done | Search 0.8 s from Lebanon instead of 2.5 s; deletion tested on the new database |
+| B31 | Scope widening (2026-11-24): text search `q` across business names, category names and aliases (Arabic, English, Arabizi, typos via trigram similarity) and area names (migration 0016); paging 20 at a time (`limit`/`offset`, "Showing 20 of N"); category tree v2, 58 → 143 categories with aliases (migration 0017, same tree in `scripts/seed.py`) | doing | Tests for text search, paging and `test_categories_migration.py` pass |
+| B32 | OpenStreetMap re-import with the v2 mapping (new shop, food and service tags; phone/computer/electronics remap): local database first, then production | doing | Local import checked by eye on the map; then production import, claimed rows untouched |
 | B28 | Founder: Render account + deploy, Gmail SMTP + email template + Supabase URLs, backup secrets on GitHub, Expo account + first APK (`docs/DEPLOY.md`, steps 1–4, plus `CONTACT_EMAIL`, optional `SENTRY_DSN`, and the `API_URL` repository variable for the uptime check) | todo | |
 
 ## Mobile (mobile subagent) — works in `mobile/` only
@@ -67,10 +69,11 @@ Design comes first and uses the installed design plugins (`impeccable`, `design:
 | M7e | Real sign-in by email link (PKCE callback) | built, awaiting phone test | Link round trip on a phone |
 | M7f | "Available now" switch in My business, mint tag on cards and profile, filter pill on Results | built (mock web checked) | Works on a phone against the backend |
 | M7g | Poster screen (`app/poster/[slug].tsx`): business and building (natour) variants, English and Arabic side by side; from the share sheet and My business. A4 PDF needs `expo-print` (not installed) | built (mock web checked) | Printed poster scans |
-| M7h | Microphone for the assistant (needs a development build) | doing (other session) | Speech reaches the assistant on a phone |
+| M7h | Voice in Jarak: microphone through `expo-speech-recognition` (tries `ar-LB`, then `ar`), answers read aloud through `expo-speech`. Hidden in Expo Go, because speech recognition needs native code | built, awaiting the EAS preview build (founder task F6) | On the preview build: speak a request in Lebanese Arabic, it reaches Jarak, the answer is read aloud |
 | M7i | Show everyone by default ("Verified only" off), "Not verified yet" divider in Results; claim card and sheet on unclaimed profiles; OSM attribution; no WhatsApp/Call without a number | built (tsc and lint clean), awaiting phone test | Claim reaches the admin page; approved listing shows in My business |
 | M8 | English and Arabic strings, right-to-left layout, UX copy pass (`design:ux-copy`) | doing (assistant block moved to the Lebanese tone of the rest on 2026-11-16) | Switching language flips layout correctly |
 | M9 | Design critique, accessibility review, polish pass | todo | Findings fixed or listed |
+| M10 | Scope widening (2026-11-24): search bar first on Home (names, kinds of business, areas), "All categories" screen for the 143-category tree with instant filtering on `aliases`, Results paging 20 at a time with "Showing 20 of N", map pins clustered, "wider radius" offer instead of an empty screen | doing | Works on a phone against the backend with the v2 tree |
 
 ## Founder
 
@@ -81,6 +84,16 @@ Design comes first and uses the installed design plugins (`impeccable`, `design:
 | F3 | Install Expo Go on an Android phone for testing | done |
 | F4 | Pick the first area and 3–4 starting categories; list the first 20 providers to approach | todo |
 | F5 | Create a Claude API key (console.anthropic.com) with a spending limit; put it in `backend/.env` as `ANTHROPIC_API_KEY`; then run `python scripts/eval_assist.py` once (well under $1) | todo |
+| F6 | Make the EAS preview build to see and test voice in Jarak (M7h): in `mobile/`, run `npx -y eas-cli build -p android --profile preview`, install the APK, test the microphone and read-aloud | todo |
+
+## Fair price ("Is this price fair?", spec in `FAIR_PRICE.md`)
+
+| # | Task | Owner | Status | Check |
+|---|---|---|---|---|
+| P0 | Founder survey, waves 1–5 (~42 jobs × 5 regions × 5 businesses), in a private copy of `docs/price-survey/price_survey_template.csv`; about four weekends (`FAIR_PRICE.md` section 6). **Can start now**, no code needed | founder | todo | Each wave-1 job has 5+ prices in each region, or is marked thin |
+| P1 | Show survey and business prices: `price_jobs`, `price_survey` and import script, `places.region`, summary endpoint, "Usual prices here" in the app, owner price level at claim and in My business, official generator tariff card and MOPH link on pharmacy pages (ideas 21, 22). `SCHEMA.md` and `API.md` first | backend, mobile | todo | Tests for medians, minimum count, window and regions; RLS on every new table |
+| P2 | "How much did you pay?" after "Yes, I hired them" (`price_reports`), "Customers say", "The price didn't match" report with owner notice (`price_mismatch_reports`), admin list of flagged answers; `DELETE /me` covers the new tables | backend, mobile | todo | Tests: only hired users answer, one answer each, hard limits, 3 reporters in 90 days |
+| P3 | "Fair price" badge and its ranking boost, Jarak `price_check` answers, public price pages | backend, mobile | todo | Badge rules tested; Jarak never gives a number the database did not |
 
 ## Open (not started)
 

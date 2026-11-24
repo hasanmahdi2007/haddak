@@ -1,0 +1,4 @@
+date,region,area,category_slug,job_slug,business_name,source,source_link,price,currency,unit,notes
+2026-12-05,Beirut,Hamra,plumber,plumber.unblock-sink,Example Plumbing,whatsapp,,20,USD,job,EXAMPLE ROW - delete before use. Quoted on WhatsApp; parts not needed
+2026-12-05,South,Nabatieh,shawarma-manakish,shawarma-manakish.manousheh-zaatar,Example Bakery & Manakish,instagram,https://example.com,90000,LBP,item,EXAMPLE ROW - delete before use. From a menu post dated Nov 2026
+2026-12-06,Bekaa,Zahle,mechanic,mechanic.front-brake-pads,Example Garage,phone,,45,USD,job,EXAMPLE ROW - delete before use. Common sedan; standard pads; fitted

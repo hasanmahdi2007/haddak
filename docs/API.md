@@ -135,7 +135,7 @@ A provider can be listed without being verified.
 | Method and path | Purpose |
 |---|---|
 | `GET /health` | `{"status": "ok"}`. Also checks the database connection; 503 if it is down. |
-| `GET /categories` | All categories, ordered by `sort_order`. Flat list; the app builds the tree from `parent_id`. |
+| `GET /categories` | All categories, ordered by `sort_order`. Flat list; the app builds the tree from `parent_id`. Each item: `id`, `slug`, `name_en`, `name_ar`, `icon`, `parent_id`, `sort_order`, and `aliases` (list of extra search words, 2026-11-24) so the "All categories" screen can filter instantly on the phone. |
 | `GET /providers/search` | Radius search. See below. |
 | `GET /providers/{id}` | `ProviderDetail`. Optional `lat`, `lng` to get `distance_m`. 404 if unknown or rejected. |
 | `GET /providers/by-slug/{slug}` | Same as above, by share code. |

@@ -208,6 +208,8 @@ Ideas are grouped by theme. Two are marked as gimmicks. Several more are marked 
 
 #### 9. "Is this price fair?" (السعر منيح؟): the signature feature
 
+**Full spec: [`FAIR_PRICE.md`](FAIR_PRICE.md)** (research, design, regions, the data sheet for all 143 categories, the survey method, schema sketch and phases). This section is the short version.
+
 Expanded 2026-11-24 after a talk with the founder. This is the one feature that sets Haddak apart from Toters and the booking apps. Toters brings you things; Haddak finds you the right person, at a fair price.
 
 - **What:**
@@ -380,6 +382,28 @@ Jarak AI already uses Claude Haiku 5.5 at about $0.10 per million input tokens a
 - **Revenue or growth:** It brings users back without ads and sends repeat jobs to the same provider. That kind of repeat use is what made Urban Company work.
 - **Main risk:** Annoyance. Reminders are opt-in only, with one tap to stop.
 
+### J. Official prices (added 2026-11-24)
+
+Lebanon sets a few prices by law. Showing them is cheap, trusted and useful every month. Details and sources in `FAIR_PRICE.md` section 5.G.
+
+#### 21. Official generator tariff card in the Power group
+
+- **What:** A card at the top of the Power group and on every `generator` listing: "Official generator price for November: $0.xx per kWh (Ministry of Energy and Water, [date])", with a link to the source. The founder updates it by hand once a month in the admin page. Later, Jarak answers "how much should my generator bill be for 300 kWh?" from it.
+- **Why Lebanon:** State power is about four hours a day, and the generator bill is one of the biggest household costs. The Energy Ministry sets the kWh price every month ([L'Orient Today](https://today.lorientlejour.com/article/1546224/generator-rates-in-lebanon-at-highest-since-april.html): about $0.45 for July 2026, about $0.54 later in 2026), and operators in remote areas may add up to 10% (as reported; verify). Many people do not know the month's figure, so they cannot check their bill.
+- **Effort:** S. One `official_prices` row per month and a card (see the schema sketch in `FAIR_PRICE.md`).
+- **Revenue or growth:** A reason to open Haddak every month, and very shareable ("this month's generator price") at bill time. Draws people into the Power group, the launch wedge (idea 1).
+- **Main risk:** A wrong or late figure. Always show the date and the source link; never show a figure that has not been checked at the source.
+
+#### 22. MOPH drug price link on pharmacy pages
+
+- **What:** Every `pharmacy` page shows "Check official medicine prices" linking to the Ministry of Public Health's [Drugs Public Price List](https://www.moph.gov.lb/en/DynamicPages/index/3/37424/drugs-public-price-list-). Haddak stores no medicine prices of its own.
+- **Why Lebanon:** Medicine prices are set by the ministry and re-issued with the exchange rate (the list was updated on 19/11/2026 under the rate issued on 11/11/2026). People worry about paying more than the official price, and the list is hard to find.
+- **Effort:** S. A link on one category's pages.
+- **Revenue or growth:** Trust. It shows Haddak is on the customer's side without accusing anyone.
+- **Main risk:** The ministry moves the page. Check the link monthly with the generator update.
+
+**Never medicine delivery.** In June 2026 the Order of Pharmacists warned against buying medicine through delivery apps and pursued pharmacies selling that way ([An-Nahar](https://www.annahar.com/lebanon/315891/%D9%86%D9%82%D8%A7%D8%A8%D8%A9-%D8%B5%D9%8A%D8%A7%D8%AF%D9%84%D8%A9-%D9%84%D8%A8%D9%86%D8%A7%D9%86-%D8%AA%D8%AD%D8%B0%D8%B1-%D9%85%D9%86-%D8%B4%D8%B1%D8%A7-%D8%A7%D9%84%D8%A3%D8%AF%D9%88%D9%8A%D8%A9-%D8%B9%D8%A8%D8%B1-%D8%AA%D8%B7%D8%A8%D9%8A%D9%82%D8%A7%D8%AA-%D8%A7%D9%84%D8%AA%D9%88%D8%B5%D9%8A%D9%84-%D8%A7%D9%84%D8%AF%D9%8A%D9%84%D9%8A%D9%81%D8%B1%D9%8A), [Al-Modon](https://www.almodon.com/economy/2026/06/02/%D9%86%D9%82%D8%A7%D8%A8%D8%A9-%D8%A7%D9%84%D8%B5%D9%8A%D8%A7%D8%AF%D9%84%D8%A9-%D8%AA%D9%84%D8%A7%D8%AD%D9%82-%D8%B5%D9%8A%D8%AF%D9%84%D9%8A%D8%A7%D8%AA-%D8%AA%D8%A8%D9%8A%D8%B9-%D8%A7%D9%84%D8%A3%D8%AF%D9%88%D9%8A%D8%A9-%D8%B9%D8%A8%D8%B1-%D8%A7%D9%84%D8%AF%D9%8A%D9%84%D9%8A%D9%81%D8%B1%D9%8A)). Haddak never adds medicine delivery, ordering or medicine prices of its own, whatever other categories do later. A pharmacy page shows the pharmacy, its hours, contact, and the MOPH link.
+
 ---
 
 ## 5. All ideas at a glance
@@ -394,7 +418,7 @@ Jarak AI already uses Claude Haiku 5.5 at about $0.10 per million input tokens a
 | 6 | "Did you hire them?" | Trust, monetisation | S | High | Core |
 | 7 | Quote, receipt and warranty cards | Trust, provider tool | M | Medium | Test |
 | 8 | Haddak Promise | Trust | S + L ops | Medium | Later |
-| 9 | "Is this price fair?" | Trust, growth | S→M | High | Signature (after closed test; survey starts now) |
+| 9 | "Is this price fair?" (spec: `FAIR_PRICE.md`) | Trust, growth | S→M | High | Signature (after closed test; survey starts now) |
 | 10 | Family circle | Older users, diaspora | M | Medium | Test |
 | 11 | Book for family from abroad | Diaspora, revenue | L | High (if it works) | Concierge test first |
 | 12 | Available now and emergency mode | Crisis | S–M | Medium–high | Core |
@@ -406,6 +430,8 @@ Jarak AI already uses Claude Haiku 5.5 at about $0.10 per million input tokens a
 | 18 | Points and leaderboards | Engagement | S | Negative | Gimmick |
 | 19 | AI voice agent | AI | L | Low | Gimmick |
 | 20 | Seasonal maintenance reminders | Retention | S | Medium–high | Core |
+| 21 | Official generator tariff card | Trust, retention | S | Medium–high | Core (verify each month's figure) |
+| 22 | MOPH drug price link on pharmacy pages | Trust | S | Medium | Core |
 
 A note on what is already built: stories, follows and offer banners are fine to keep, but they only matter once an area has dense supply and repeat users. Do not spend more time on them before the metrics in section 7 move.
 
