@@ -30,6 +30,7 @@ Current: 0 real providers (app not released). Seed data only.
 **What:**
 - The three audit commits (backend, app, docs) were pushed. GitHub checks passed, Render deployed, and the start-up migrations brought production from 0015 to 0019.
 - `storage_setup.sql` was re-run on the live project, so uploads are now capped at 100 photos and 10 proof files per user.
+- Supabase "Enforce SSL" was turned on with the CLI; `/api/v1/health` was still ok afterwards.
 - Founder decision: a verified profile goes back to `pending` (badge hidden until the founder checks again) when the owner changes the name, category, phone or WhatsApp. Location, photos, description, hours and prices keep the badge. The edit form tells verified owners this before they save.
 - Supabase Pro: not planned for now (founder decision); the free plan plus the GitHub backup workflow cover the start.
 
