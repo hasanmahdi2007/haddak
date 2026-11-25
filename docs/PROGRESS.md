@@ -25,6 +25,15 @@ Current: 0 real providers (app not released). Seed data only.
 
 ## Log
 
+### 2026-11-25 — Price estimates for all jobs; full security, reliability and app audit, fixed
+
+**Why:** the founder asked for estimated prices for every job and region, and for the system to have no known vulnerabilities or weak engineering before real users.
+- **Price estimates:** `docs/price-survey/price_estimates_2026-11.csv`, 342 jobs × 5 regions (1,710 rows) from public web research, waiting for the founder's approval row by row (`FAIR_PRICE.md` §6.5). Beirut rows: 9 high confidence (official fuel, gas and generator prices), 31 medium, 302 low; only 26 rows have real regional evidence, the rest use the default regional factors. Not survey data and never shown as such.
+- **Audit:** three independent reviews (backend security against OWASP API Top 10, system design and reliability, mobile app against MASVS). Found 0 critical, 6 high, about 23 medium. All code-level findings fixed (task board B33, B34, M11). Key ones: sign-in links could sign a phone into someone else's account (now PKCE code only; `/auth/open` only `haddak://` in production); no limits on public reads; a JWKS hiccup could freeze the API and sign everyone out (now last-good keys, 503); the app gave up during Render's cold start (now warm-up, retries, "Waking up the server"); Android release builds had no Maps key (now from an EAS variable with a fallback); photos could come from any server (now only our Storage, both sides); pool and timeouts unset; backups miss accounts and photos (runbook now says so; role setup committed).
+- **Not done, needs the founder:** paid plans (Render Starter, Supabase Pro), dashboard settings, the Maps key, and product decisions (task board F8, F9). Mobile crash reporting (Sentry) skipped: the package added `npm audit` findings and needs an auth token.
+- **Checked:** backend `pytest` 856 passed (770 before), `ruff check` and `ruff format --check` clean, one Alembic head (0019), `docker build` OK; mobile `tsc`, `expo lint`, `expo-doctor` 20/20, `npm audit` 0; app flows checked in the web build in mock mode. **Not checked:** anything on a phone (encrypted storage, map fallback, retries against a sleeping server), migrations 0016–0019 on production (not applied).
+- **Important before the next deploy:** production now refuses to start without `?sslmode=require` on `DATABASE_URL` and without `SUPABASE_URL` (`DEPLOY.md`).
+
 ### 2026-11-21 (evening) — Moved to Frankfurt; API live on Render
 
 **Why:** the Seoul database made every search take about 2.5 s from Lebanon (about seven round trips of 250 ms). With no real users yet, moving was cheap.

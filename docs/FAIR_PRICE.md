@@ -847,6 +847,15 @@ Four weekends is the honest estimate. The North and Bekaa will be the hardest to
 - A small "How we get these prices" link explaining: Haddak asked businesses directly and read public price lists; customers' answers replace the survey as they come in.
 - Survey numbers are hidden after 6 months unless refreshed.
 
+### 6.5 Desk estimates (November 2026, awaiting founder approval)
+
+`docs/price-survey/price_estimates_2026-11.csv` holds a first estimate for every job in section 5 (342 jobs × 5 regions = 1,710 rows), made from public web sources on 2026-11-25. Columns: `low`, `typical`, `high` (USD), `confidence`, `basis`, `notes`, `sources`, and an empty `approved` column for the founder.
+
+- **What it is:** a starting point for the founder to approve or reject, row by row. Of the 342 Beirut rows, 9 are `high` confidence (mostly official fuel and generator prices), 31 `medium`, 302 `low`. Public Lebanese price data for trades, lessons and services barely exists (as section 2.2 expected), so most rows are informed judgment.
+- **Regions:** 1,251 of the 1,710 rows come from the Beirut figure times default factors (`basis = regional-factor`: 0.95 Mount Lebanon, 0.80–0.90 North, South, Bekaa for labour and food; about 1.0 for nationally priced goods). Only 26 rows have real regional evidence.
+- **What it is not:** it is not survey data and not customer data. It never appears in the app as "Haddak survey" or "What customers paid" (section 3.2). Approved rows may be used as an anchor (the range shown next to the price-level choice at claim, section 3.6), to check survey answers, and to tighten the sanity ranges. Showing them to users needs its own label and a founder decision first.
+- **Spec notes found during the research:** the hall rental sanity maximum ($10,000) is below some reported prices; 5.G has no slug for Alfa/touch recharge cards; generator tariffs: the ministry sets both the kWh price and the fixed fee per amp level, and the remote-area +10% still applies (October 2026 tariff); fuel tables come out about twice a week.
+
 ---
 
 ## 7. Schema sketch (not built yet)

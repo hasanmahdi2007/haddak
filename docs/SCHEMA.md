@@ -70,6 +70,9 @@ CREATE TABLE providers (
 );
 CREATE INDEX providers_location_idx ON providers USING GIST (location);
 CREATE INDEX providers_category_status_idx ON providers (category_id, status);
+-- Text search (q): "normalize_name(name) LIKE '%text%'" can use these (0019).
+CREATE INDEX providers_name_trgm_idx ON providers USING GIN (normalize_name(name) gin_trgm_ops);
+CREATE INDEX providers_area_name_trgm_idx ON providers USING GIN (normalize_name(area_name) gin_trgm_ops);
 
 CREATE TABLE reviews (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -87,9 +90,35 @@ CREATE TABLE contact_events (
     id           BIGSERIAL PRIMARY KEY,
     provider_id  UUID NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
     type         TEXT NOT NULL CHECK (type IN ('view', 'whatsapp', 'call')),
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- 0018: true only for a signed-in user's first whatsapp/call tap on this
+    -- provider that UTC day; the public "contacts this month" counts only these.
+    counts_publicly BOOLEAN NOT NULL DEFAULT false
 );
 CREATE INDEX contact_events_provider_time_idx ON contact_events (provider_id, created_at);
+
+-- "Same tap twice" keys (migration 0018), so the rules survive restarts.
+-- key_hash = HMAC-SHA256 (keyed with ASSIST_QUOTA_SECRET) of
+--   'repeat:<user:id | ip:address>:<provider>:<type>'  (10 minutes) or
+--   'public:<user id>:<provider>:<UTC date>'            (2 days).
+-- No user id or IP address is stored in clear. Expired rows are deleted a
+-- few at a time by the API on each new contact event.
+CREATE TABLE contact_event_dedup (
+    key_hash    TEXT PRIMARY KEY,
+    expires_at  TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX contact_event_dedup_expires_idx ON contact_event_dedup (expires_at);
+
+-- Monthly totals of old contact events (migration 0019). scripts/retention.py
+-- adds up contact_events rows older than the last 3 full months into this
+-- table and deletes them, so the history stays as totals (see "Retention").
+CREATE TABLE contact_event_months (
+    provider_id  UUID NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+    month        DATE NOT NULL CHECK (EXTRACT(DAY FROM month) = 1),  -- first day of the month (UTC)
+    type         TEXT NOT NULL CHECK (type IN ('view', 'whatsapp', 'call')),
+    count        INTEGER NOT NULL CHECK (count >= 0),
+    PRIMARY KEY (provider_id, month, type)
+);
 
 -- "I know a good provider who is not on Haddak": sent by anyone, read by the admin.
 -- Deliberately no user id and no IP address.
@@ -147,6 +176,8 @@ CREATE TABLE stories (
     expires_at   TIMESTAMPTZ NOT NULL                -- created_at + 24 hours
 );
 CREATE INDEX stories_provider_expires_idx ON stories (provider_id, expires_at);
+-- The nearby feed asks "expires_at > now" across all providers (0019).
+CREATE INDEX stories_expires_idx ON stories (expires_at);
 
 -- A provider's current offer ("weekly banner", "discount"). At most one row
 -- per provider: the provider id is the primary key, a new banner replaces the old.
@@ -228,7 +259,7 @@ CREATE TABLE assist_log (
 CREATE INDEX assist_log_created_idx ON assist_log (created_at);
 ```
 
-Migrations: `0001` created the first four tables; `0002` added `providers.show_contact_count`, `providers.opening_hours` and the `provider_suggestions` table; `0003` added the `unverified` status, made `providers.owner_user_id` nullable, and added `providers.source`, `provider_suggestions.lat` / `lng` and the `provider_reports` table; `0004` added `providers.sponsor_hook` and the `stories`, `banners` and `follows` tables; `0005` added `providers.price_amount`, `price_unit` and `price_currency`; `0006` added `pg_trgm`, `normalize_name()`, the `places` table with its first rows, and the `assist_cache` and `assist_log` tables; `0007` added the `hire_checks` table; `0008` added `providers.available_until`; `0009` added categories (power, appliance repair, pharmacy); `0010` added `source = 'osm'`, `providers.osm_ref`, made `providers.phone` nullable for `osm` rows only, added the `remove_my_business` report reason and the `claims` table; `0016` adds `categories.aliases` and trigram indexes on the category names; `0017` adds 85 categories (tree v2, below) and aliases for all of them.; `0016` adds `categories.aliases` and trigram indexes on the category names; `0017` adds 85 categories (tree v2, below) and aliases for all of them.
+Migrations: `0001` created the first four tables; `0002` added `providers.show_contact_count`, `providers.opening_hours` and the `provider_suggestions` table; `0003` added the `unverified` status, made `providers.owner_user_id` nullable, and added `providers.source`, `provider_suggestions.lat` / `lng` and the `provider_reports` table; `0004` added `providers.sponsor_hook` and the `stories`, `banners` and `follows` tables; `0005` added `providers.price_amount`, `price_unit` and `price_currency`; `0006` added `pg_trgm`, `normalize_name()`, the `places` table with its first rows, and the `assist_cache` and `assist_log` tables; `0007` added the `hire_checks` table; `0008` added `providers.available_until`; `0009` added categories (power, appliance repair, pharmacy); `0010` added `source = 'osm'`, `providers.osm_ref`, made `providers.phone` nullable for `osm` rows only, added the `remove_my_business` report reason and the `claims` table; `0011` added the `assist_quota` table; `0012` turned on Row Level Security everywhere and took every privilege from Supabase's `anon` and `authenticated` roles; `0013` fixed the search path of `normalize_name()`; `0014` added the category tree (`categories.parent_id` groups); `0015` added indexes for `DELETE /me` and two foreign keys; `0016` added `categories.aliases` and trigram indexes on the category names; `0017` added 85 categories (tree v2, below) and aliases for all of them; `0018` added `contact_event_dedup` and `contact_events.counts_publicly`; `0019` added trigram indexes on `normalize_name(providers.name)` and `normalize_name(providers.area_name)`, an index on `stories (expires_at)` (all three built `CONCURRENTLY`) and the `contact_event_months` table.
 
 ### `providers.status`
 
@@ -283,7 +314,7 @@ A missing day (or an empty list) means closed that day. `NULL` for the whole col
 - `sponsor_hook` is written by the owner, but the public only receives it while the provider is sponsored.
 - Stories and banners: only the owner of a `verified` provider may post. A story is active while `expires_at > now` (24 hours); at most 5 active stories per provider. A banner is active while `starts_at <= now < expires_at`; one per provider. Expired rows are filtered out by time, never deleted by a job. Posts of a provider that is no longer `verified` are hidden everywhere public.
 - Follows: any signed-in user may follow any public (not `rejected`) provider. Rejected providers are left out of the following list and the feed.
-- Contact events are always counted. The public sees a provider's monthly contact count (`whatsapp` + `call`, never views) only when that provider set `show_contact_count`.
+- Contact events are always counted. The public sees a provider's monthly contact count (`whatsapp` + `call`, never views) only when that provider set `show_contact_count`, and it counts only rows with `counts_publicly` (signed-in taps, one per user per provider per UTC day). The same caller (user id when signed in, else IP, IPv6 by /64), provider and type is stored at most once per 10 minutes (`contact_event_dedup`).
 - "Open now" is computed from `opening_hours` in the `Asia/Beirut` timezone; it is not stored.
 - Suggestions and reports are anonymous: no user id and no IP address is stored with them.
 - Claims are only for listings with `owner_user_id IS NULL`; at most one `pending` claim per user and listing; a user who already owns a profile cannot claim another.
@@ -294,11 +325,24 @@ A missing day (or an empty list) means closed that day. `NULL` for the whole col
 - Every function in `public` has a fixed search path (migration 0013): **a migration that creates a function must give it `SET search_path = ''`** and call only built-in or schema-qualified functions; `tests/test_db_security.py` fails otherwise.
 - The category tree is reference data that comes from the migrations (0009, 0014, 0017), so the hosted database, which is never seeded, has it too. **Changing a category needs a new migration and the same change in `scripts/seed.py`'s `CATEGORIES`**; `tests/test_categories_migration.py` fails when the two disagree.
 - Migration 0015 adds `reviews (user_id)`, `claims (user_id)` (for `DELETE /me`), `categories (parent_id)` and `provider_suggestions (category_id)` (foreign keys the Performance Advisor listed).
-- On Supabase only, schema `haddak_private` holds `delete_auth_user(uuid)` (`supabase/delete_auth_user.sql`, applied by hand as `postgres`): a `security definer` function that deletes one `auth.users` row, executable only by `haddak_api`. It is not in a migration because `haddak_api` may not touch `auth`; the backend checks it exists and skips it locally.
+- On Supabase only, schema `haddak_private` holds `delete_auth_user(uuid)` (`supabase/delete_auth_user.sql`, applied by hand as `postgres`): a `security definer` function that deletes one `auth.users` row, executable only by `haddak_api`. It is not in a migration because `haddak_api` may not touch `auth`; the backend checks it exists and skips it locally, but **in production it refuses** (`DELETE /me` answers 503 and deletes nothing) and logs an error, so a rebuilt database without the function cannot silently leave sign-in accounts behind.
 - On Supabase the tables are owned by the role `haddak_api` that the backend logs in as (see `DEPLOY.md`); locally they are owned by `haddak`.
 - Place lookup: exact match on `normalize_name()` of `name_en`, `name_ar` or an alias first; otherwise the best `similarity()` of 0.35 or more. Several rows are returned only when they share the English name (same name, different districts).
 - Publishing a suggestion creates the provider and deletes the suggestion in one transaction.
 - Hire checks ("Did you hire them?"): a `whatsapp` or `call` contact event sent with a valid login token creates a `hire_checks` row, unless the same user already has one for that provider with `contacted_at` in the last 7 days (answered or not), or the user owns the provider. Only that user may answer, and only once. A review is "hired through Haddak" when its author has a `hired` answer for that provider (computed when read, so a review written later also counts). `confirmed_hires` = `hired` answers with `answered_at` in the last 90 days. `no_answer` answers are shown to the admin only. Search ranking does not use hire checks yet.
+
+## Retention
+
+Some tables only ever grow. `backend/scripts/retention.py` (a dry run by default; `--apply` changes the database, in one transaction) keeps them small. The founder runs it about once a month (`DEPLOY.md`, "Keeping the database small"); nothing runs it automatically, because there are no background jobs in version 1.
+
+| Table | Rule | Why this is safe |
+|---|---|---|
+| `stories` | Rows that expired more than 30 days ago are deleted. | Nothing shows an expired story; the feed and the profile filter on `expires_at > now`. |
+| `assist_log` | Rows older than 180 days are deleted. | The spending caps read only the current day and month; the "most wanted" list is about recent searches. |
+| `contact_events` | **Monthly roll-up** (the choice, 2026-11-25): rows older than the current month plus the 3 full months before it are added up into `contact_event_months` (one row per provider, month and type) and then deleted. | The owner's stats and the public count read only the current month. The roll-up keeps the history (the evidence for selling featured placement later) at a few rows per provider per month instead of one row per tap. A plain prune was rejected because it would lose that history. |
+| `assist_quota`, `contact_event_dedup` | Already cleaned by the API itself (rows older than two days; expired keys). | |
+
+At about 10 contact events per daily user, raw rows are kept for at most four months, which keeps `contact_events` well under the free plan's 500 MB (`SYSTEM_DESIGN.md` §6, "Free-plan limits").
 
 ## Category tree v2 (migration 0017, 2026-11-24)
 
