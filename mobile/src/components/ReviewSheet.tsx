@@ -1,5 +1,5 @@
 import { Star } from 'lucide-react-native';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { AccessibilityInfo, Pressable, TextInput, View } from 'react-native';
 
 import { api, ApiError, type Review } from '@/api';
@@ -65,6 +65,8 @@ export function ReviewSheet({ providerId, providerName, existing, onClose, onSav
   const [focused, setFocused] = useState<'name' | 'comment' | null>(null);
   const [tried, setTried] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Set at once on the first tap, so a second quick tap (before the button turns busy) does nothing.
+  const inFlight = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   const ratingError = tried && rating === 0 ? s.reviews.ratingRequired : null;
@@ -73,7 +75,8 @@ export function ReviewSheet({ providerId, providerName, existing, onClose, onSav
 
   const save = async () => {
     setTried(true);
-    if (rating === 0 || name.trim().length === 0 || saving) return;
+    if (rating === 0 || name.trim().length === 0 || inFlight.current) return;
+    inFlight.current = true;
     setSaving(true);
     setError(null);
     try {
@@ -87,6 +90,7 @@ export function ReviewSheet({ providerId, providerName, existing, onClose, onSav
     } catch (cause) {
       setError(reviewErrorText(cause, s, f));
     } finally {
+      inFlight.current = false;
       setSaving(false);
     }
   };

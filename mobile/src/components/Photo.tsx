@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { useState } from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { isAllowedImage } from '@/lib/imageHosts';
 import { makeStyles, motion, size, useTheme } from '@/theme';
 
 import { CategoryIcon } from './CategoryIcon';
@@ -16,12 +17,16 @@ interface Props {
   style?: StyleProp<ViewStyle>;
 }
 
-/** A provider photo. Many providers will have none, so the fallback is a designed state. */
+/**
+ * A provider photo. Many providers will have none, so the fallback is a designed state.
+ * Only pictures from our own storage (or still on the phone) are loaded; any other
+ * link shows the fallback (src/lib/imageHosts.ts).
+ */
 export function Photo({ uri, fallbackIcon, fallbackIconSize = size.tileIcon, label, style }: Props) {
   const { colors } = useTheme();
   const styles = useStyles();
   const [failed, setFailed] = useState(false);
-  const showImage = uri !== null && !failed;
+  const showImage = isAllowedImage(uri) && !failed;
 
   return (
     <View
@@ -33,7 +38,7 @@ export function Photo({ uri, fallbackIcon, fallbackIconSize = size.tileIcon, lab
       <CategoryIcon icon={fallbackIcon} color={colors.onAccent} size={fallbackIconSize} />
       {showImage ? (
         <Image
-          source={{ uri }}
+          source={{ uri: uri ?? undefined }}
           style={styles.image}
           contentFit="cover"
           transition={motion.base}

@@ -13,6 +13,7 @@ import { Photo } from '@/components/Photo';
 import { StateView } from '@/components/StateView';
 import { Txt } from '@/components/Txt';
 import { useI18n } from '@/i18n';
+import { isAllowedImage } from '@/lib/imageHosts';
 import { takeStoryQueue } from '@/lib/storyQueue';
 import { timeAgo } from '@/lib/time';
 import { useAsync } from '@/lib/useAsync';
@@ -263,7 +264,8 @@ export default function StoriesScreen() {
 
         {/* The update itself. */}
         <View style={[styles.block, held ? styles.blockHeld : null]}>
-          {story.image_url ? (
+          {/* A picture only from our own storage; any other link is shown as a written update. */}
+          {isAllowedImage(story.image_url) ? (
             <>
               <Image
                 source={{ uri: story.image_url }}

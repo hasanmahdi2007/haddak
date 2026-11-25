@@ -1,4 +1,5 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { api, type ApiError, type Category } from '@/api';
 
@@ -72,20 +73,53 @@ export function searchWords(category: Category): string[] {
   return [category.name_en, category.name_ar, ...(category.aliases ?? [])].map(normalizeText);
 }
 
-/** Loads the categories once for the whole app. */
+/** Where the last list from the server is kept on the phone. */
+const CACHE_KEY = 'haddak.categories.v1';
+
+async function readCache(): Promise<Category[] | null> {
+  try {
+    const raw = await AsyncStorage.getItem(CACHE_KEY);
+    const list: unknown = raw ? JSON.parse(raw) : null;
+    return Array.isArray(list) && list.length > 0 ? (list as Category[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Loads the categories once for the whole app. The last list is also kept on the
+ * phone: Home shows it at once while the fresh one loads (the server may be
+ * waking up), and keeps showing it when the phone is offline.
+ */
 export function CategoriesProvider({ children }: { children: ReactNode }) {
   const { status, data, error, reload } = useAsync(() => api.getCategories(), []);
+  const [cached, setCached] = useState<Category[] | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    void readCache().then((list) => {
+      if (live && list) setCached(list);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (data) AsyncStorage.setItem(CACHE_KEY, JSON.stringify(data)).catch(() => undefined);
+  }, [data]);
 
   const value = useMemo<CategoriesState>(() => {
-    const list = data ?? [];
+    // The fresh list when we have it, else the saved one.
+    const list = data ?? cached ?? [];
     return {
-      status,
-      error,
+      status: list.length > 0 ? 'ready' : status,
+      error: list.length > 0 ? null : error,
       tree: buildTree(list),
       byId: new Map(list.map((category) => [category.id, category])),
       reload,
     };
-  }, [status, data, error, reload]);
+  }, [status, data, cached, error, reload]);
 
   return <CategoriesContext.Provider value={value}>{children}</CategoriesContext.Provider>;
 }

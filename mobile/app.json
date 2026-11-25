@@ -26,7 +26,13 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "app.haddak"
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
+      "package": "app.haddak",
+      "allowBackup": false
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -58,7 +64,8 @@
           "microphonePermission": "Haddak uses the microphone when you tap the Speak button, so you can say what you need instead of typing.",
           "speechRecognitionPermission": "Haddak turns what you say into text so it can find the right person for you."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "scheme": "haddak",
     "experiments": {

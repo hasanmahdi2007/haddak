@@ -19,7 +19,7 @@ import { makeStyles, radius, size, space, useTheme } from '@/theme';
 type LinkIcon = typeof FileText;
 
 /** One row that opens a web page in the browser. */
-function PageLink({ icon: Icon, label, url }: { icon: LinkIcon; label: string; url: string }) {
+function PageLink({ icon: Icon, label, url, onFail }: { icon: LinkIcon; label: string; url: string; onFail: () => void }) {
   const { colors } = useTheme();
   const { row } = useI18n();
   const styles = useStyles();
@@ -27,7 +27,8 @@ function PageLink({ icon: Icon, label, url }: { icon: LinkIcon; label: string; u
     <Pressable
       accessibilityRole="link"
       accessibilityLabel={label}
-      onPress={() => void Linking.openURL(url)}
+      // No browser on the phone (a work profile, a kiosk): say so instead of doing nothing.
+      onPress={() => Linking.openURL(url).catch(onFail)}
       android_ripple={{ color: colors.surfaceTintStrong }}
       style={({ pressed }) => [styles.link, { flexDirection: row }, pressed ? styles.pressed : null]}
     >
@@ -54,6 +55,7 @@ export default function AccountScreen() {
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [linkFailed, setLinkFailed] = useState(false);
 
   const BackIcon = rtl ? ArrowRight : ArrowLeft;
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
@@ -86,10 +88,16 @@ export default function AccountScreen() {
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + space.xxl }]}>
         <View style={[styles.column, styles.sections]}>
           <View style={styles.group}>
-            <PageLink icon={ShieldCheck} label={s.settings.privacyPolicy} url={legalUrl('privacy')} />
+            <PageLink
+              icon={ShieldCheck}
+              label={s.settings.privacyPolicy}
+              url={legalUrl('privacy')}
+              onFail={() => setLinkFailed(true)}
+            />
             <View style={styles.divider} />
-            <PageLink icon={FileText} label={s.settings.terms} url={legalUrl('terms')} />
+            <PageLink icon={FileText} label={s.settings.terms} url={legalUrl('terms')} onFail={() => setLinkFailed(true)} />
           </View>
+          {linkFailed ? <Notice tone="info">{s.common.linkFailed}</Notice> : null}
 
           {auth.status === 'signedIn' ? (
             <View style={styles.danger}>

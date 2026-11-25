@@ -61,17 +61,35 @@ export function uploadMode(): UploadMode {
   return supabase ? 'storage' : 'none';
 }
 
-/** Shrinks the picked image to 1600 px on its long side and returns it as JPEG bytes. */
-async function toJpeg(uri: string): Promise<ArrayBuffer> {
+/** The picked image's size in pixels, as the picker reports it. */
+export interface ImageSize {
+  width: number;
+  height: number;
+}
+
+/** The resize that brings the long side down to LONG_SIDE (one side only keeps the proportions). */
+function shrinkTo(width: number, height: number) {
+  return width >= height ? { width: LONG_SIDE } : { height: LONG_SIDE };
+}
+
+/**
+ * Shrinks the picked image to 1600 px on its long side and returns it as JPEG bytes.
+ * When the picker told us the size, a large photo is resized in the same step that
+ * opens it, so the full-size picture (about 190 MB for a 48 MP photo) is not kept
+ * around for a second step.
+ */
+async function toJpeg(uri: string, known?: ImageSize): Promise<ArrayBuffer> {
   const refs: ImageRef[] = [];
   try {
-    const original = await ImageManipulator.manipulate(uri).renderAsync();
+    const large = known !== undefined && Math.max(known.width, known.height) > LONG_SIDE;
+    const first = large
+      ? ImageManipulator.manipulate(uri).resize(shrinkTo(known.width, known.height))
+      : ImageManipulator.manipulate(uri);
+    const original = await first.renderAsync();
     refs.push(original);
     let image = original;
     if (Math.max(original.width, original.height) > LONG_SIDE) {
-      // Giving only one side keeps the proportions.
-      const resize = original.width >= original.height ? { width: LONG_SIDE } : { height: LONG_SIDE };
-      image = await ImageManipulator.manipulate(original).resize(resize).renderAsync();
+      image = await ImageManipulator.manipulate(original).resize(shrinkTo(original.width, original.height)).renderAsync();
       refs.push(image);
     }
     const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: JPEG_QUALITY, base64: true });
@@ -105,11 +123,26 @@ function base64ToBytes(text: string): ArrayBuffer {
 
 let mockCount = 0;
 
+// Uploads run one at a time, in the order they were asked for. Five photos opened
+// at once can use more memory than a cheap phone has, and the app gets closed
+// with the form half filled.
+let queue: Promise<unknown> = Promise.resolve();
+
+function oneAtATime<T>(task: () => Promise<T>): Promise<T> {
+  const run = queue.then(task, task);
+  queue = run.catch(() => undefined);
+  return run;
+}
+
 /**
  * Uploads one picked image and returns the link to store in the profile.
- * Throws UploadError when it cannot.
+ * Throws UploadError when it cannot. `size` is the picker's width and height, when known.
  */
-export async function uploadImage(kind: UploadKind, uri: string): Promise<string> {
+export function uploadImage(kind: UploadKind, uri: string, size?: ImageSize): Promise<string> {
+  return oneAtATime(() => uploadNow(kind, uri, size));
+}
+
+async function uploadNow(kind: UploadKind, uri: string, size?: ImageSize): Promise<string> {
   const mode = uploadMode();
   if (mode === 'mock') {
     // Mock mode has no storage: a short pause, then a placeholder link.
@@ -129,7 +162,7 @@ export async function uploadImage(kind: UploadKind, uri: string): Promise<string
 
   let bytes: ArrayBuffer;
   try {
-    bytes = await toJpeg(uri);
+    bytes = await toJpeg(uri, size);
   } catch (cause) {
     throw new UploadError('failed', `Could not read the image: ${String(cause)}`);
   }

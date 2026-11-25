@@ -15,8 +15,9 @@ import type {
   TimeRange,
 } from './types';
 
-/** Haret Hreik: the seed area and the fallback when location is unavailable. */
-export const HARET_HREIK = { lat: 33.8547, lng: 35.5097 } as const;
+import { HARET_HREIK } from '@/lib/location';
+
+export { HARET_HREIK };
 
 type CategoryRow = [
   id: number,

@@ -69,6 +69,7 @@ export default function SignInScreen() {
   const [showEmailError, setShowEmailError] = useState(false);
   const [failure, setFailure] = useState<{ kind: AuthFailure; retryAfterS: number | null } | null>(null);
   const [resent, setResent] = useState(false);
+  const [linkFailed, setLinkFailed] = useState(false);
   // When the resend link opens again (ms since 1970), and a clock that ticks once a second until then.
   const [resendAt, setResendAt] = useState(0);
   const [now, setNow] = useState(() => Date.now());
@@ -324,9 +325,10 @@ export default function SignInScreen() {
                 </View>
                 <TextLink
                   label={s.settings.privacyPolicy}
-                  onPress={() => void Linking.openURL(legalUrl('privacy'))}
+                  onPress={() => Linking.openURL(legalUrl('privacy')).catch(() => setLinkFailed(true))}
                   style={styles.policyLink}
                 />
+                {linkFailed ? <Notice tone="info">{s.common.linkFailed}</Notice> : null}
               </>
             ) : (
               <View style={styles.codeBlock}>

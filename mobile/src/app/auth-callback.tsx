@@ -1,7 +1,7 @@
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MailX } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, ActivityIndicator, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -36,6 +36,10 @@ function readFragment(url: string | null): Record<string, string> {
  * It trades the one-time code for a session, then closes. When the sign-in
  * screen is underneath, that screen sees the user is in, closes too and finishes
  * what they were doing. Opened on its own (the app was closed), it goes Home.
+ *
+ * Only the `code` (and Supabase's error) is read; tokens in a link are ignored.
+ * A link opened while someone is already signed in is ignored too, so a link
+ * from someone else can never switch this phone to another account.
  */
 export default function AuthCallbackScreen() {
   const router = useRouter();
@@ -45,19 +49,20 @@ export default function AuthCallbackScreen() {
   const styles = useStyles();
   const auth = useAuth();
   const params = useLocalSearchParams<Params>();
-  // The full link, for the #fragment that older ("implicit") links use.
+  // The full link: Supabase may put the code or its error after `#` instead of `?`.
   const url = Linking.useLinkingURL();
   const [failure, setFailure] = useState<AuthFailure | null>(null);
+  // Decided once per opening: "already signed in, ignore" or "trade the code".
+  const decided = useRef(false);
+  const mounted = useRef(true);
 
   const fragment = readFragment(url);
   const link: SignInLink = {
-    code: params.code,
-    accessToken: fragment.access_token,
-    refreshToken: fragment.refresh_token,
+    code: params.code ?? fragment.code,
     errorCode: params.error_code ?? fragment.error_code,
     errorDescription: params.error_description ?? fragment.error_description,
   };
-  const hasLink = Boolean(link.code || link.accessToken || link.errorCode || link.errorDescription);
+  const hasLink = Boolean(link.code || link.errorCode || link.errorDescription);
 
   const leave = () => {
     if (router.canGoBack()) router.back();
@@ -65,27 +70,35 @@ export default function AuthCallbackScreen() {
   };
 
   useEffect(() => {
-    if (!hasLink) return;
-    let live = true;
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    // Wait until the saved session has been read, to know whether someone is signed in.
+    if (!hasLink || auth.status === 'loading' || decided.current) return;
+    decided.current = true;
+    if (auth.status === 'signedIn') {
+      // Already signed in: never switch accounts because of a link. Most often this
+      // is an old sign-in email tapped again, so nothing needs saying.
+      leave();
+      return;
+    }
     void signInWithLink(link).then((result) => {
-      if (!live) return;
+      if (!mounted.current) return;
       if (result.ok) {
         AccessibilityInfo.announceForAccessibility(s.auth.signedIn);
-        leave();
-      } else if (auth.status === 'signedIn') {
-        // An old link tapped again while already signed in: nothing went wrong.
         leave();
       } else {
         setFailure(result.failure);
         AccessibilityInfo.announceForAccessibility(s.auth.linkFailedTitle);
       }
     });
-    return () => {
-      live = false;
-    };
-    // The link's values are what matter; `link` itself is a new object every render.
+    // The link's values and the sign-in state are what matter; `link` is a new object every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [link.code, link.accessToken, link.refreshToken, link.errorCode, link.errorDescription]);
+  }, [hasLink, auth.status, link.code, link.errorCode, link.errorDescription]);
 
   if (failure || !hasLink) {
     const body =

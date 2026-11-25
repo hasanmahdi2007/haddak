@@ -1,6 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
+
+import { encryptedSessionStorage } from './secureStorage';
 
 /**
  * The Supabase client, used only for signing in (an emailed link, or a 6-digit code).
@@ -27,13 +28,14 @@ function create(): SupabaseClient | null {
   try {
     return createClient(url, anonKey, {
       auth: {
-        // The session (tokens) is kept on the phone, so the user stays signed in.
-        storage: AsyncStorage,
+        // The session (tokens) is kept on the phone, encrypted (src/lib/secureStorage.ts),
+        // so the user stays signed in.
+        storage: encryptedSessionStorage,
         autoRefreshToken: true,
         persistSession: true,
         // PKCE: the emailed link brings back a one-time `code`, and only this phone
         // can trade it for a session (the secret half, the "code verifier", waits
-        // in AsyncStorage above). The auth-callback screen does the trade.
+        // in the storage above). The auth-callback screen does the trade.
         flowType: 'pkce',
         // That screen reads the link itself, so the client must not (it would on the web).
         detectSessionInUrl: false,

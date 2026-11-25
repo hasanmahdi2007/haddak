@@ -2,7 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Store, UserRound, WifiOff } from 'lucide-react-native';
 import { useCallback, useRef, useState } from 'react';
-import { AccessibilityInfo, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { AccessibilityInfo, ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { api, type ProviderSummary, type StoryGroup } from '@/api';
@@ -26,6 +26,11 @@ interface Loaded {
 }
 
 type Load = { status: 'loading' } | { status: 'error' } | { status: 'ready'; data: Loaded };
+
+/** Followed providers come 20 at a time (the founder's paging rule). */
+const PAGE = 20;
+/** The API's largest page (docs/API.md, GET /me/following). */
+const PAGE_MAX = 100;
 
 /**
  * "Following": the updates of the providers you follow, the providers
@@ -81,15 +86,22 @@ function SignedIn() {
 
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [refreshing, setRefreshing] = useState(false);
+  // Loading the next 20 at the end of the list: idle, busy, or failed (with Try again).
+  const [more, setMore] = useState<'idle' | 'loading' | 'error'>('idle');
   // Each load has a number; only the newest one may change the screen.
   const run = useRef(0);
+  // How many providers are on screen, so a reload brings back as many (not just the first 20).
+  const shown = useRef(0);
 
   const fetchAll = useCallback(async (mode: 'first' | 'refresh' | 'quiet') => {
     const mine = ++run.current;
     if (mode === 'refresh') setRefreshing(true);
+    setMore('idle');
+    const limit = mode === 'first' ? PAGE : Math.min(Math.max(shown.current, PAGE), PAGE_MAX);
     try {
-      const [feed, following] = await Promise.all([api.getMyFeed(), api.getMyFollowing({ limit: 100 })]);
+      const [feed, following] = await Promise.all([api.getMyFeed(), api.getMyFollowing({ limit })]);
       if (mine !== run.current) return;
+      shown.current = following.items.length;
       setLoad({
         status: 'ready',
         data: {
@@ -105,6 +117,33 @@ function SignedIn() {
       if (mine === run.current) setRefreshing(false);
     }
   }, []);
+
+  /** The next 20. Safe to call often (FlatList's onEndReached): it ignores calls while busy or done. */
+  const loadMore = async () => {
+    if (load.status !== 'ready' || more === 'loading') return;
+    const { following, total } = load.data;
+    if (following.length >= total) return;
+    const mine = run.current;
+    setMore('loading');
+    try {
+      const page = await api.getMyFollowing({ limit: PAGE, offset: following.length });
+      if (mine !== run.current) return;
+      setLoad((current) => {
+        if (current.status !== 'ready') return current;
+        // Someone followed in between can shift the pages; never show a card twice.
+        const seen = new Set(current.data.following.map((provider) => provider.id));
+        const added = page.items.filter((provider) => !seen.has(provider.id));
+        const list = [...current.data.following, ...added];
+        shown.current = list.length;
+        // Nothing new although the total says more: stop here instead of asking forever.
+        const newTotal = added.length === 0 ? list.length : page.total;
+        return { status: 'ready', data: { ...current.data, following: list, total: newTotal } };
+      });
+      setMore('idle');
+    } catch {
+      if (mine === run.current) setMore('error');
+    }
+  };
 
   // Loads when the screen opens, and again quietly each time the user comes back
   // to it (they may have followed someone on a profile in between).
@@ -200,10 +239,79 @@ function SignedIn() {
   }
 
   const { feed, following, total } = load.data;
+  const hasMore = following.length < total;
+
+  // The account, the updates and the section title scroll above the cards.
+  const header = (
+    <View style={[styles.page, styles.headerEnd]}>
+      {account}
+      {following.length === 0 ? (
+        <StateView
+          icon={UserRound}
+          title={s.account.emptyTitle}
+          body={s.account.emptyBody}
+          actionLabel={s.account.emptyAction}
+          onAction={() => (router.canGoBack() ? router.dismissTo('/') : router.replace('/'))}
+        />
+      ) : (
+        <>
+          {feed.length > 0 ? (
+            <StoriesStrip title={s.account.updates} groups={feed} onOpen={openStories} />
+          ) : (
+            <View style={styles.section}>
+              <Txt role="headline" accessibilityRole="header">
+                {s.account.updates}
+              </Txt>
+              <Notice tone="info">{s.account.noUpdates}</Notice>
+            </View>
+          )}
+          <View style={[styles.sectionHead, { flexDirection: row }]}>
+            <Txt role="headline" accessibilityRole="header" style={styles.flex}>
+              {s.account.providers}
+            </Txt>
+            <Txt role="data" color="textMuted" ltr>
+              {total}
+            </Txt>
+          </View>
+        </>
+      )}
+    </View>
+  );
 
   return (
-    <ScrollView
-      contentContainerStyle={{ paddingBottom: insets.bottom + space.xxl }}
+    <FlatList
+      data={following}
+      keyExtractor={(provider) => provider.id}
+      renderItem={({ item }) => (
+        <View style={styles.item}>
+          <ProviderCard
+            provider={item}
+            plain
+            onPress={() => openProfile(item)}
+            onOpenStory={() => openStories(item)}
+          />
+        </View>
+      )}
+      ListHeaderComponent={header}
+      ItemSeparatorComponent={() => <View style={styles.separator} />}
+      // The next 20 when the user is half a screen from the end.
+      onEndReached={() => void loadMore()}
+      onEndReachedThreshold={0.5}
+      ListFooterComponent={
+        more === 'error' ? (
+          <View style={styles.footer} accessibilityRole="alert">
+            <Txt role="label" color="textMuted" center>
+              {s.results.moreError}
+            </Txt>
+            <Button label={s.common.tryAgain} variant="outline" compact onPress={() => void loadMore()} />
+          </View>
+        ) : more === 'loading' || hasMore ? (
+          <View style={styles.footer} accessible accessibilityLabel={s.results.loadingMore}>
+            <ActivityIndicator size="small" color={colors.textMuted} />
+          </View>
+        ) : undefined
+      }
+      contentContainerStyle={[styles.column, { paddingBottom: insets.bottom + space.xxl }]}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -213,54 +321,7 @@ function SignedIn() {
           progressBackgroundColor={colors.surface}
         />
       }
-    >
-      <View style={[styles.column, styles.page]}>
-        {account}
-
-        {following.length === 0 ? (
-          <StateView
-            icon={UserRound}
-            title={s.account.emptyTitle}
-            body={s.account.emptyBody}
-            actionLabel={s.account.emptyAction}
-            onAction={() => (router.canGoBack() ? router.dismissTo('/') : router.replace('/'))}
-          />
-        ) : (
-          <>
-            {feed.length > 0 ? (
-              <StoriesStrip title={s.account.updates} groups={feed} onOpen={openStories} />
-            ) : (
-              <View style={styles.section}>
-                <Txt role="headline" accessibilityRole="header">
-                  {s.account.updates}
-                </Txt>
-                <Notice tone="info">{s.account.noUpdates}</Notice>
-              </View>
-            )}
-
-            <View style={styles.section}>
-              <View style={[styles.sectionHead, { flexDirection: row }]}>
-                <Txt role="headline" accessibilityRole="header" style={styles.flex}>
-                  {s.account.providers}
-                </Txt>
-                <Txt role="data" color="textMuted" ltr>
-                  {total}
-                </Txt>
-              </View>
-              {following.map((provider) => (
-                <ProviderCard
-                  key={provider.id}
-                  provider={provider}
-                  plain
-                  onPress={() => openProfile(provider)}
-                  onOpenStory={() => openStories(provider)}
-                />
-              ))}
-            </View>
-          </>
-        )}
-      </View>
-    </ScrollView>
+    />
   );
 }
 
@@ -334,6 +395,22 @@ const useStyles = makeStyles((c) => ({
   },
   section: {
     gap: space.md,
+  },
+  // Space between the section title and the first card.
+  headerEnd: {
+    paddingBottom: space.md,
+  },
+  // Each card lines up with the page edge, like the blocks above it.
+  item: {
+    paddingHorizontal: space.lg,
+  },
+  separator: {
+    height: space.md,
+  },
+  footer: {
+    alignItems: 'center',
+    gap: space.sm,
+    paddingTop: space.lg,
   },
   sectionHead: {
     alignItems: 'baseline',

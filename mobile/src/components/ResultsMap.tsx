@@ -4,6 +4,7 @@ import MapView, { Circle, Marker, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useI18n } from '@/i18n';
+import { nativeMapAvailable } from '@/lib/maps';
 import { makeStyles, motion, size, space, useTheme } from '@/theme';
 
 import {
@@ -24,20 +25,29 @@ import {
   usePinLabel,
   type ResultsMapProps,
 } from './MapParts';
+// The plain stand-in (no map), for a build without a Google Maps key.
+import { ResultsMap as ResultsPreview } from './ResultsMap.web';
 
 /** How long pins keep redrawing after they change, before they are frozen again. */
 const PIN_SETTLE_MS = 700;
 
 /**
  * The results on a real map (Android and iOS; the web build uses ResultsMap.web.tsx).
- * In Expo Go this needs no API key. A store build will need a Google Maps key.
+ * In Expo Go this needs no API key. A real Android build needs our Google Maps key
+ * (src/lib/maps.ts); without one it shows the plain stand-in instead of crashing.
  *
  * Height: the wrapper takes all the room under the header (`flex: 1`, with a
  * floor so it can never be a sliver) and the native map is pinned to its four
  * edges. A native view sized by `flex` alone can be measured as zero on Android
  * when its parent's height arrives late; pinned edges cannot.
  */
-export function ResultsMap({ center, radiusM, providers, total, loading, onOpenProvider }: ResultsMapProps) {
+export function ResultsMap(props: ResultsMapProps) {
+  const { s } = useI18n();
+  if (!nativeMapAvailable) return <ResultsPreview {...props} note={s.results.mapMissingNote} />;
+  return <NativeResultsMap {...props} />;
+}
+
+function NativeResultsMap({ center, radiusM, providers, total, loading, onOpenProvider }: ResultsMapProps) {
   const { colors, dark } = useTheme();
   const { s, language, plural } = useI18n();
   const insets = useSafeAreaInsets();

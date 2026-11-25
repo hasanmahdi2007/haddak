@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { Category } from '@/api';
+import { DemoDataPill } from '@/components/AppNotices';
 import { CategoryTile, type TileTone } from '@/components/CategoryTile';
 import { IconButton } from '@/components/IconButton';
 import { JarakMark } from '@/components/JarakMark';
@@ -165,9 +166,13 @@ export default function HomeScreen() {
 
       <View style={[styles.header, { paddingTop: insets.top + space.xs }]}>
         <View style={[styles.column, styles.brandRow, { flexDirection: row }]}>
-          <Txt role="headline" accessibilityRole="header">
-            {s.appName}
-          </Txt>
+          <View style={[styles.brandName, { flexDirection: row }]}>
+            <Txt role="headline" accessibilityRole="header">
+              {s.appName}
+            </Txt>
+            {/* Only when the app runs on built-in fake data. */}
+            <DemoDataPill />
+          </View>
           <View style={[styles.brandActions, { flexDirection: row }]}>
             {/* Who you follow, their updates, and your account. */}
             <IconButton icon={UserRound} label={s.account.open} onPress={() => router.push('/following')} />
@@ -489,6 +494,11 @@ const useStyles = makeStyles((c) => ({
   brandRow: {
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  brandName: {
+    alignItems: 'center',
+    gap: space.sm,
+    flexShrink: 1,
   },
   brandActions: {
     alignItems: 'center',

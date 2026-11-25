@@ -10,6 +10,26 @@ export const en = {
   common: {
     back: 'Back',
     tryAgain: 'Try again',
+    linkFailed: "Couldn't open the page. Try again later.",
+  },
+
+  /** App-wide notices drawn by the root layout (src/app/_layout.tsx). */
+  app: {
+    wakingUp: 'Waking up the server… This can take up to a minute.',
+    demoData: 'Demo data',
+    demoDataLabel: 'Demo data: these businesses and reviews are made up for testing.',
+    crashTitle: 'Something went wrong',
+    crashBody: 'This screen hit a problem. Try again, and if it keeps happening, restart the app.',
+    crashHome: 'Go to Home',
+  },
+
+  /** The short card before the phone asks for location (first launch only). */
+  locationIntro: {
+    title: 'Find help near you',
+    body: 'Haddak uses your location to show the nearest people and shops, and how far they are. It is only used for searching. Without it, Haddak searches around Haret Hreik.',
+    allow: 'Allow location',
+    notNow: 'Not now',
+    close: 'Close',
   },
 
   units: {
@@ -96,6 +116,7 @@ export const en = {
     mapHere: 'Your search position',
     mapSelected: 'selected',
     mapWebNote: 'Preview. The live map shows in the app.',
+    mapMissingNote: "The live map isn't set up in this version yet. This preview shows where everyone is.",
     emptyTitle: 'No one {where} yet',
     emptyBody: 'Haddak is still adding verified people in this area. Try a wider distance.',
     emptyAction: 'Search {where}',
@@ -469,6 +490,22 @@ export const en = {
     price: 'Prices',
     pricePlaceholder: 'From $10',
     priceHint: 'A starting price or a range, like "From $10" or "$15 an hour".',
+    priceAmount: 'Price for search',
+    priceAmountHint: 'One number people can filter by, like 15, and what it is for. Leave it empty if your prices vary.',
+    priceAmountRequired: 'Write the amount, or tap the chosen unit again to clear it.',
+    priceAmountInvalid: 'Write a number above 0, like 15.',
+    priceUnitRequired: 'Choose what this price is for: an hour, a visit, a job, an item or a month.',
+    priceCurrency: 'Currency',
+    currencyUsd: '$ USD',
+    currencyLbp: 'LBP',
+    priceUnit: 'The price is for',
+    priceUnits: {
+      hour: 'An hour',
+      visit: 'A visit',
+      job: 'A job',
+      item: 'An item',
+      month: 'A month',
+    },
     phone: 'Phone number',
     phoneHint: 'Type it as you would dial it, like {example}',
     phoneRequired: 'Add a number customers can call.',
@@ -487,6 +524,7 @@ export const en = {
     pinLabel: 'Map. The pin marks your business.',
     pinCoords: '{lat}, {lng}',
     pinWeb: 'The map opens in the phone app. Here, use your location.',
+    pinNoMap: "The map isn't available in this version yet. Use your location to set the pin.",
     useMyLocation: 'Use my location',
     locating: 'Finding your location…',
     locationFailed: "Couldn't find your location. Move the pin by hand.",

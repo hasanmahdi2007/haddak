@@ -11,21 +11,66 @@ import {
   Urbanist_700Bold,
 } from '@expo-google-fonts/urbanist';
 import { useFonts } from 'expo-font';
-import { SplashScreen, Stack } from 'expo-router';
+import { type ErrorBoundaryProps, SplashScreen, Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
+import { CircleAlert } from 'lucide-react-native';
 import { useEffect } from 'react';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { View } from 'react-native';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { api } from '@/api';
+import { LocationIntroSheet, ServerWakingNotice } from '@/components/AppNotices';
 import { HireCheckPrompt } from '@/components/HireCheckSheet';
-import { I18nProvider } from '@/i18n';
+import { StateView } from '@/components/StateView';
+import { I18nProvider, useI18n } from '@/i18n';
 import { AuthProvider } from '@/lib/auth';
 import { CategoriesProvider } from '@/lib/categories';
 import { FavouritesProvider } from '@/lib/favourites';
 import { LocationProvider } from '@/lib/location';
-import { useTheme } from '@/theme';
+import { makeStyles, size, useTheme } from '@/theme';
 
 void SplashScreen.preventAutoHideAsync();
+
+/**
+ * Shown instead of a screen that crashed while drawing (expo-router renders it for
+ * any error under this layout), so the user gets "Try again" instead of a blank
+ * screen. It brings its own providers: the layout's ones may be what failed.
+ */
+export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
+  return (
+    <SafeAreaProvider>
+      <I18nProvider>
+        <CrashView retry={retry} />
+      </I18nProvider>
+    </SafeAreaProvider>
+  );
+}
+
+function CrashView({ retry }: { retry: () => Promise<void> }) {
+  const { s } = useI18n();
+  const insets = useSafeAreaInsets();
+  const styles = useStyles();
+  return (
+    <View style={[styles.crash, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <View style={styles.crashColumn}>
+        <StateView
+          icon={CircleAlert}
+          title={s.app.crashTitle}
+          body={s.app.crashBody}
+          alert
+          actionLabel={s.common.tryAgain}
+          onAction={() => void retry()}
+          secondaryLabel={s.app.crashHome}
+          onSecondary={() => {
+            router.replace('/');
+            void retry();
+          }}
+        />
+      </View>
+    </View>
+  );
+}
 
 export default function RootLayout() {
   const { colors, dark } = useTheme();
@@ -51,6 +96,13 @@ export default function RootLayout() {
   useEffect(() => {
     void SystemUI.setBackgroundColorAsync(colors.background);
   }, [colors.background]);
+
+  // Wake the server at once, without waiting for it: the free plan sleeps after 15
+  // quiet minutes and takes up to a minute to start (docs/DEPLOY.md). By the time
+  // the user has picked a category, it is often awake.
+  useEffect(() => {
+    api.health().catch(() => undefined);
+  }, []);
 
   if (!ready) return null;
 
@@ -78,6 +130,10 @@ export default function RootLayout() {
                 </Stack>
                 {/* "Did you hire them?": asks at most once per app open, only when signed in. */}
                 <HireCheckPrompt />
+                {/* "Why we ask for your location", before the phone's dialog (first launch only). */}
+                <LocationIntroSheet />
+                {/* "Waking up the server…" while a request waits more than 8 seconds. */}
+                <ServerWakingNotice />
               </FavouritesProvider>
             </CategoriesProvider>
           </LocationProvider>
@@ -86,3 +142,17 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+const useStyles = makeStyles((c) => ({
+  crash: {
+    flex: 1,
+    backgroundColor: c.background,
+  },
+  crashColumn: {
+    flex: 1,
+    width: '100%',
+    maxWidth: size.maxContent,
+    alignSelf: 'center',
+    justifyContent: 'center',
+  },
+}));

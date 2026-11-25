@@ -1,3 +1,5 @@
+import { wait, withTimeout } from '@/lib/timeout';
+
 import {
   ApiError,
   type AssistRequest,
@@ -33,6 +35,7 @@ import {
   type StoryInput,
   type SuggestionInput,
 } from './types';
+import { trackRequest } from './serverStatus';
 
 type Query = Record<string, string | number | boolean | undefined>;
 
@@ -44,9 +47,40 @@ interface RequestOptions {
   auth?: boolean;
   /** Send the install id (X-Haddak-Device), for Jarak's free daily allowance. */
   device?: boolean;
+  /** How long one try may take, counted from the start (getting the token included). */
+  timeoutMs?: number;
+  /**
+   * Try again when the server cannot be reached. On by default for GET only:
+   * a GET changes nothing, so sending it twice is harmless. A POST is never
+   * repeated by itself, because the first one may have reached the server.
+   */
+  retry?: boolean;
+  /** Not counted for the "Waking up the server…" notice (the background warm-up). */
+  quiet?: boolean;
 }
 
-const TIMEOUT_MS = 12000;
+/** One normal try. */
+const TIMEOUT_MS = 15_000;
+/** One try of a GET that will be repeated: long, because a waking server answers late. */
+const RETRY_TRY_MS = 30_000;
+/** All tries of one GET together: the free server can take about a minute to wake up. */
+const RETRY_BUDGET_MS = 60_000;
+/** Pauses between tries of a GET. */
+const BACKOFF_MS = [2_000, 4_000, 8_000, 16_000];
+/** A failure this quick is the phone being offline, not a sleeping server. */
+const FAST_FAILURE_MS = 1_500;
+/** After this many quick failures in a row we stop trying and say "offline". */
+const FAST_FAILURES_MAX = 3;
+/** Answers worth trying again: 0 (no answer), and the host's "starting up" answers. */
+const RETRY_STATUSES = new Set([0, 502, 503, 504]);
+/** The assistant calls an AI, which can be slow even when the server is awake. */
+const ASSIST_TIMEOUT_MS = 30_000;
+/** The warm-up ping at app start: it waits for the whole wake-up. */
+const WARM_UP_TIMEOUT_MS = 75_000;
+/** Longest wait for the login token (Supabase may be refreshing it over the network). */
+const TOKEN_WAIT_MS = 5_000;
+
+type Init = { method: string; headers: Record<string, string>; body?: string };
 
 /**
  * Client for the FastAPI backend described in docs/API.md.
@@ -63,35 +97,72 @@ export function createHttpApi(
   const root = `${baseUrl.replace(/\/+$/, '')}/api/v1`;
 
   async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-    const { method = 'GET', query, body, auth = false, device = false } = options;
+    const { method = 'GET', query, body, auth = false, device = false, quiet = false } = options;
+    const retry = options.retry ?? method === 'GET';
+    const tryMs = options.timeoutMs ?? (retry ? RETRY_TRY_MS : TIMEOUT_MS);
+    const started = Date.now();
+    // The whole time this request may take, all tries together.
+    const deadline = started + (retry ? Math.max(RETRY_BUDGET_MS, tryMs) : tryMs);
+    const finished = quiet ? () => undefined : trackRequest();
 
-    const search = Object.entries(query ?? {})
-      .filter(([, value]) => value !== undefined)
-      .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
-      .join('&');
-    const url = `${root}${path}${search ? `?${search}` : ''}`;
+    try {
+      const search = Object.entries(query ?? {})
+        .filter(([, value]) => value !== undefined)
+        .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+        .join('&');
+      const url = `${root}${path}${search ? `?${search}` : ''}`;
 
-    const headers: Record<string, string> = { Accept: 'application/json' };
-    if (body !== undefined) headers['Content-Type'] = 'application/json';
-    // Public routes also send the token when there is one, so `is_mine` gets set on reviews.
-    const token = await getToken();
-    if (token) headers.Authorization = `Bearer ${token}`;
-    else if (auth) throw new ApiError(401, 'Not signed in');
-    if (device) {
-      const deviceId = await getDeviceId();
-      if (deviceId) headers['X-Haddak-Device'] = deviceId;
+      const headers: Record<string, string> = { Accept: 'application/json' };
+      if (body !== undefined) headers['Content-Type'] = 'application/json';
+      // Public routes also send the token when there is one, so `is_mine` gets set on reviews.
+      // Getting it can stall (Supabase refreshing an old token on a weak network), so it
+      // waits at most TOKEN_WAIT_MS, and that time counts against the first try.
+      let token: string | null = null;
+      try {
+        token = await withTimeout(getToken(), TOKEN_WAIT_MS);
+      } catch {
+        // No token in time: a public route goes without it; an account route cannot.
+        if (auth) throw new ApiError(0, 'Sign-in did not answer in time');
+      }
+      if (token) headers.Authorization = `Bearer ${token}`;
+      else if (auth) throw new ApiError(401, 'Not signed in');
+      if (device) {
+        const deviceId = await getDeviceId();
+        if (deviceId) headers['X-Haddak-Device'] = deviceId;
+      }
+      const init: Init = { method, headers, body: body === undefined ? undefined : JSON.stringify(body) };
+
+      let fastFailures = 0;
+      for (let attempt = 0; ; attempt += 1) {
+        // The first try's clock started before the token; later tries start now.
+        const tryStarted = attempt === 0 ? started : Date.now();
+        const tryEnds = Math.min(tryStarted + tryMs, deadline);
+        const sentAt = Date.now();
+        try {
+          return await send<T>(url, init, Math.max(tryEnds - sentAt, 1), token !== null);
+        } catch (error) {
+          if (!retry || !(error instanceof ApiError) || !RETRY_STATUSES.has(error.status)) throw error;
+          // "Network request failed" at once, again and again: the phone is offline.
+          fastFailures = error.status === 0 && Date.now() - sentAt < FAST_FAILURE_MS ? fastFailures + 1 : 0;
+          if (fastFailures >= FAST_FAILURES_MAX) throw error;
+          const pause = BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)];
+          // Not enough time left for a useful try.
+          if (Date.now() + pause + FAST_FAILURE_MS > deadline) throw error;
+          await wait(pause);
+        }
+      }
+    } finally {
+      finished();
     }
+  }
 
+  /** One try: sends the request and turns the answer into data or an ApiError. */
+  async function send<T>(url: string, init: Init, timeoutMs: number, sentToken: boolean): Promise<T> {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     let response: Response;
     try {
-      response = await fetch(url, {
-        method,
-        headers,
-        body: body === undefined ? undefined : JSON.stringify(body),
-        signal: controller.signal,
-      });
+      response = await fetch(url, { ...init, signal: controller.signal });
     } catch {
       // Status 0 means the request never reached the server (offline, timeout).
       throw new ApiError(0, 'Network request failed');
@@ -112,7 +183,7 @@ export function createHttpApi(
       }
       // The token was refused (expired, revoked, or from another project): sign out
       // on this phone, so the app stops sending it and asks for a fresh sign-in.
-      if (response.status === 401 && token) onUnauthorized();
+      if (response.status === 401 && sentToken) onUnauthorized();
       // Retry-After is in seconds; only rate-limited (429) answers carry it.
       const retryAfter = Number(response.headers.get('Retry-After'));
       throw new ApiError(
@@ -129,7 +200,9 @@ export function createHttpApi(
   const id = (value: string) => encodeURIComponent(value);
 
   return {
-    health: () => request<HealthResponse>('/health'),
+    // The warm-up ping (src/app/_layout.tsx): one long, quiet try that wakes a sleeping server.
+    health: () =>
+      request<HealthResponse>('/health', { timeoutMs: WARM_UP_TIMEOUT_MS, retry: false, quiet: true }),
     getCategories: () => request<Category[]>('/categories'),
     searchProviders: (params: SearchParams) =>
       // An empty name is left out, so the backend does not reject it as too short.
@@ -166,7 +239,7 @@ export function createHttpApi(
       request<{ id: string }>(`/providers/${id(providerId)}/reports`, { method: 'POST', body: input }),
     // No login. The backend sends the AI only the sentence, never the position.
     assist: (body: AssistRequest) =>
-      request<AssistResponse>('/assist', { method: 'POST', body, device: true }),
+      request<AssistResponse>('/assist', { method: 'POST', body, device: true, timeoutMs: ASSIST_TIMEOUT_MS }),
 
     getMyReview: (providerId: string) =>
       request<Review | null>(`/providers/${id(providerId)}/reviews/mine`, { auth: true }),

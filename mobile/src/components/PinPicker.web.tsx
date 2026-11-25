@@ -10,6 +10,8 @@ import { Txt } from './Txt';
 interface Props {
   value: Coordinates;
   onChange: (next: Coordinates) => void;
+  /** The line under the position; the web build's own line when left out. */
+  note?: string;
 }
 
 /**
@@ -17,7 +19,7 @@ interface Props {
  * and the web build is only used for screenshots, so this shows the chosen
  * position on a plain block. "Use my location" under it still moves the pin.
  */
-export function PinPicker({ value }: Props) {
+export function PinPicker({ value, note }: Props) {
   const { colors } = useTheme();
   const { s, f } = useI18n();
   const styles = useStyles();
@@ -32,7 +34,7 @@ export function PinPicker({ value }: Props) {
         {coords}
       </Txt>
       <Txt role="caption" color="textSubtle" center style={styles.note}>
-        {s.join.pinWeb}
+        {note ?? s.join.pinWeb}
       </Txt>
     </View>
   );

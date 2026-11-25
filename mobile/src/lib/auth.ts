@@ -310,11 +310,12 @@ export async function verifyCode(email: string, code: string): Promise<AuthResul
 // ---------------------------------------------------------------------------
 // Coming back from the link in the email.
 
-/** What the link brought back, read from its query (`?code=`) or its `#fragment`. */
+/**
+ * What the link brought back: the one-time PKCE `code`, or Supabase's error.
+ * Tokens in a link are never accepted (see exchangeLink).
+ */
 export interface SignInLink {
   code?: string;
-  accessToken?: string;
-  refreshToken?: string;
   errorCode?: string;
   errorDescription?: string;
 }
@@ -324,7 +325,7 @@ const codesTried = new Map<string, Promise<AuthResult>>();
 
 /** Turns the link into a session. On success the store turns "signed in". */
 export function signInWithLink(link: SignInLink): Promise<AuthResult> {
-  const key = link.code ?? link.accessToken ?? link.errorCode ?? link.errorDescription ?? '';
+  const key = link.code ?? link.errorCode ?? link.errorDescription ?? '';
   const earlier = codesTried.get(key);
   if (earlier) return earlier;
   const attempt = exchangeLink(link);
@@ -344,18 +345,13 @@ async function exchangeLink(link: SignInLink): Promise<AuthResult> {
     const expired = link.errorCode === 'otp_expired' || /expired|invalid/i.test(link.errorDescription ?? '');
     return fail(expired ? 'linkExpired' : 'other');
   }
+  // Only a PKCE code is traded, and only this phone can trade it: the secret half
+  // (the code verifier) was kept here when the email was asked for. A link that
+  // carries ready-made tokens is refused on purpose: anyone could send one and sign
+  // this phone into their own account without the user noticing (login CSRF).
   try {
     if (link.code) {
       const { error } = await supabase.auth.exchangeCodeForSession(link.code);
-      if (error) return linkFailure(error);
-      return { ok: true };
-    }
-    // Older "implicit" links carry the tokens themselves in the #fragment.
-    if (link.accessToken && link.refreshToken) {
-      const { error } = await supabase.auth.setSession({
-        access_token: link.accessToken,
-        refresh_token: link.refreshToken,
-      });
       if (error) return linkFailure(error);
       return { ok: true };
     }

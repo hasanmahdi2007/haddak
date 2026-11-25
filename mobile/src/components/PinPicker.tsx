@@ -4,7 +4,11 @@ import MapView, { Marker, type Region } from 'react-native-maps';
 
 import type { Coordinates } from '@/api';
 import { useI18n } from '@/i18n';
+import { nativeMapAvailable } from '@/lib/maps';
 import { makeStyles, motion, radius, size, useTheme } from '@/theme';
+
+// The plain stand-in (no map), for a build without a Google Maps key.
+import { PinPicker as PinPreview } from './PinPicker.web';
 
 interface Props {
   value: Coordinates;
@@ -25,7 +29,13 @@ const regionAround = (point: Coordinates): Region => ({
  * Where the business is: a map with one pin. The owner drags the pin, or taps
  * the map to move it there. (The web build uses PinPicker.web.tsx.)
  */
-export function PinPicker({ value, onChange }: Props) {
+export function PinPicker(props: Props) {
+  const { s } = useI18n();
+  if (!nativeMapAvailable) return <PinPreview {...props} note={s.join.pinNoMap} />;
+  return <MapPinPicker {...props} />;
+}
+
+function MapPinPicker({ value, onChange }: Props) {
   const { colors } = useTheme();
   const { s } = useI18n();
   const styles = useStyles();

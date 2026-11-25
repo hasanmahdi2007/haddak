@@ -34,7 +34,15 @@ import { Txt } from './Txt';
  * web build is only used for screenshots, so this plots the same pins, circle and
  * docked card on a plain grey panel, at the same scale the real map would use.
  */
-export function ResultsMap({ center, radiusM, providers, total, loading, onOpenProvider }: ResultsMapProps) {
+export function ResultsMap({
+  center,
+  radiusM,
+  providers,
+  total,
+  loading,
+  onOpenProvider,
+  note,
+}: ResultsMapProps & { note?: string }) {
   const { s, plural } = useI18n();
   const insets = useSafeAreaInsets();
   const styles = useStyles();
@@ -169,7 +177,7 @@ export function ResultsMap({ center, radiusM, providers, total, loading, onOpenP
       ) : (
         <View pointerEvents="none" style={styles.note}>
           <Txt role="caption" color="textMuted">
-            {s.results.mapWebNote}
+            {note ?? s.results.mapWebNote}
           </Txt>
         </View>
       )}

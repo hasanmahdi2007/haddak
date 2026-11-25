@@ -156,6 +156,8 @@ export default function SuggestScreen() {
   // Errors stay hidden until the first try to send; after that they update while typing.
   const [showErrors, setShowErrors] = useState(false);
   const [sending, setSending] = useState(false);
+  // Set at once on the first tap, so a second quick tap (before the button turns busy) does nothing.
+  const inFlight = useRef(false);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [done, setDone] = useState(false);
 
@@ -214,6 +216,8 @@ export default function SuggestScreen() {
       (nameProblem ? nameRef : phoneRef).current?.focus();
       return;
     }
+    if (inFlight.current) return;
+    inFlight.current = true;
     setSending(true);
     setFailure(null);
     try {
@@ -224,6 +228,8 @@ export default function SuggestScreen() {
         category_id: chosen?.id,
         area_name: area.trim() || undefined,
         note: note.trim() || undefined,
+        // No lat/lng: the sender is usually not at the business, and the privacy
+        // policy promises we never store the user's own location.
       });
       setDone(true);
       AccessibilityInfo.announceForAccessibility(s.suggest.successTitle);
@@ -231,6 +237,7 @@ export default function SuggestScreen() {
       // 429 means too many suggestions from this connection in the last hour.
       setFailure(cause instanceof ApiError && cause.status === 429 ? 'rateLimited' : 'other');
     } finally {
+      inFlight.current = false;
       setSending(false);
     }
   };

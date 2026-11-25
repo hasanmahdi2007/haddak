@@ -421,6 +421,8 @@ function StoriesSection({ own }: { own: OwnProvider }) {
   const [focused, setFocused] = useState<'text' | 'image' | null>(null);
   const [showErrors, setShowErrors] = useState(false);
   const [posting, setPosting] = useState(false);
+  // Set at once on the first tap, so a second quick tap (before the button turns busy) does nothing.
+  const inFlight = useRef(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -453,6 +455,8 @@ function StoriesSection({ own }: { own: OwnProvider }) {
       AccessibilityInfo.announceForAccessibility(textProblem ?? imageProblem ?? '');
       return;
     }
+    if (inFlight.current) return;
+    inFlight.current = true;
     setPosting(true);
     setFeedback(null);
     try {
@@ -466,6 +470,7 @@ function StoriesSection({ own }: { own: OwnProvider }) {
     } catch (error) {
       setFeedback({ tone: 'error', text: errorText(error, s, f) });
     } finally {
+      inFlight.current = false;
       setPosting(false);
     }
   };

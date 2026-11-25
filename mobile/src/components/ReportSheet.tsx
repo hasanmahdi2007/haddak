@@ -1,5 +1,5 @@
 import { Check } from 'lucide-react-native';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { AccessibilityInfo, Pressable, TextInput, View } from 'react-native';
 
 import { api, ApiError, type ReportReason } from '@/api';
@@ -45,6 +45,8 @@ export function ReportSheet({ providerId, name, unclaimed = false, initialReason
   const [note, setNote] = useState('');
   const [focused, setFocused] = useState(false);
   const [sending, setSending] = useState(false);
+  // Set at once on the first tap, so a second quick tap (before the button turns busy) does nothing.
+  const inFlight = useRef(false);
   const [sent, setSent] = useState(false);
   // Shown only after a press of Send without a reason.
   const [tried, setTried] = useState(false);
@@ -52,7 +54,8 @@ export function ReportSheet({ providerId, name, unclaimed = false, initialReason
 
   const send = async () => {
     setTried(true);
-    if (!reason || sending) return;
+    if (!reason || inFlight.current) return;
+    inFlight.current = true;
     setSending(true);
     setError(null);
     try {
@@ -63,6 +66,7 @@ export function ReportSheet({ providerId, name, unclaimed = false, initialReason
       const status = cause instanceof ApiError ? cause.status : 0;
       setError(status === 429 ? s.report.rateLimited : status === 404 ? s.report.gone : s.report.failed);
     } finally {
+      inFlight.current = false;
       setSending(false);
     }
   };

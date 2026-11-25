@@ -4,6 +4,7 @@ import { useRef, useState, type ComponentRef, type ReactNode, type RefObject } f
 import {
   AccessibilityInfo,
   KeyboardAvoidingView,
+  Pressable,
   ScrollView,
   TextInput,
   type TextInputProps,
@@ -16,6 +17,8 @@ import {
   ApiError,
   type Coordinates,
   type OwnProvider,
+  type PriceCurrency,
+  type PriceUnit,
   type ProviderCreateInput,
   type ProviderUpdateInput,
 } from '@/api';
@@ -24,6 +27,7 @@ import type { Strings } from '@/i18n/en';
 import { useCategories } from '@/lib/categories';
 import { useLocation } from '@/lib/location';
 import { cleanPhone, PHONE_EXAMPLE, PHONE_PATTERN, showPhone } from '@/lib/phone';
+import { withTimeout } from '@/lib/timeout';
 import { elevation, makeStyles, radius, size, space, useTheme } from '@/theme';
 
 import { Button } from './Button';
@@ -40,6 +44,10 @@ const NAME_MAX = 100;
 const AREA_MAX = 100;
 const DESCRIPTION_MAX = 2000;
 const PRICE_MAX = 100;
+/** The structured price (docs/API.md): more than 0, up to 100,000,000. */
+const AMOUNT_MAX = 100_000_000;
+const PRICE_UNITS: PriceUnit[] = ['hour', 'visit', 'job', 'item', 'month'];
+const CURRENCIES: PriceCurrency[] = ['USD', 'LBP'];
 const PHOTO_MAX = 5;
 const POSITION_TIMEOUT_MS = 10_000;
 
@@ -64,6 +72,10 @@ interface Values {
   categoryId: number | null;
   description: string;
   price: string;
+  /** The structured price, as typed ("15", "7.5"); empty when not given. */
+  priceAmount: string;
+  priceUnit: PriceUnit | null;
+  priceCurrency: PriceCurrency;
   phone: string;
   whatsapp: string;
   area: string;
@@ -75,12 +87,26 @@ interface Values {
   proof: PickedImage | null;
 }
 
+/** The typed amount as a number, or null when empty or not a number. Accepts "7,5" too. */
+function parseAmount(text: string): number | null {
+  const cleaned = text.trim().replace(',', '.');
+  if (!cleaned) return null;
+  const value = Number(cleaned);
+  return Number.isFinite(value) ? value : null;
+}
+
 function toBody(v: Values): ProviderCreateInput {
+  const amount = parseAmount(v.priceAmount);
+  // Amount and unit go together, or both null (the API refuses one without the other).
+  const priced = amount !== null && v.priceUnit !== null;
   return {
     name: v.name.trim(),
     category_id: v.categoryId ?? 0,
     description: v.description.trim(),
     price_text: v.price.trim() || null,
+    price_amount: priced ? amount : null,
+    price_unit: priced ? v.priceUnit : null,
+    price_currency: v.priceCurrency,
     phone: cleanPhone(v.phone),
     // Empty means "same as my phone"; the backend then answers with the phone.
     whatsapp: v.whatsapp.trim() ? cleanPhone(v.whatsapp) : null,
@@ -102,6 +128,9 @@ function startValues(initial: OwnProvider | undefined): Omit<Values, 'pin'> & { 
       categoryId: null,
       description: '',
       price: '',
+      priceAmount: '',
+      priceUnit: null,
+      priceCurrency: 'USD',
       phone: '',
       whatsapp: '',
       area: '',
@@ -123,6 +152,9 @@ function startValues(initial: OwnProvider | undefined): Omit<Values, 'pin'> & { 
     categoryId: initial.category.id,
     description: initial.description,
     price: initial.price_text ?? '',
+    priceAmount: initial.price_amount != null ? String(initial.price_amount) : '',
+    priceUnit: initial.price_unit ?? null,
+    priceCurrency: initial.price_currency ?? 'USD',
     phone: showPhone(initial.phone),
     whatsapp: sameWhatsapp ? '' : showPhone(initial.whatsapp),
     area: initial.area_name,
@@ -140,6 +172,11 @@ function changes(before: ProviderCreateInput, after: ProviderCreateInput): Provi
   const diff: Record<string, unknown> = {};
   for (const key of Object.keys(after) as (keyof ProviderCreateInput)[]) {
     if (JSON.stringify(after[key]) !== JSON.stringify(before[key])) diff[key] = after[key];
+  }
+  // The amount and the unit are checked together, so they are sent together.
+  if ('price_amount' in diff || 'price_unit' in diff) {
+    diff.price_amount = after.price_amount;
+    diff.price_unit = after.price_unit;
   }
   return diff as ProviderUpdateInput;
 }
@@ -164,8 +201,24 @@ function failureText(error: unknown, s: Strings, f: (t: string, v?: Record<strin
   }
 }
 
-function timeout<T>(ms: number): Promise<T> {
-  return new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms));
+/**
+ * POST /me/provider, sent once (never repeated by itself). When the answer is
+ * lost (status 0: the listing may have been made after the phone gave up) or the
+ * server says one exists (409), we ask GET /me/provider: if the user's listing is
+ * there, that is a success, not an error to type everything again for.
+ */
+async function createOnce(body: ProviderCreateInput): Promise<OwnProvider> {
+  try {
+    return await api.createMyProvider(body);
+  } catch (error) {
+    if (!(error instanceof ApiError) || (error.status !== 0 && error.status !== 409)) throw error;
+    try {
+      return await api.getMyProvider();
+    } catch {
+      // Not there (404), or still no connection: report the first failure.
+      throw error;
+    }
+  }
 }
 
 /**
@@ -188,6 +241,9 @@ export function ProviderForm({ mode, initial, header, onSaved }: Props) {
   const [categoryId, setCategoryId] = useState(start.categoryId);
   const [description, setDescription] = useState(start.description);
   const [price, setPrice] = useState(start.price);
+  const [priceAmount, setPriceAmount] = useState(start.priceAmount);
+  const [priceUnit, setPriceUnit] = useState<PriceUnit | null>(start.priceUnit);
+  const [priceCurrency, setPriceCurrency] = useState<PriceCurrency>(start.priceCurrency);
   const [phone, setPhone] = useState(start.phone);
   const [whatsapp, setWhatsapp] = useState(start.whatsapp);
   const [area, setArea] = useState(start.area);
@@ -204,6 +260,8 @@ export function ProviderForm({ mode, initial, header, onSaved }: Props) {
   const [failure, setFailure] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
   const [locateFailed, setLocateFailed] = useState(false);
+  // Set at once on the first tap, so a second quick tap cannot send the form twice.
+  const sendingRef = useRef(false);
 
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const contentRef = useRef<ComponentRef<typeof View>>(null);
@@ -211,6 +269,7 @@ export function ProviderForm({ mode, initial, header, onSaved }: Props) {
   const phoneRef = useRef<InputHost>(null);
   const whatsappRef = useRef<InputHost>(null);
   const areaRef = useRef<InputHost>(null);
+  const amountRef = useRef<InputHost>(null);
   const categoryBox = useRef<ComponentRef<typeof View>>(null);
   const hoursBox = useRef<ComponentRef<typeof View>>(null);
 
@@ -220,6 +279,9 @@ export function ProviderForm({ mode, initial, header, onSaved }: Props) {
     categoryId,
     description,
     price,
+    priceAmount,
+    priceUnit,
+    priceCurrency,
     phone,
     whatsapp,
     area,
@@ -235,6 +297,13 @@ export function ProviderForm({ mode, initial, header, onSaved }: Props) {
 
   // ----- Checks -----
   const example = PHONE_EXAMPLE;
+  function amountProblem(): string | null {
+    const typed = priceAmount.trim().length > 0;
+    if (!typed) return priceUnit !== null ? s.join.priceAmountRequired : null;
+    const amount = parseAmount(priceAmount);
+    if (amount === null || amount <= 0 || amount > AMOUNT_MAX) return s.join.priceAmountInvalid;
+    return priceUnit === null ? s.join.priceUnitRequired : null;
+  }
   const problems = {
     category: categoryId === null ? s.join.categoryRequired : null,
     name: name.trim().length === 0 ? s.join.nameRequired : null,
@@ -249,6 +318,7 @@ export function ProviderForm({ mode, initial, header, onSaved }: Props) {
         ? f(s.join.whatsappInvalid, { example })
         : null,
     area: area.trim().length === 0 ? s.join.areaRequired : null,
+    priceAmount: amountProblem(),
   };
   const wrongDay = hoursOn ? invalidDay(hours) : null;
   const anyProblem = Object.values(problems).some(Boolean) || wrongDay !== null;
@@ -279,10 +349,10 @@ export function ProviderForm({ mode, initial, header, onSaved }: Props) {
         permission = await Location.requestForegroundPermissionsAsync();
       }
       if (!permission.granted) throw new Error('denied');
-      const position = await Promise.race([
+      const position = await withTimeout(
         Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
-        timeout<Location.LocationObject>(POSITION_TIMEOUT_MS),
-      ]);
+        POSITION_TIMEOUT_MS,
+      );
       setPinChoice({ lat: position.coords.latitude, lng: position.coords.longitude });
     } catch {
       setLocateFailed(true);
@@ -297,6 +367,7 @@ export function ProviderForm({ mode, initial, header, onSaved }: Props) {
     const first =
       (problems.category && 'category') ||
       (problems.name && 'name') ||
+      (problems.priceAmount && 'priceAmount') ||
       (problems.phone && 'phone') ||
       (problems.whatsapp && 'whatsapp') ||
       (problems.area && 'area') ||
@@ -308,6 +379,7 @@ export function ProviderForm({ mode, initial, header, onSaved }: Props) {
       AccessibilityInfo.announceForAccessibility(s.join.fixErrors);
       // Put the cursor in the first wrong field, or scroll to it.
       if (first === 'name') nameRef.current?.focus();
+      else if (first === 'priceAmount') amountRef.current?.focus();
       else if (first === 'phone') phoneRef.current?.focus();
       else if (first === 'whatsapp') whatsappRef.current?.focus();
       else if (first === 'area') areaRef.current?.focus();
@@ -323,13 +395,15 @@ export function ProviderForm({ mode, initial, header, onSaved }: Props) {
       return;
     }
 
+    if (sendingRef.current) return;
+    sendingRef.current = true;
     setSending(true);
     setFailure(null);
     try {
       const body = toBody(values);
       let own: OwnProvider;
       if (mode === 'create') {
-        own = await api.createMyProvider(body);
+        own = await createOnce(body);
       } else {
         const diff = before ? changes(before, body) : body;
         // Verified: proof no longer matters, so it is never sent.
@@ -342,6 +416,7 @@ export function ProviderForm({ mode, initial, header, onSaved }: Props) {
       setFailure(text);
       AccessibilityInfo.announceForAccessibility(text);
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   };
@@ -408,6 +483,49 @@ export function ProviderForm({ mode, initial, header, onSaved }: Props) {
                 accessibilityLabel={s.join.price}
                 accessibilityHint={s.join.priceHint}
                 maxLength={PRICE_MAX}
+              />
+            </Field>
+            {/* The structured price: what the price filter and "Cheapest first" use. */}
+            <Field
+              label={s.join.priceAmount}
+              optional
+              hint={s.join.priceAmountHint}
+              error={shown(problems.priceAmount)}
+            >
+              <View style={[styles.amountRow, { flexDirection: row }]}>
+                <View style={styles.flex}>
+                  <FormInput
+                    inputRef={amountRef}
+                    onReveal={reveal}
+                    value={priceAmount}
+                    onChangeText={setPriceAmount}
+                    placeholder="15"
+                    accessibilityLabel={s.join.priceAmount}
+                    accessibilityHint={s.join.priceAmountHint}
+                    error={shown(problems.priceAmount)}
+                    keyboardType="decimal-pad"
+                    inputMode="decimal"
+                    maxLength={12}
+                    ltr
+                  />
+                </View>
+                <ChipGroup
+                  label={s.join.priceCurrency}
+                  options={CURRENCIES}
+                  value={priceCurrency}
+                  onChange={(next) => next && setPriceCurrency(next)}
+                  text={(currency) => (currency === 'USD' ? s.join.currencyUsd : s.join.currencyLbp)}
+                  style={styles.currency}
+                />
+              </View>
+              <ChipGroup
+                label={s.join.priceUnit}
+                options={PRICE_UNITS}
+                value={priceUnit}
+                // Tapping the chosen unit again clears it.
+                onChange={setPriceUnit}
+                clearable
+                text={(unit) => s.join.priceUnits[unit]}
               />
             </Field>
           </Section>
@@ -540,6 +658,55 @@ function Section({ title, note, children }: { title: string; note?: string; chil
   );
 }
 
+interface ChipGroupProps<T extends string> {
+  /** Read by screen readers for the whole group. */
+  label: string;
+  options: T[];
+  value: T | null;
+  onChange: (next: T | null) => void;
+  text: (option: T) => string;
+  /** Tapping the chosen chip again un-chooses it (gives null). */
+  clearable?: boolean;
+  style?: object;
+}
+
+/**
+ * One choice from a few, as pill chips (like the distance chips): outlined when
+ * not chosen, solid black with white words when chosen. 36 dp to the eye, 48 dp
+ * to the finger through hitSlop. Wraps to a second line on a narrow phone.
+ */
+function ChipGroup<T extends string>({ label, options, value, onChange, text, clearable, style }: ChipGroupProps<T>) {
+  const { colors } = useTheme();
+  const { row } = useI18n();
+  const styles = useStyles();
+  return (
+    <View accessibilityRole="radiogroup" accessibilityLabel={label} style={[styles.chips, { flexDirection: row }, style]}>
+      {options.map((option) => {
+        const selected = option === value;
+        return (
+          <Pressable
+            key={option}
+            accessibilityRole="radio"
+            accessibilityState={{ selected, checked: selected }}
+            onPress={() => onChange(selected && clearable ? null : option)}
+            hitSlop={{ top: size.segmentSlop, bottom: size.segmentSlop }}
+            android_ripple={{ color: colors.surfaceTint }}
+            style={({ pressed }) => [
+              styles.chip,
+              selected ? styles.chipSelected : null,
+              pressed && !selected ? styles.chipPressed : null,
+            ]}
+          >
+            <Txt role="label" color={selected ? 'onPrimary' : 'text'} numberOfLines={1}>
+              {text(option)}
+            </Txt>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 interface FormInputProps extends Omit<TextInputProps, 'style'> {
   error?: string | null;
   /** Phone numbers read left to right in Arabic too. */
@@ -604,6 +771,35 @@ const useStyles = makeStyles((c) => ({
   },
   ltr: {
     writingDirection: 'ltr',
+  },
+  amountRow: {
+    alignItems: 'center',
+    gap: space.sm,
+  },
+  currency: {
+    flexWrap: 'nowrap',
+  },
+  chips: {
+    flexWrap: 'wrap',
+    gap: space.sm,
+  },
+  chip: {
+    height: size.segment,
+    minWidth: size.touch,
+    paddingHorizontal: space.lg,
+    borderRadius: radius.pill,
+    borderWidth: size.hairline,
+    borderColor: c.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  chipSelected: {
+    backgroundColor: c.primary,
+    borderColor: c.primary,
+  },
+  chipPressed: {
+    backgroundColor: c.surfaceInset,
   },
   dock: {
     backgroundColor: c.background,

@@ -150,6 +150,8 @@ export type AvailableHours = 2 | 4 | 8;
 
 export interface OwnProvider extends ProviderDetail {
   status: ProviderStatus;
+  /** How the listing came to Haddak. Optional: older backends do not send it. */
+  source?: 'owner' | 'suggestion' | 'osm';
   featured_until: string | null;
   verification_doc_url: string | null;
   /** The owner's choice to show `contacts_this_month` publicly. */
@@ -321,6 +323,14 @@ export interface ProviderCreateInput {
   category_id: number;
   description: string;
   price_text: string | null;
+  /**
+   * The structured price that search filters and sorts on. Amount (more than 0,
+   * up to 100,000,000) and unit are sent together, or both null.
+   */
+  price_amount?: number | null;
+  price_unit?: PriceUnit | null;
+  /** Default USD. Never null. */
+  price_currency?: PriceCurrency;
   phone: string;
   whatsapp: string | null;
   lat: number;
@@ -391,6 +401,9 @@ export interface SuggestionInput {
   area_name?: string;
   /** Up to 500 characters. */
   note?: string;
+  /** Where the sender is (optional). Both or neither: one without the other is 422. */
+  lat?: number;
+  lng?: number;
 }
 
 /** Why a listing is reported (POST /providers/{id}/reports). */
@@ -449,7 +462,7 @@ export interface HaddakApi {
   submitSuggestion(input: SuggestionInput): Promise<{ id: string }>;
   /** Flag a bad listing. No login. 429 after 10 in an hour. */
   reportProvider(providerId: string, input: ReportInput): Promise<{ id: string }>;
-  /** The assistant: a sentence (or a chosen option) in, search settings and results out. 429 after 30 a day. */
+  /** The assistant: a sentence (or a chosen option) in, search settings and results out. The free daily allowance never answers 429; only more than 20 a minute from one network does. */
   assist(request: AssistRequest): Promise<AssistResponse>;
 
   // Auth endpoints: they need a signed-in user (401 otherwise).

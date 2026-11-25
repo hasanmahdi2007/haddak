@@ -58,6 +58,17 @@ function check(input: ProviderUpdateInput) {
   checkPhone(input.whatsapp, 'whatsapp');
   if ((input.photos ?? []).length > 10) throw new ApiError(422, 'At most 10 photos');
   checkHours(input.opening_hours);
+  if (input.price_amount != null && (input.price_amount <= 0 || input.price_amount > 100_000_000)) {
+    throw new ApiError(422, 'price_amount must be more than 0 and at most 100000000');
+  }
+  if (input.price_currency === null) throw new ApiError(422, 'price_currency cannot be null');
+}
+
+/** Amount and unit are set together or both null, checked against what is stored (docs/API.md). */
+function checkPricePair(amount: number | null | undefined, unit: string | null | undefined) {
+  if ((amount == null) !== (unit == null)) {
+    throw new ApiError(422, 'price_amount and price_unit must be set together');
+  }
 }
 
 let created = 0;
@@ -65,6 +76,7 @@ let created = 0;
 /** POST /me/provider: a new listing, public without the badge. */
 export function buildOwnProvider(input: ProviderCreateInput): OwnProvider {
   check(input);
+  checkPricePair(input.price_amount, input.price_unit);
   created += 1;
   const proof = input.verification_doc_url || null;
   const hours = input.opening_hours ?? null;
@@ -75,6 +87,9 @@ export function buildOwnProvider(input: ProviderCreateInput): OwnProvider {
     category: categoryRef(input.category_id),
     area_name: input.area_name.trim(),
     price_text: input.price_text?.trim() || null,
+    price_amount: input.price_amount ?? null,
+    price_unit: input.price_unit ?? null,
+    price_currency: input.price_currency ?? 'USD',
     avg_rating: 0,
     review_count: 0,
     verified: false,
@@ -104,6 +119,7 @@ export function buildOwnProvider(input: ProviderCreateInput): OwnProvider {
     is_following: false,
     confirmed_hires: 0,
     status: proof ? 'pending' : 'unverified',
+    source: 'owner',
     featured_until: null,
     verification_doc_url: proof,
     show_contact_count: input.show_contact_count ?? false,
@@ -119,6 +135,10 @@ export function applyOwnEdits(own: OwnProvider, input: ProviderUpdateInput): Own
   if (input.category_id !== undefined) next.category = categoryRef(input.category_id);
   if (input.description !== undefined) next.description = input.description.trim();
   if (input.price_text !== undefined) next.price_text = input.price_text?.trim() || null;
+  if (input.price_amount !== undefined) next.price_amount = input.price_amount;
+  if (input.price_unit !== undefined) next.price_unit = input.price_unit;
+  if (input.price_currency !== undefined) next.price_currency = input.price_currency;
+  checkPricePair(next.price_amount, next.price_unit);
   if (input.phone !== undefined) next.phone = input.phone;
   if (input.whatsapp !== undefined || input.phone !== undefined) {
     next.whatsapp = input.whatsapp !== undefined ? (input.whatsapp ?? next.phone) : next.whatsapp;

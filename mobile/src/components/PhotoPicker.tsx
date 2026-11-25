@@ -20,6 +20,9 @@ export interface PickedImage {
   /** The uploaded link; null until the upload has finished. */
   url: string | null;
   state: 'uploading' | 'done' | 'error';
+  /** The picked photo's size in pixels, so the upload can shrink it in one step. */
+  width?: number;
+  height?: number;
 }
 
 /** A photo that is already saved in the profile. */
@@ -60,7 +63,9 @@ function useUploader(
 
   const upload = (item: PickedImage) => {
     update(item.key, { state: 'uploading' });
-    uploadImage(kind, item.preview)
+    const size = item.width && item.height ? { width: item.width, height: item.height } : undefined;
+    // Each upload waits for the one before it (src/lib/upload.ts).
+    uploadImage(kind, item.preview, size)
       .then((url) => update(item.key, { url, state: 'done' }))
       .catch((error: unknown) => {
         update(item.key, { state: 'error' });
@@ -83,7 +88,14 @@ function useUploader(
       if (result.canceled) return;
       const items = result.assets
         .slice(0, limit)
-        .map<PickedImage>((asset) => ({ key: newKey(), preview: asset.uri, url: null, state: 'uploading' }));
+        .map<PickedImage>((asset) => ({
+          key: newKey(),
+          preview: asset.uri,
+          url: null,
+          state: 'uploading',
+          width: asset.width,
+          height: asset.height,
+        }));
       add(items);
       items.forEach(upload);
     } catch {
