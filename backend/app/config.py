@@ -63,13 +63,19 @@ class Settings(BaseSettings):
     # Read from the environment (or .env) only, never written to logs.
     # Empty = the assistant answers "unavailable" and the app falls back to
     # normal search.
+    # One key per AI provider; only the providers of the two models below
+    # are needed. The model name picks the provider (ai_client.provider_of).
+    openai_api_key: str = ""
+    # Must belong to a Google Cloud project with billing on: on the free tier
+    # Google may use the sentences to improve its products.
+    gemini_api_key: str = ""
     anthropic_api_key: str = ""
-    # The cheapest model on purpose (the founder's choice). Switch to
-    # "claude-sonnet-5-5" only if the phrase test shows Haiku misses too much.
-    assist_model: str = "claude-haiku-5-5"
-    # Model for Arabizi sentences (Lebanese Arabic in Latin letters), which
-    # Haiku misreads more often. Empty = no routing, ASSIST_MODEL for all.
-    assist_model_arabizi: str = "claude-sonnet-5-5"
+    # Founder's choice (2026-11-25): OpenAI's GPT-6 Luna for most sentences.
+    # "claude-haiku-5-5" still works here (with ANTHROPIC_API_KEY set).
+    assist_model: str = "gpt-6-luna"
+    # Model for Arabizi sentences (Lebanese Arabic in Latin letters), the
+    # hardest to read. Empty = no routing, ASSIST_MODEL for all.
+    assist_model_arabizi: str = "gemini-3.8-flash"
     # Free AI requests per day (Lebanon time), see app/services/assist/quota.py.
     # Requests answered without the AI do not count, and over the allowance
     # the free keyword search answers instead: nobody is ever blocked.

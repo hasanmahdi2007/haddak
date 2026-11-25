@@ -46,6 +46,7 @@ from app.models import Category  # noqa: E402
 from app.services.assist.ai_client import (  # noqa: E402
     AIUnavailable,
     Usage,
+    ai_configured,
     ask_model,
     choose_model,
 )
@@ -160,14 +161,16 @@ def main() -> None:
         print("\n".join(problems) or f"{len(phrases)} phrases, file looks fine.")
         sys.exit(1 if problems else 0)
 
-    if not settings.anthropic_api_key.strip():
-        print("Refusing to run: ANTHROPIC_API_KEY is not set. This test calls the real")
-        print("Claude API and costs money; set the key only when the founder agrees.")
-        sys.exit(1)
     if args.model:
         settings.assist_model = args.model
     if not args.route:
         settings.assist_model_arabizi = ""  # one model for everything
+    models = {settings.assist_model, settings.assist_model_arabizi.strip()} - {""}
+    missing = sorted(model for model in models if not ai_configured(model))
+    if missing:
+        print(f"Refusing to run: no API key for {', '.join(missing)}. This test calls the")
+        print("real AI and costs money; set the keys only when the founder agrees.")
+        sys.exit(1)
 
     system_prompt = build_system_prompt(categories)
     right = defaultdict(int)

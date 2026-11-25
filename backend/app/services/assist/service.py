@@ -25,7 +25,6 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.config import settings
 from app.models import PUBLIC_STATUSES, AssistLog, Category, Place, Provider
 from app.schemas import (
     AssistIn,
@@ -46,6 +45,7 @@ from app.services.assist.ai_client import (
     AIResult,
     AIUnavailable,
     Usage,
+    ai_configured,
     ai_slot,
     ask_model,
     choose_model,
@@ -537,7 +537,7 @@ def assist_from_text(db: Session, body: AssistIn, caller: Caller) -> AssistOut:
     # 3. May we ask the AI? The allowance is checked last, so it only counts
     #    requests that really go to the AI.
     #    If not, the free keyword fallback answers instead.
-    if not settings.anthropic_api_key.strip():
+    if not ai_configured(choose_model(body.text)):
         return answer_without_ai(db, body, categories, hashed, normalized)
     if monthly_budget_reached(db):
         report_budget_reached("monthly", month_start().date())

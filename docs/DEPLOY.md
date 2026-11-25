@@ -34,8 +34,19 @@ without the passphrase.
      refuses to start in production without it, so the connection to the
      database is always encrypted. While there, turn on Supabase →
      Database → Settings → **Enforce SSL**.
-   - `ANTHROPIC_API_KEY`: from console.anthropic.com (leave empty to run
-     Jarak on the free keyword search only).
+   - Jarak's AI keys (leave a key empty and the sentences that would go to
+     that provider get the free keyword search instead). Since 2026-11-25:
+     - `OPENAI_API_KEY`: from platform.openai.com → API keys (GPT-6 Luna,
+       most sentences).
+     - `GEMINI_API_KEY`: from aistudio.google.com → Get API key, in a Google
+       Cloud project **with billing on** (Gemini 3.8 Flash, Arabizi). On the
+       free tier Google may use the sentences to improve its products.
+     - `ANTHROPIC_API_KEY`: only if `ASSIST_MODEL` is set back to a Claude
+       model.
+     Then, on the laptop, run the phrase test once per model and compare with
+     the table in `docs/AI_ASSISTANT.md`:
+     `python scripts/eval_assist.py --model gpt-6-luna`, then
+     `--model gemini-3.8-flash`, then `--route` (a few cents in total).
    - `CONTACT_EMAIL`: the Haddak Gmail address from step 2. It is shown on
      `/privacy`, `/terms` and `/delete-account` (Google Play needs a contact).
    - `SENTRY_DSN`: optional, see step 5. Leave empty for now if you like.

@@ -329,6 +329,8 @@ def test_env_sets_lock_timeout_and_takes_the_migration_lock():
 
 def test_ai_client_is_reused_and_cannot_outlast_the_app(monkeypatch):
     monkeypatch.setattr(settings, "anthropic_api_key", "test-key-not-real")
+    monkeypatch.setattr(settings, "assist_model", "claude-haiku-5-5")
+    monkeypatch.setattr(settings, "assist_model_arabizi", "")
     REAL_GET_CLIENT.cache_clear()
     try:
         first = REAL_GET_CLIENT()
@@ -354,6 +356,8 @@ def ai_must_not_be_called():
 
 def test_full_ai_slots_fall_back_to_keywords_without_using_the_allowance(client, db, monkeypatch):
     monkeypatch.setattr(settings, "anthropic_api_key", "test-key-not-real")
+    monkeypatch.setattr(settings, "assist_model", "claude-haiku-5-5")
+    monkeypatch.setattr(settings, "assist_model_arabizi", "")
     monkeypatch.setattr("app.services.assist.ai_client.get_client", ai_must_not_be_called)
     taken = 0
     while ai_client._ai_slots.acquire(blocking=False):
@@ -371,6 +375,8 @@ def test_full_ai_slots_fall_back_to_keywords_without_using_the_allowance(client,
 
 def test_budget_reached_is_logged_as_an_error_once(client, db, monkeypatch, caplog):
     monkeypatch.setattr(settings, "anthropic_api_key", "test-key-not-real")
+    monkeypatch.setattr(settings, "assist_model", "claude-haiku-5-5")
+    monkeypatch.setattr(settings, "assist_model_arabizi", "")
     monkeypatch.setattr(settings, "assist_monthly_budget_usd", 1.0)
     monkeypatch.setattr(service, "_reported_budgets", set())
     monkeypatch.setattr("app.services.assist.ai_client.get_client", ai_must_not_be_called)

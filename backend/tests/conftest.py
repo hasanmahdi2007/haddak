@@ -162,16 +162,18 @@ def clock(monkeypatch):
 
 def no_network_client():
     raise AssertionError(
-        "A test tried to reach the real Claude API. Use the fake_ai fixture "
-        "(tests/test_assist.py) instead."
+        "A test tried to reach a real AI API. Use the fake_ai fixture "
+        "(tests/test_assist.py) or the fakes in tests/test_ai_providers.py instead."
     )
 
 
 @pytest.fixture(autouse=True)
 def block_real_ai(monkeypatch):
-    """Every test: the Claude API client cannot be created. Tests that need
-    the AI replace get_client with a fake; nothing ever reaches the network."""
-    monkeypatch.setattr("app.services.assist.ai_client.get_client", no_network_client)
+    """Every test: no AI client (Claude, OpenAI, Gemini) can be created.
+    Tests that need the AI replace a get_*_client with a fake; nothing ever
+    reaches the network."""
+    for getter in ("get_client", "get_openai_client", "get_gemini_client"):
+        monkeypatch.setattr(f"app.services.assist.ai_client.{getter}", no_network_client)
 
 
 @pytest.fixture

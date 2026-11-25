@@ -50,14 +50,24 @@ CASES = [
     ("el plomero", "latin"),
     ("fi", "latin"),
     ("w", "latin"),
-    # Mixed
-    ("baddi electrician near hamra", "latin"),
-    ("بدي plumber", "latin"),
-    ("بدي سنكري 2arib", "arabic"),
+    # One Lebanese word that cannot be English or French is enough
+    ("baddi electrician near hamra", "arabizi"),
+    ("shu a7san dentist", "arabizi"),
     ("I need a 7akim", "arabizi"),
-    ("بدي 7ada يصلح laptop bel hamra", "arabizi"),
+    # Arabic letters and Latin letters together: not "pure", routed
+    ("بدي plumber", "mixed"),
+    ("بدي سنكري 2arib", "mixed"),
+    ("بدي 7ada يصلح laptop bel hamra", "mixed"),
+    ("بدي حدا يصلح AC", "mixed"),
+    # Still pure: no letters from the other script, or only one stray letter
+    ("بدي سنكري بـ 20$", "arabic"),
+    ("بدي سنكري بأقل من ٢٠ دولار", "arabic"),  # Arabic-Indic digits
+    ("ﺑﺪﻱ ﺳﻨﻜﺮﻱ", "arabic"),  # presentation forms, typed by some keyboards
+    ("بدي سنكري x", "arabic"),
+    ("électricien à Jounieh, très urgent", "latin"),
     ("", "latin"),
     ("123 456", "latin"),
+    ("👍", "latin"),
 ]
 
 

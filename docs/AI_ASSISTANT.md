@@ -45,7 +45,7 @@ The AI never sees the user's location, name, email or any provider data. It sees
 | All assistant requests per minute per IP | 20 (then 429) | `app/rate_limit.py` |
 | Spending cap per day (Lebanon time) | $1 | `ASSIST_DAILY_BUDGET_USD` |
 | Spending cap per calendar month | $10 | `ASSIST_MONTHLY_BUDGET_USD` |
-| Model | `claude-haiku-5-5` for English, French and Arabic script (cheapest). Arabizi goes to `claude-sonnet-5-5` (model routing, below). | `ASSIST_MODEL`, `ASSIST_MODEL_ARABIZI` (empty = no routing) |
+| Model | `gpt-6-luna` (OpenAI) for English, French and Arabic script. Arabizi goes to `gemini-3.8-flash` (Google) (model routing, below). Founder decision 2026-11-25; the Claude models still work by changing the setting (provider switch, below). | `ASSIST_MODEL`, `ASSIST_MODEL_ARABIZI` (empty = no routing) |
 | No key, a spending cap reached, daily allowance used, or AI error | free keyword fallback (below); `unavailable` only when it finds no category, then the app falls back to normal search | backend |
 
 Every AI request is logged with its token counts and cost (`assist_log`), with no user id.
@@ -65,7 +65,7 @@ Today prices are free text (`price_text`). A price filter needs structured field
 
 ## Free keyword fallback (no AI)
 
-When the AI cannot be asked (no `ANTHROPIC_API_KEY`, monthly cap reached, daily allowance used, or the AI request failed), `app/services/assist/keywords.py` reads the sentence with plain word lists instead, at no cost:
+When the AI cannot be asked (no API key for the chosen model's provider, monthly cap reached, daily allowance used, or the AI request failed), `app/services/assist/keywords.py` reads the sentence with plain word lists instead, at no cost:
 
 - **Word lists:** about 1,350 words and phrases (15 to 76 for each specific category, fewer for the group categories) in Arabizi, Lebanese Arabic, English and French, including the problems people describe: `el brad ma 3am ybarred`/`frigo`/`tallaje` → `ac-repair` (no appliance category; cooling technicians fix fridges); `kahraba`/`2at3a`/`ishtirak`/`moteur`/`solar`/`inverter`/`batarié` → `electrician`; `may 3am tnazzel`/`naz`/`tasrib` → `plumber`; `laptop ma 3am ye2la3`/`pc` → `laptop-repair`. Vague words (`2ostez`, `drous`, `7akim`, `fever`/`s5oune`) are used only when nothing more precise matched, so `2ostez riyadiyat` is math tutoring and `s5oune, 7akim atfal` is the pediatrician.
 - **Arabizi spelling** (`normalize.arabizi_word`, used only here, never for the cache key): lower case, no accents, digits as letters (2 dropped, 3 → a, 5 → kh, 6 → t, 7 → h, 8 → gh, 9 → s), `ch` = `sh`, `ou`/`o` = `u`, `ee` = `i`, `q` = `k`, `ph` = `f`, any doubled letter once, and a final i/y/e alike. So `baddé`/`baddi`/`baddddé` are one word, and so are `2ostez`/`oustez`. Two listed words that end up with the same spelling (`hala2` "now" and `7ala2` "barber") are only matched as typed.
@@ -91,9 +91,9 @@ Code: `backend/app/services/assist/` (`normalize.py`, `prompt.py`, `ai_client.py
 - **Daily allowance (`quota.py`):** each AI request counts against the person (the signed-in account, or else the phone's install id from `X-Haddak-Device`) and against the IP address. The IP allowance is higher because many phones on Alfa and Touch share one public address (carrier NAT), and it is what stops a script that invents a new install id per request. Each count is one atomic insert-or-add in `assist_quota`, so two requests at once cannot both take the last one; a refused request counts for nobody (rolled back). Rows hold `HMAC-SHA256(ASSIST_QUOTA_SECRET, day + who)`, never the IP, account or install id, and are deleted after two days.
 - **Why these numbers:** a real person asks Jarak a few times a day at most, and exact names and remembered sentences are free, so 15 (30 signed in) is never reached by normal use. The worst case is about 1.5 cents per AI request (Sonnet writing the prompt cache); the usual cost is 0.1 to 0.2 cents. The $1 daily cap means abuse can cost at most $1 a day and never the whole month's $10. Any failure on the way → `unavailable`.
 - **Normalising:** lower case, accents and Arabic marks removed (hamza forms → plain letter, ة → ه, ى → ي), punctuation → space, spaces collapsed. The SQL function `normalize_name()` does the same letter rules for place lookup.
-- **The request:** official `anthropic` Python SDK (2.8.0), `messages.parse()` with the Pydantic class `AIResult` as the output schema (structured output). `effort: low`; thinking `disabled` on Haiku 5.5 (Sonnet and Opus 5.5 refuse that, so they get low effort only); `max_tokens` 1024; 8 s timeout, 1 retry. The system prompt (rules, four short examples, the category list from the database in a fixed order) carries a prompt-cache marker and contains no dates or ids.
+- **The request (Claude models):** official `anthropic` Python SDK (2.8.0), `messages.parse()` with the Pydantic class `AIResult` as the output schema (structured output). `effort: low`; thinking `disabled` on Haiku 5.5 (Sonnet and Opus 5.5 refuse that, so they get low effort only); `max_tokens` 1024. Every provider: 6 s timeout (2 s to connect), no retry, at most 8 AI requests at once. The system prompt (rules, four short examples, the category list from the database in a fixed order) carries a prompt-cache marker and contains no dates or ids.
 - **Checking the answer:** unknown slugs dropped (max 3), radius snapped to 500/1000/5000/20000, a price limit needs an amount and a unit (currency defaults to USD), `q` 2–60 characters, clarify needs a question and 2–4 options that each search for something (one good option becomes a normal search), emergency and off_topic lose all settings. A `refusal` or cut-off answer counts as an AI failure.
-- **Cost:** tokens × a small price table in `ai_client.py` (Haiku 5.5: $0.10 in, $0.50 out, $0.01 cache read, $0.125 cache write per million tokens; an unknown model is costed high on purpose). Every request is logged in `assist_log` with `source` = `ai`, `cache` or `direct` (only `ai` rows cost money).
+- **Cost:** tokens × a small price table in `ai_client.py` (per million tokens: GPT-6 Luna $0.10 in, $0.50 out, $0.01 cached, $0.125 cache write; Gemini 3.8 Flash costed at its 2027 price, $1.50 in and $7.50 out, cached tokens at the full input price because Google's cached-token discount is not confirmed, so the cap errs on the safe side; Haiku 5.5 $0.10 / $0.50 / $0.01 / $0.125; an unknown model is costed high on purpose). Reasoning ("thinking") tokens are billed as output on every provider and are counted. Every request is logged in `assist_log` with `source` = `ai`, `cache` or `direct` (only `ai` rows cost money).
 - **Places:** about 80 hand-placed cities, towns and Beirut neighbourhoods (approximate centres) inserted by migration 0006. Exact match on name or alias first, then pg_trgm similarity ≥ 0.35. A found place centres the search and sets the radius to at least its size. Two rows with the same English name (Jdeideh, Matn and Marjayoun) → `place_options`.
 - **Search:** the normal search service, unverified providers included after the verified ones, up to 20 results, widening 1 → 5 → 20 km when nothing is found. Nothing to search for (no category, no name) → empty results, logged as wanted.
 - **Most wanted:** `GET /admin/assist/wanted` and the admin page's Wanted tab list the normalised sentences that found nothing (last 30 days), unknown place names, and this month's spend.
@@ -116,6 +116,42 @@ Phrase test, 213 phrases (`eval_assist.py`):
 | Routed (`--route`) | 94% (kind 98%) | $0.262, about $1.23 per 1,000 AI searches |
 
 Routed, kind and categories both right, per style: Arabic 27/27, Arabizi 97/104 (93%), English 37/39 (95%), French 13/13, mixed 28/30 (93%). 112 of 213 phrases (53%) went to Sonnet; the test set is Arabizi-heavy (104 of 213 phrases plus mixed ones), real traffic should send less. Cache hits and exact matches cost nothing, so real cost per 1,000 searches is lower.
+
+### Routing rule (2026-11-25)
+
+Founder decision: **pure** English/French or **pure** Arabic letters go to `ASSIST_MODEL` (GPT-6 Luna). Arabizi, and any sentence that mixes Arabic and Latin letters, go to `ASSIST_MODEL_ARABIZI` (Gemini 3.8 Flash). `detect_script` in `normalize.py` decides from the characters alone, with no AI:
+
+- **Unicode blocks:** Arabic letters come from U+0600–06FF, U+0750–077F, U+08A0–08FF and the presentation forms (U+FB50–FDFF, U+FE70–FEFF). Latin letters are A–Z plus the accented letters up to U+024F (é, à, ç).
+- **Not letters:** digits (including Arabic-Indic ٠–٩), `$` and emoji count for neither script.
+- **Mixed:** at least 2 Arabic letters and at least 2 Latin letters ("بدي plumber", "بدي حدا يصلح AC"). One stray letter does not make a sentence mixed.
+- **Arabizi:** Latin letters with a digit used as a letter inside a word (`7ada`, `3am`, `2arib`, but not `20k` or `5km`). Or one Lebanese word that cannot be English or French (`baddi`, `bdi`, `shu`, `ktir`, `sankari`, `maksoura`...). Or two short words that also exist in French or Spanish (`fi`, `ma`, `el`, `w`, `bel`, `bl`...).
+
+**Measured on the 213 test phrases (free, no API):**
+
+| Style | To Luna | To Gemini |
+|---|---|---|
+| Arabic | 27 | 0 |
+| English | 39 | 0 |
+| French | 13 | 0 |
+| Arabizi | 3 | 101 |
+| Mixed | 3 | 27 |
+
+Two of the six that slip through are gibberish. The other four are one glued word (`baddesankari`) and three mostly-French or English phrases. Luna still answers them.
+
+### Provider switch (2026-11-25)
+
+Founder decision: GPT-6 Luna replaces Haiku and Gemini 3.8 Flash replaces Sonnet for Arabizi, judged better at English and Arabic and cheaper than Sonnet. The model name picks the provider: `gpt-...` → OpenAI, `gemini-...` → Google, `claude-...` → Anthropic. So going back is one setting on Render, with no code change.
+
+| Provider | Key | Request |
+|---|---|---|
+| OpenAI | `OPENAI_API_KEY` | official `openai` SDK, `responses.parse()` with `text_format=AIResult` (strict structured output), `reasoning.effort` `none`, `max_output_tokens` 1024, `store` false (OpenAI keeps no copy for later use), one `prompt_cache_key` so the fixed prompt is cached |
+| Google | `GEMINI_API_KEY` | official `google-genai` SDK, `models.generate_content()` with the system prompt as `system_instruction`, JSON output against `AIResult`'s JSON schema, `thinking_level` `low` (the lowest Gemini 3.8 Flash accepts; thinking cannot be switched off), `max_output_tokens` 1024 |
+| Anthropic | `ANTHROPIC_API_KEY` | as above |
+
+- The answer is checked against `AIResult` the same way for all three. A refusal, a safety stop or a cut-off answer counts as an AI failure, and the keyword fallback answers.
+- **Paid tier only for Google:** on the free Gemini tier Google may use prompts to improve its products and people may read them. The key must belong to a Google Cloud project with billing on.
+- **Not measured yet:** the 213-phrase test (`scripts/eval_assist.py --model gpt-6-luna`, `--model gemini-3.8-flash`, `--route`) needs the two keys. Compare with the Claude rows above before trusting the switch.
+- Privacy page: lists OpenAI, Google and Anthropic as the companies a Jarak sentence may be sent to (whichever the setting picks).
 
 ## Later (not version 1)
 

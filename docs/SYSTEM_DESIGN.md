@@ -53,7 +53,7 @@ Three rules hold the design together:
 | Database | Postgres 17 with PostGIS and pg_trgm (Supabase) | PostGIS does the radius search inside the database with a spatial index; pg_trgm makes "contains this text" and typo-tolerant matching fast. |
 | Login | Supabase Auth (email code) | Free, no SMS costs. The backend only checks the token's signature. |
 | Photos and proof | Supabase Storage | Two buckets: `provider-photos` (public) and `verification-docs` (private). |
-| Assistant (Jarak) | Anthropic API, Claude Haiku (Sonnet for Arabizi) | Turns a sentence into the same search parameters the app already sends. Capped by daily and monthly budgets. |
+| Assistant (Jarak) | OpenAI GPT-6 Luna (Google Gemini 3.8 Flash for Arabizi); Claude still selectable by setting (`docs/AI_ASSISTANT.md`, provider switch) | Turns a sentence into the same search parameters the app already sends. Capped by daily and monthly budgets. |
 | Tests | pytest against a real PostGIS database | The radius search cannot be tested honestly against a fake database. |
 | Code quality | ruff (lint), GitHub Actions on every push | A push that breaks lint or tests shows red on GitHub. |
 | Local development | Docker Compose (`postgis/postgis:16-3.4` on port 5433) | Close to production. **One known difference:** production and CI run Postgres **17**, the laptop runs **16**. Moving the laptop to 17 means wiping the local database (a major version cannot reuse the old data folder), so it stays on 16 for now; CI on 17 is what catches version problems. To switch later: `docker compose down -v`, change the image to `postgis/postgis:17-3.5`, `docker compose up -d db`, then `alembic upgrade head` and `python scripts/seed.py`. |

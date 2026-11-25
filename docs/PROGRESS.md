@@ -25,6 +25,28 @@ Current: 0 real providers (app not released). Seed data only.
 
 ## Log
 
+### 2026-11-25 (night) — Jarak's AI: GPT-6 Luna and Gemini 3.8 Flash
+
+**Why:** the founder judged GPT-6 Luna better than Haiku at English and Arabic, and Gemini 3.8 Flash better than Sonnet and much cheaper.
+
+**What:**
+- The model name now picks the provider: `gpt-` → OpenAI, `gemini-` → Google, `claude-` → Anthropic.
+- Defaults: `ASSIST_MODEL=gpt-6-luna`, `ASSIST_MODEL_ARABIZI=gemini-3.8-flash`.
+- OpenAI request: strict structured output, no reasoning, `store` false.
+- Gemini request: JSON against the `AIResult` schema, lowest thinking level.
+- Both requests: 6 s timeout, no retry, the same answer checks as before.
+- A missing key sends those sentences to the free keyword search.
+- Prices are in the cost table. Gemini is costed at its 2027 price so the caps err on the safe side.
+- The privacy page names OpenAI, Google and Anthropic.
+- The phrase test script works with any of the three.
+
+**Checked:**
+- `test_ai_providers.py`: 16 tests with fake clients shaped like the SDK responses (request shape, usage split, refusals, safety stops, cut-off answers, network errors, routing through `/assist`, missing key).
+- The existing assistant tests pass with Claude pinned.
+- Full suite and the Docker image: see the commit.
+
+**Not checked:** a real request to either API, because there are no keys yet. Gemini's acceptance of our JSON schema in particular is unverified. Until the keys are on Render, Jarak answers with the keyword search.
+
 ### 2026-11-25 (evening) — Audit fixes live in production; badge rule after edits
 
 **What:**

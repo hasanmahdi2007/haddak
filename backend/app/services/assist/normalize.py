@@ -125,43 +125,78 @@ def skeleton(word: str) -> str:
 DIGIT_IN_WORD = re.compile(r"[a-z][235679]|[235679][a-z]|[a-z]8[a-z]|^8[a-z]|[a-z]8$")
 # Numbers with a unit are not Arabizi: "20k", "15usd", "2nd", "5km".
 NUMBER_WITH_UNIT = re.compile(r"^\d+(k|usd|lbp|eur|m|km|h|hr|hrs|min|st|nd|rd|th|d|pm)$")
-# Lebanese Arabizi words with no digits. A few also exist in French or
-# Spanish ("ma", "el"), so one such word alone is not enough (see below).
-ARABIZI_TOKENS = {
-    "baddi", "badde", "bade", "bde", "badna", "baddak", "baddek", "shu", "shou", "sho",
-    "kif", "kifak", "fi", "ma", "hayda", "hayde", "ktir", "kteer", "hala2", "halla2",
-    "halla", "hallaq", "el", "w", "bel", "lal", "hon", "hek", "shi", "mish", "aktar",
-    "wen", "wein", "mni7", "mnih", "kaman", "ya3ni", "yaani", "inshallah", "habibi",
+# Lebanese Arabizi words with no digits. These cannot be English or French,
+# so one of them is enough: "baddi electrician" is Arabizi.
+ARABIZI_WORDS = {
+    "baddi", "badde", "bade", "bde", "badna", "baddak", "baddek", "shu", "shou",
+    "kifak", "kifik", "hayda", "hayde", "ktir", "kteer", "hala2", "halla2", "halla",
+    "hallaq", "mni7", "mnih", "ya3ni", "yaani", "inshallah", "habibi", "wein",
+    "bdi", "bede", "bedde", "ebne", "ebni", "wled", "maksoura", "maksour", "daroure",
+    "darouri", "faddye", "tlifon", "sayyara", "sayyarte", "ostez", "oustez", "drous",
+    "dourous", "khsousi", "sankari", "sankary", "kahrabji", "dahhan", "ydahhenli",
 }  # fmt: skip
-# Without a digit, at least this many such words are needed.
-MIN_ARABIZI_TOKENS = 2
+# Short words that are Arabizi but also French, Spanish or English ("ma",
+# "el", "fi", "w", "hon"): only two or more of them (or with one word above)
+# make a sentence Arabizi, so "ma voiture" stays French.
+ARABIZI_SHORT_WORDS = {
+    "fi", "ma", "el", "w", "bel", "lal", "hon", "hek", "shi", "mish", "aktar",
+    "wen", "kaman", "kif", "sho", "bl",
+}  # fmt: skip
+MIN_SHORT_WORDS = 2
+
+
+def is_arabic_letter(ch: str) -> bool:
+    """A letter from one of Unicode's Arabic blocks: Arabic (U+0600-06FF),
+    Arabic Supplement (U+0750-077F), Arabic Extended-A (U+08A0-08FF) and the
+    two presentation-form blocks (U+FB50-FDFF, U+FE70-FEFF) that some
+    keyboards still type. Arabic-Indic digits (٠-٩) are not letters."""
+    code = ord(ch)
+    in_block = (
+        0x0600 <= code <= 0x06FF
+        or 0x0750 <= code <= 0x077F
+        or 0x08A0 <= code <= 0x08FF
+        or 0xFB50 <= code <= 0xFDFF
+        or 0xFE70 <= code <= 0xFEFF
+    )
+    return in_block and ch.isalpha()
+
+
+def is_latin_letter(ch: str) -> bool:
+    """A-Z, a-z and the accented Latin letters French uses (é, à, ç ...):
+    Unicode's Latin blocks run from U+0041 to U+024F."""
+    return ch.isalpha() and ord(ch) <= 0x024F
 
 
 def detect_script(text: str) -> str:
-    """ "arabic", "arabizi" or "latin" (English, French, anything else).
+    """ "arabic", "latin", "arabizi" or "mixed", from the characters alone
+    (no AI). It chooses the AI model: arabic and latin are "pure" and go to
+    ASSIST_MODEL; arabizi and mixed go to ASSIST_MODEL_ARABIZI.
 
-    - arabic: most of the letters are Arabic letters;
+    - mixed: both Arabic letters and Latin letters, at least 2 of each
+      ("بدي plumber", "بدي سنكري 2arib"); one stray letter does not count;
+    - arabic: Arabic letters only (digits, $ and emoji do not matter);
     - arabizi: Latin letters with a digit used as a letter inside a word
-      ("7ada", "3am", "2arib"), or at least 2 common Lebanese Arabizi words
-      ("baddi", "shu", "kif"...), so plain English is not caught;
-    - latin: everything else.
-    A sentence of Arabic words and Arabizi words follows its larger part.
+      ("7ada", "3am", "2arib"), or one Lebanese word that cannot be English
+      or French ("baddi", "shu", "ktir"), or two short ones ("shu fi hon");
+    - latin: everything else (English, French, numbers, empty).
     """
-    arabic_letters = sum(1 for ch in text if "؀" <= ch <= "ۿ" and ch.isalpha())
-    latin_letters = sum(1 for ch in text if ch.isascii() and ch.isalpha())
+    arabic_letters = sum(1 for ch in text if is_arabic_letter(ch))
+    latin_letters = sum(1 for ch in text if is_latin_letter(ch))
+    if arabic_letters >= 2 and latin_letters >= 2:
+        return "mixed"
     if arabic_letters > latin_letters:
         return "arabic"
 
     # Plain spelling only: "baddé" -> "badde", punctuation -> space.
     words = normalize_text(text).split()
-    marked = 0
+    short = 0
     for word in words:
         if not word.isascii() or NUMBER_WITH_UNIT.match(word):
             continue
-        if DIGIT_IN_WORD.search(word):
+        if DIGIT_IN_WORD.search(word) or word in ARABIZI_WORDS:
             return "arabizi"
-        if word in ARABIZI_TOKENS:
-            marked += 1
-    if marked >= MIN_ARABIZI_TOKENS:
+        if word in ARABIZI_SHORT_WORDS:
+            short += 1
+    if short >= MIN_SHORT_WORDS:
         return "arabizi"
     return "latin"

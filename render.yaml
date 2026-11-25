@@ -59,6 +59,13 @@ services:
       # Secrets you paste in Render's dashboard (see docs/DEPLOY.md).
       - key: DATABASE_URL
         sync: false
+      # Jarak's AI (docs/AI_ASSISTANT.md, "Provider switch"): OpenAI for most
+      # sentences, Google for Arabizi. Anthropic only if ASSIST_MODEL is set
+      # back to a Claude model.
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
       # Shown on /privacy, /terms and /delete-account (Google Play needs a contact).
