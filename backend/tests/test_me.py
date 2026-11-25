@@ -200,6 +200,49 @@ def test_patch_cannot_change_status(client, db):
     assert body["status"] == "pending"
 
 
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"name": "Another Name"},
+        {"category_id": "OTHER"},  # replaced below with a real second category
+        {"phone": "+96171999888"},
+        {"whatsapp": "+96171999888"},
+    ],
+)
+def test_changing_what_the_badge_vouches_for_needs_a_new_check(client, db, change):
+    owner_id = uuid.uuid4()
+    category = make_category(db, "laptop-repair")
+    other = make_category(db, "phone-repair")
+    make_provider(db, category, owner_user_id=owner_id, status="verified")
+    if "category_id" in change:
+        change = {"category_id": other.id}
+
+    body = client.patch(ME_URL, json=change, headers=auth_headers(owner_id)).json()
+
+    assert body["status"] == "pending"
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"description": "Now also fixing tablets."},
+        {"lat": 33.87, "lng": 35.51},
+        {"area_name": "Hamra"},
+        {"price_text": "From $10"},
+        {"name": "Test Provider"},  # the same name again is not a change
+        {"phone": "+96170123456"},  # the same number again
+    ],
+)
+def test_other_edits_keep_the_badge(client, db, change):
+    owner_id = uuid.uuid4()
+    category = make_category(db, "laptop-repair")
+    make_provider(db, category, owner_user_id=owner_id, status="verified")
+
+    body = client.patch(ME_URL, json=change, headers=auth_headers(owner_id)).json()
+
+    assert body["status"] == "verified"
+
+
 def test_patch_without_profile_is_404(client):
     response = client.patch(ME_URL, json={"name": "x"}, headers=auth_headers(uuid.uuid4()))
     assert response.status_code == 404

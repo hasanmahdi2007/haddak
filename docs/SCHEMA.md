@@ -273,7 +273,7 @@ Migrations: `0001` created the first four tables; `0002` added `providers.show_c
 Who moves a profile between statuses:
 
 - Owner, on create: `pending` if a `verification_doc_url` is sent, otherwise `unverified`.
-- Owner, on update: an `unverified` profile becomes `pending` when a new `verification_doc_url` is sent; a `pending` profile whose proof is removed goes back to `unverified`. No other owner edit changes the status.
+- Owner, on update: an `unverified` profile becomes `pending` when a new `verification_doc_url` is sent; a `pending` profile whose proof is removed goes back to `unverified`. A `verified` profile whose `name`, `category_id`, `phone` or `whatsapp` changes goes back to `pending`: the badge vouched for that name, trade and number, so the founder checks again (founder decision, 2026-11-25). Location, photos, description, hours and prices keep the badge. No other owner edit changes the status.
 - Admin: verify (any -> `verified`), reject (any -> `rejected`), decline proof (`pending` -> `unverified`), restore (`rejected` -> `unverified`).
 
 ### `providers.source` and unclaimed listings

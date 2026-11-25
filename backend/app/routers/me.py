@@ -50,6 +50,10 @@ SLUG_ATTEMPTS = 3
 SLUG_UNIQUE = "providers_slug_key"
 OWNER_UNIQUE = "providers_owner_user_id_key"
 
+# Changing one of these on a verified profile sends it back to 'pending'
+# (docs/API.md, PATCH /me/provider).
+FIELDS_THE_BADGE_VOUCHES_FOR = ("name", "category_id", "phone", "whatsapp")
+
 
 def violated_constraint(error: IntegrityError) -> str | None:
     """The name of the database rule an INSERT/UPDATE broke, if Postgres says."""
@@ -190,8 +194,18 @@ def update_my_provider(
         new_lng = changes.pop("lng", provider.lng)
         provider.location = point_for_storage(new_lat, new_lng)
 
-    # Proof and status. Only these two moves are possible here; a verified
-    # profile stays verified and a rejected one stays rejected.
+    # A verified badge vouches for this name, this trade and these numbers.
+    # If the owner changes any of them, the founder checks again: the
+    # profile goes back to 'pending' (badge hidden) until re-verified.
+    # Location, photos, description, hours and prices keep the badge.
+    if provider.status == "verified" and any(
+        field_name in changes and changes[field_name] != getattr(provider, field_name)
+        for field_name in FIELDS_THE_BADGE_VOUCHES_FOR
+    ):
+        provider.status = "pending"
+
+    # Proof and status. Only these two moves are possible here; a rejected
+    # profile stays rejected.
     if "verification_doc_url" in changes:
         new_proof = changes["verification_doc_url"]
         if provider.status == "unverified" and new_proof:

@@ -8,7 +8,7 @@ What has been built, how it was checked, and what is still open. Newest entry fi
 |---|---|
 | Project docs | Written: PROJECT, V1_SCOPE, SCHEMA, API, SYSTEM_DESIGN, TASKS, this log |
 | GitHub | Public repo https://github.com/hasanmahdi2007/haddak; CI (backend, mobile), weekly encrypted backup, uptime check, Dependabot |
-| Database | Local: Postgres + PostGIS in Docker, seeded. Production: Supabase (Frankfurt), migrations up to 0015, 3,002 OpenStreetMap listings |
+| Database | Local: Postgres + PostGIS in Docker, seeded. Production: Supabase (Frankfurt), migrations up to 0019, 143 categories, 3,002 OpenStreetMap listings |
 | Backend | All version 1 endpoints plus assistant, claims, account deletion and policy pages (693 tests); production image checked against the live database |
 | Mobile app | All version 1 screens built ("Pastel" design: ghost white, alice blue, vanilla and black, Urbanist; English and Arabic), plus sign-in, sign-up, stats, reviews, report, share/QR, stories, Jarak AI, hire checks, "Available now" and the poster. Checked in mock web builds; phone tests pending. Microphone needs a development build (in progress) |
 | Hosting | Database live in Frankfurt; API live on Render (`haddak-api.onrender.com`); still to do: Gmail sender and email template, backup secrets, first APK (`DEPLOY.md`) |
@@ -24,6 +24,29 @@ The app is judged in the first area by this, not by code:
 Current: 0 real providers (app not released). Seed data only.
 
 ## Log
+
+### 2026-11-25 (evening) — Audit fixes live in production; badge rule after edits
+
+**What:**
+- The three audit commits (backend, app, docs) were pushed. GitHub checks passed, Render deployed, and the start-up migrations brought production from 0015 to 0019.
+- `storage_setup.sql` was re-run on the live project, so uploads are now capped at 100 photos and 10 proof files per user.
+- Founder decision: a verified profile goes back to `pending` (badge hidden until the founder checks again) when the owner changes the name, category, phone or WhatsApp. Location, photos, description, hours and prices keep the badge. The edit form tells verified owners this before they save.
+- Supabase Pro: not planned for now (founder decision); the free plan plus the GitHub backup workflow cover the start.
+
+**Checked:**
+- `/api/v1/live` and `/api/v1/health` are ok, so the new version started; that means `sslmode=require` and `SUPABASE_URL` are set on Render.
+- `alembic_version` is 0019, and there are 143 categories.
+- Listings are intact: 3,002 OSM listings, all `unverified`.
+- Live search: 574 listings within 5 km of central Beirut, and "pharmacy" returns 311. Each search took 0.3 to 0.6 s.
+- The account-deletion function exists and `haddak_api` can call it.
+- `test_me.py` passes: 38 tests, including 10 new ones for the badge rule. `tsc` and `expo lint` are clean.
+
+**Open:**
+- Supabase dashboard sign-in settings (F8).
+- UptimeRobot.
+- The OSM re-import (B32).
+- The rest of F9.
+- Search misses some Arabizi spellings: "sayadliyye" finds nothing, while the assistant handles such words.
 
 ### 2026-11-25 — Price estimates for all jobs; full security, reliability and app audit, fixed
 

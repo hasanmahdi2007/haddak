@@ -310,7 +310,8 @@ Phone numbers must be in international format (`+` and 8 to 15 digits).
 
 - On an `unverified` profile, sending a `verification_doc_url` that is not the one already stored moves it to `pending` (proof waiting for the founder). Sending the same URL again changes nothing, so a declined proof is not queued again by an ordinary edit.
 - On a `pending` profile, clearing it with `null` moves the profile back to `unverified`.
-- Every other edit keeps the status. A `verified` profile stays verified; a `rejected` profile stays rejected whatever is sent.
+- On a `verified` profile, changing `name`, `category_id`, `phone` or `whatsapp` (sending a value different from the stored one) moves it back to `pending`, so the badge disappears until the founder checks again. Changing the location, photos, description, opening hours or prices keeps the badge.
+- Every other edit keeps the status. A `rejected` profile stays rejected whatever is sent.
 
 Two optional fields can also be sent on create and on update:
 

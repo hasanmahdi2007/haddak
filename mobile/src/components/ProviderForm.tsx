@@ -436,6 +436,11 @@ export function ProviderForm({ mode, initial, header, onSaved }: Props) {
         {/* The only child of the scrolling page, so a position measured inside it is a scroll position. */}
         <View ref={contentRef} collapsable={false} style={[styles.column, styles.page]}>
           {header}
+          {mode === 'edit' && initial?.status === 'verified' ? (
+            <Txt role="label" color="textMuted">
+              {s.join.badgeRecheck}
+            </Txt>
+          ) : null}
 
           <Section title={s.join.sectionAbout}>
             <View ref={categoryBox} collapsable={false}>

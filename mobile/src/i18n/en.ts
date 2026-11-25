@@ -565,6 +565,7 @@ export const en = {
     submit: 'List my business',
     save: 'Save changes',
     saved: 'Changes saved',
+    badgeRecheck: 'Changing your name, category or phone numbers hides the Verified badge until Haddak checks again. Other changes keep it.',
     exists: 'This account already has a listing. Open My business to change it.',
     doneTitle: 'Your business is on Haddak',
     donePending: 'People nearby can already find you, without the Verified badge. Haddak checks your proof by hand, usually within a few days. The badge appears once it is accepted.',
