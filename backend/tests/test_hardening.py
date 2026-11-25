@@ -371,6 +371,11 @@ def make_settings(**values) -> Settings:
         "admin_api_key": "",
         "allow_dev_tokens": False,
         "assist_quota_secret": GOOD_QUOTA_SECRET,
+        # Safe values for the checks added after the security audit; the
+        # tests below that need an unsafe one pass it explicitly.
+        "supabase_url": "https://example.supabase.co",
+        "cors_origins": "",
+        "database_url": "postgresql://u:p@db.example.com:5432/postgres?sslmode=require",
     }
     return Settings(_env_file=None, **{**defaults, **values})
 

@@ -8,7 +8,10 @@ Privacy, in line with /privacy:
   - send_default_pii=False: no IP address, cookies or user id;
   - the query string is dropped (it carries the user's lat/lng);
   - request bodies are dropped (reviews, phone numbers, Jarak's sentences);
-  - Authorization and X-Admin-Key headers are dropped.
+  - Authorization and X-Admin-Key headers are dropped;
+  - local variables are never sent (include_local_variables=False, and scrub
+    removes any "vars" from stack frames as well): they hold lat/lng, phone
+    numbers, review texts and assistant sentences.
 """
 
 import sentry_sdk
@@ -18,8 +21,19 @@ from app.config import Settings
 DROPPED_HEADERS = {"authorization", "x-admin-key", "cookie", "x-haddak-device"}
 
 
+def drop_frame_variables(event: dict) -> None:
+    """Remove the local variables of every stack frame in the event."""
+    for exception in (event.get("exception") or {}).get("values") or []:
+        for frame in (exception.get("stacktrace") or {}).get("frames") or []:
+            frame.pop("vars", None)
+    for thread in (event.get("threads") or {}).get("values") or []:
+        for frame in (thread.get("stacktrace") or {}).get("frames") or []:
+            frame.pop("vars", None)
+
+
 def scrub(event: dict, _hint: dict) -> dict:
     """Runs on every event just before it leaves the server."""
+    drop_frame_variables(event)
     request = event.get("request")
     if request:
         request.pop("query_string", None)
@@ -45,6 +59,7 @@ def init_error_tracking(settings: Settings) -> bool:
         send_default_pii=False,
         traces_sample_rate=0.0,
         max_request_body_size="never",
+        include_local_variables=False,
         before_send=scrub,
     )
     return True

@@ -67,6 +67,23 @@ def confirmed_hires(db: Session, provider_id: uuid.UUID) -> int:
     return count or 0
 
 
+def confirmed_hires_counts(db: Session, provider_ids: list[uuid.UUID]) -> dict[uuid.UUID, int]:
+    """confirmed_hires() for many providers in one query. Providers with
+    none are missing from the dict."""
+    if not provider_ids:
+        return {}
+    rows = db.execute(
+        select(HireCheck.provider_id, func.count())
+        .where(
+            HireCheck.provider_id.in_(provider_ids),
+            HireCheck.answer == "hired",
+            HireCheck.answered_at >= now() - COUNT_WINDOW,
+        )
+        .group_by(HireCheck.provider_id)
+    )
+    return {provider_id: count for provider_id, count in rows}
+
+
 def hired_user_ids(
     db: Session, provider_id: uuid.UUID, user_ids: list[uuid.UUID]
 ) -> set[uuid.UUID]:

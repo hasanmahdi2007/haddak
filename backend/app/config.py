@@ -4,6 +4,8 @@ Values come from environment variables, or from a `.env` file in `backend/`
 (environment variables win). See `.env.example` for the full list.
 """
 
+from urllib.parse import parse_qs, urlsplit
+
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -30,6 +32,12 @@ class Settings(BaseSettings):
     # must never be the case in production (the app refuses to start).
     supabase_jwt_secret: str = ""
     allow_dev_tokens: bool = False
+
+    # The Supabase project's address, e.g. https://<project-ref>.supabase.co
+    # (no trailing slash). Photo, story and proof links must point into this
+    # project's Storage (see app/schemas.py). Empty in development = any https
+    # link is accepted; production refuses to start without it.
+    supabase_url: str = ""
 
     # Secret sent in the X-Admin-Key header for /admin routes.
     admin_api_key: str = ""
@@ -87,6 +95,26 @@ class Settings(BaseSettings):
     # (app/legal_pages.py). Google Play requires a way to reach the developer.
     contact_email: str = ""
 
+    # ----- Database connections (app/db.py) -----
+    # The budget behind these numbers is in docs/SYSTEM_DESIGN.md §6
+    # ("Connection budget"): every connection counts against the haddak_api
+    # role's limit (20) and Supabase's session pooler.
+    # Connections kept open, plus extra ones allowed during a burst.
+    db_pool_size: int = 5
+    db_max_overflow: int = 3
+    # Seconds a request waits for a free connection before it gets 503.
+    # Short on purpose: the app gives up after 12 s anyway.
+    db_pool_timeout_seconds: float = 5.0
+    # Replace connections older than this (seconds), before the pooler or
+    # a firewall silently drops them.
+    db_pool_recycle_seconds: int = 1800
+    # Seconds to wait when opening a new connection (an unreachable database
+    # otherwise hangs for the operating system's TCP timeout, about 2 minutes).
+    db_connect_timeout_seconds: int = 5
+    # Longest a single query may run, in milliseconds. Below the app's 12 s
+    # timeout, so a stuck query is stopped before the user gives up.
+    db_statement_timeout_ms: int = 8000
+
     @field_validator("database_url")
     @classmethod
     def use_psycopg3_driver(cls, value: str) -> str:
@@ -136,7 +164,30 @@ def production_problems(settings: Settings) -> list[str]:
         problems.append("ALLOW_DEV_TOKENS must be false")
     if not is_real_secret(settings.assist_quota_secret):
         problems.append("ASSIST_QUOTA_SECRET is empty or still a placeholder")
+    if not settings.supabase_url.strip().startswith("https://"):
+        problems.append(
+            "SUPABASE_URL is empty: it must be https://<project-ref>.supabase.co,"
+            " so photo and proof links can be checked"
+        )
+    if "*" in settings.cors_origin_list():
+        problems.append("CORS_ORIGINS must not be * (leave it empty for the phone app)")
+    if database_sslmode(settings.database_url) not in SAFE_SSLMODES:
+        problems.append(
+            "DATABASE_URL must end with ?sslmode=require (or verify-full),"
+            " so the database connection is always encrypted"
+        )
     return problems
+
+
+# libpq's default ("prefer") falls back to an unencrypted connection when the
+# server allows it. These modes never do.
+SAFE_SSLMODES = {"require", "verify-ca", "verify-full"}
+
+
+def database_sslmode(database_url: str) -> str:
+    """The sslmode written in DATABASE_URL's query string, or "" if none."""
+    query = urlsplit(database_url).query
+    return parse_qs(query).get("sslmode", [""])[-1].strip().lower()
 
 
 def check_startup_settings(settings: Settings) -> None:

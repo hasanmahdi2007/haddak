@@ -19,8 +19,10 @@ circle if nothing is found), build the summary, log the request.
 
 import logging
 from dataclasses import dataclass, field
+from datetime import date
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -37,15 +39,23 @@ from app.schemas import (
     UnderstoodIn,
 )
 from app.services import provider_views
+from app.services.assist import quota
 from app.services.assist.ai_client import (
+    MAX_CONCURRENT_AI_CALLS,
     AIOption,
     AIResult,
     AIUnavailable,
     Usage,
+    ai_slot,
     ask_model,
     choose_model,
 )
-from app.services.assist.budget import cost_usd, daily_budget_reached, monthly_budget_reached
+from app.services.assist.budget import (
+    cost_usd,
+    daily_budget_reached,
+    month_start,
+    monthly_budget_reached,
+)
 from app.services.assist.cache import get_cached, save_cached
 from app.services.assist.keywords import understand as understand_keywords
 from app.services.assist.normalize import normalize_text, text_hash
@@ -427,25 +437,34 @@ def write_log(
     usage: Usage | None = None,
 ) -> None:
     """One assist_log row. The sentence itself is stored only when the search
-    found nothing (the founder's "most wanted" list)."""
+    found nothing (the founder's "most wanted" list).
+
+    Best effort: the answer is already made, and a user should get it even
+    when the row cannot be written (for example a database that Supabase
+    switched to read-only because it is over the free plan's size). The
+    failure is logged as an error, so it reaches Sentry."""
     usage = usage or Usage()
     found_nothing = response.kind == "results" and response.results.total == 0
-    db.add(
-        AssistLog(
-            source=source,
-            model=model,
-            input_tokens=usage.input_tokens,
-            output_tokens=usage.output_tokens,
-            cache_read_tokens=usage.cache_read_tokens,
-            cache_write_tokens=usage.cache_write_tokens,
-            cost_usd=cost_usd(model, usage) if model else 0,
-            kind=response.kind,
-            text_hash=hashed,
-            wanted_text=normalized if found_nothing else None,
-            place_unknown=response.place_unknown,
+    try:
+        db.add(
+            AssistLog(
+                source=source,
+                model=model,
+                input_tokens=usage.input_tokens,
+                output_tokens=usage.output_tokens,
+                cache_read_tokens=usage.cache_read_tokens,
+                cache_write_tokens=usage.cache_write_tokens,
+                cost_usd=cost_usd(model, usage) if model else 0,
+                kind=response.kind,
+                text_hash=hashed,
+                wanted_text=normalized if found_nothing else None,
+                place_unknown=response.place_unknown,
+            )
         )
-    )
-    db.commit()
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("assistant: could not write assist_log; the answer is sent anyway")
 
 
 def keyword_fallback(db: Session, body: AssistIn, categories: list[Category]) -> AssistOut:
@@ -468,6 +487,27 @@ def answer_without_ai(
     if response.kind != "unavailable":
         write_log(db, source="direct", response=response, hashed=hashed, normalized=normalized)
     return response
+
+
+# Budgets already reported as reached, e.g. ("daily", date(2026, 11, 25)).
+# The first time in a day or month is logged as an ERROR (Sentry emails the
+# founder: everyone now gets keyword answers); after that only a warning, so
+# one reached budget does not become thousands of error reports.
+_reported_budgets: set[tuple[str, date]] = set()
+
+
+def report_budget_reached(which: str, period: date) -> None:
+    if (which, period) in _reported_budgets:
+        logger.warning("assistant %s budget reached; using the keyword fallback", which)
+        return
+    _reported_budgets.add((which, period))
+    logger.error(
+        "assistant %s budget reached (period starting %s); everyone gets keyword answers"
+        " until it resets. Raise ASSIST_%s_BUDGET_USD if this is real use.",
+        which,
+        period.isoformat(),
+        which.upper(),
+    )
 
 
 # ---------- the two entry points ----------
@@ -500,13 +540,43 @@ def assist_from_text(db: Session, body: AssistIn, caller: Caller) -> AssistOut:
     if not settings.anthropic_api_key.strip():
         return answer_without_ai(db, body, categories, hashed, normalized)
     if monthly_budget_reached(db):
-        logger.warning("assistant monthly budget reached; using the keyword fallback")
+        report_budget_reached("monthly", month_start().date())
         return answer_without_ai(db, body, categories, hashed, normalized)
     if daily_budget_reached(db):
-        logger.warning("assistant daily budget reached; using the keyword fallback")
+        report_budget_reached("daily", quota.today())
         return answer_without_ai(db, body, categories, hashed, normalized)
-    forget_old_days(db)
-    if not take_ai_allowance(db, caller):
+    with ai_slot() as allowed:
+        if not allowed:
+            logger.warning(
+                "assistant: %d AI requests already running; using the keyword fallback",
+                MAX_CONCURRENT_AI_CALLS,
+            )
+            return answer_without_ai(db, body, categories, hashed, normalized)
+        return answer_with_ai(db, body, caller, categories, hashed, normalized)
+
+
+def answer_with_ai(
+    db: Session,
+    body: AssistIn,
+    caller: Caller,
+    categories: list[Category],
+    hashed: str,
+    normalized: str,
+) -> AssistOut:
+    """Steps 3 (the caller's allowance) and 4 (the AI request) of
+    assist_from_text. Runs while holding one of the AI slots."""
+    text = body.text
+    known_slugs = {category.slug for category in categories}
+    try:
+        forget_old_days(db)
+        allowed = take_ai_allowance(db, caller)
+    except SQLAlchemyError:
+        # The allowance cannot be counted (e.g. a read-only database): no
+        # AI request without counting it, but the keyword answer still works.
+        db.rollback()
+        logger.exception("assistant: could not count the AI allowance; using keywords")
+        allowed = False
+    if not allowed:
         return answer_without_ai(db, body, categories, hashed, normalized)
 
     # 4. Ask the AI.
@@ -532,7 +602,12 @@ def assist_from_text(db: Session, body: AssistIn, caller: Caller) -> AssistOut:
         return response
 
     result = clean_ai_result(reply.result, known_slugs)
-    save_cached(db, hashed, result, reply.model)
+    try:
+        save_cached(db, hashed, result, reply.model)
+    except SQLAlchemyError:
+        # Remembering the answer is an extra; the user still gets it.
+        db.rollback()
+        logger.exception("assistant: could not save the answer in assist_cache")
     response = respond_to(db, result, categories, body)
     write_log(
         db,

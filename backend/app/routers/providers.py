@@ -3,15 +3,22 @@
 import uuid
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth import get_optional_user_id
 from app.db import get_db
-from app.models import PUBLIC_STATUSES, ContactEvent, Provider, ProviderReport
-from app.rate_limit import is_repeated_contact_event, limit_contact_events, limit_reports
+from app.models import PUBLIC_STATUSES, Provider, ProviderReport
+from app.rate_limit import (
+    get_client_ip,
+    limit_contact_events,
+    limit_reads,
+    limit_reports,
+    limit_searches,
+)
 from app.schemas import (
+    MAX_INT32,
     ContactEventIn,
     PriceCurrency,
     PriceUnit,
@@ -21,6 +28,7 @@ from app.schemas import (
     ReportIn,
 )
 from app.services import provider_views
+from app.services.contact_stats import record_contact_event as store_contact_event
 from app.services.hire_checks import maybe_create_check
 from app.services.provider_views import current_date, to_detail, to_summaries
 from app.services.search import distance_to_provider, search_providers
@@ -60,13 +68,21 @@ def detail_response(
 # Note: the fixed paths (/search, /by-slug/...) are declared before
 # /providers/{provider_id}, because FastAPI tries routes in order.
 
+# Deeper pages than this are refused (422): nobody scrolls 10,000 results,
+# and a huge offset makes the database sort every match for nothing.
+MAX_OFFSET = 10_000
 
-@router.get("/providers/search", response_model=ProviderSearchResult)
+
+@router.get(
+    "/providers/search",
+    response_model=ProviderSearchResult,
+    dependencies=[Depends(limit_searches)],
+)
 def search(
     lat: float = Query(ge=-90, le=90),
     lng: float = Query(ge=-180, le=180),
     radius_m: int = Query(ge=100, le=50000),
-    category_id: int | None = None,
+    category_id: int | None = Query(default=None, ge=1, le=MAX_INT32),
     # Search box text: matches the provider's name, its category (or the
     # category's group, aliases included) or its area. Name matches first.
     q: str | None = Query(default=None, min_length=2, max_length=60),
@@ -84,7 +100,7 @@ def search(
     sort: Literal["best", "distance", "price"] = "best",
     # The app pages 20 at a time and asks for up to 100 for the map.
     limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
+    offset: int = Query(default=0, ge=0, le=MAX_OFFSET),
     db: Session = Depends(get_db),
 ):
     if max_price is not None and price_unit is None:
@@ -113,9 +129,13 @@ def search(
     return ProviderSearchResult(items=to_summaries(db, rows), total=total)
 
 
-@router.get("/providers/by-slug/{slug}", response_model=ProviderDetail)
+@router.get(
+    "/providers/by-slug/{slug}",
+    response_model=ProviderDetail,
+    dependencies=[Depends(limit_reads)],
+)
 def get_provider_by_slug(
-    slug: str,
+    slug: str = Path(max_length=64),
     lat: float | None = Query(default=None, ge=-90, le=90),
     lng: float | None = Query(default=None, ge=-180, le=180),
     db: Session = Depends(get_db),
@@ -126,7 +146,9 @@ def get_provider_by_slug(
     return detail_response(db, provider, lat, lng, viewer_id)
 
 
-@router.get("/providers/{provider_id}", response_model=ProviderDetail)
+@router.get(
+    "/providers/{provider_id}", response_model=ProviderDetail, dependencies=[Depends(limit_reads)]
+)
 def get_provider(
     provider_id: uuid.UUID,
     lat: float | None = Query(default=None, ge=-90, le=90),
@@ -158,9 +180,9 @@ def record_contact_event(
     provider = get_public_provider(db, provider_id)
 
     # The same person tapping again within 10 minutes gets the same 204
-    # answer, but is not counted twice. This keeps provider stats honest.
-    if not is_repeated_contact_event(request, provider.id, body.type):
-        db.add(ContactEvent(provider_id=provider.id, type=body.type))
+    # answer, but is not counted twice; only signed-in taps count in the
+    # public number (rules in services/contact_stats.py).
+    store_contact_event(db, provider.id, body.type, user_id, get_client_ip(request))
 
     # Checks have their own 7-day rule (inside maybe_create_check), so they
     # do not depend on the 10-minute rule above.

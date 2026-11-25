@@ -7,6 +7,10 @@ on:
   pull_request:
     paths: ["mobile/**", ".github/workflows/mobile.yml"]
 
+# The job only reads the code; it cannot push, comment or change settings.
+permissions:
+  contents: read
+
 jobs:
   typecheck-and-lint:
     runs-on: ubuntu-latest

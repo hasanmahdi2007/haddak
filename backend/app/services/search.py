@@ -1,5 +1,6 @@
 """Radius search. Implements the "Search query" section of docs/SCHEMA.md."""
 
+import threading
 import uuid
 from datetime import date, datetime
 
@@ -81,19 +82,58 @@ EXISTS (
 """
 
 
-def category_with_children_ids(db: Session, category_id: int) -> list[int]:
-    """The category's own id plus the ids of its direct children."""
-    return categories_with_children_ids(db, [category_id])
+# ---------- the category tree, kept in memory ----------
+# Categories change only through a migration, and a migration only runs
+# before a new process starts (deploy or restart). So the tree is read from
+# the database once per process, on the first search that needs it, instead
+# of once per search. The cache starts empty in every new process.
+#
+# {category id: ids of its direct children}. Every known category is a key.
+_category_children: dict[int, list[int]] | None = None
+# Several requests run at the same time (in threads): only one loads.
+_category_cache_lock = threading.Lock()
+
+
+def clear_category_cache() -> None:
+    """Forget the tree; the next search reads it again (used by the tests,
+    which create and delete categories all the time)."""
+    global _category_children
+    with _category_cache_lock:
+        _category_children = None
+
+
+def category_children(db: Session, *, reload: bool = False) -> dict[int, list[int]]:
+    global _category_children
+    with _category_cache_lock:
+        if _category_children is None or reload:
+            children: dict[int, list[int]] = {}
+            rows = db.execute(select(Category.id, Category.parent_id).order_by(Category.id)).all()
+            for category_id, _parent_id in rows:
+                children[category_id] = []
+            for category_id, parent_id in rows:
+                if parent_id is not None and parent_id in children:
+                    children[parent_id].append(category_id)
+            _category_children = children
+        return _category_children
 
 
 def categories_with_children_ids(db: Session, category_ids: list[int]) -> list[int]:
-    """These categories' own ids plus the ids of their direct children."""
+    """These categories' own ids plus the ids of their direct children.
+    Unknown ids are left out."""
     if not category_ids:
         return []
-    query = select(Category.id).where(
-        or_(Category.id.in_(category_ids), Category.parent_id.in_(category_ids))
-    )
-    return list(db.scalars(query))
+    children = category_children(db)
+    if any(category_id not in children for category_id in category_ids):
+        # An id we have not seen: during a deploy, the new version's
+        # migration may have added it while this process was running.
+        # Read the tree again once (as cheap as the old per-search query).
+        children = category_children(db, reload=True)
+    ids: list[int] = []
+    for category_id in category_ids:
+        if category_id in children:
+            ids.append(category_id)
+            ids.extend(children[category_id])
+    return ids
 
 
 def normalized_search_text(db: Session, q: str | None) -> str | None:
@@ -183,9 +223,7 @@ def search_providers(
     if category_id is not None:
         wanted_categories.append(category_id)
     if category_id is not None or category_ids is not None:
-        ids = set()
-        for one_id in wanted_categories:
-            ids.update(category_with_children_ids(db, one_id))
+        ids = set(categories_with_children_ids(db, wanted_categories))
         # An empty set matches nothing, which is right for unknown ids.
         filters.append(Provider.category_id.in_(ids))
     if name_contains is not None and name_contains.strip():
@@ -266,13 +304,27 @@ def search_providers(
     else:
         order = best_order
 
+    # count(*) OVER () adds the number of ALL matches (before limit and
+    # offset) to every returned row, so one query gives both the page and
+    # the total; a separate count would run the whole filter a second time.
+    total_matches = func.count().over()
     query = (
-        select(Provider, distance_m).where(*filters).order_by(*order).limit(limit).offset(offset)
+        select(Provider, distance_m, total_matches)
+        .where(*filters)
+        .order_by(*order)
+        .limit(limit)
+        .offset(offset)
     )
-    rows = [(provider, distance) for provider, distance in db.execute(query)]
-
-    total = db.scalar(select(func.count()).select_from(Provider).where(*filters))
-    return rows, total or 0
+    result = db.execute(query).all()
+    rows = [(provider, distance) for provider, distance, _total in result]
+    if result:
+        total = result[0][2]
+    elif offset == 0:
+        total = 0  # nothing matches at all
+    else:
+        # A page past the end has no rows to carry the total: count separately.
+        total = db.scalar(select(func.count()).select_from(Provider).where(*filters)) or 0
+    return rows, total
 
 
 def distance_to_provider(db: Session, provider_id: uuid.UUID, lat: float, lng: float) -> float:

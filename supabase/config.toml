@@ -1,4 +1,14 @@
 #:schema https://supabase.com/schemas/config/v1.json
+#
+# !!! HADDAK: DO NOT PUSH THE [auth] SECTIONS OF THIS FILE TO PRODUCTION AS THEY STAND !!!
+# This file holds the Supabase CLI's LOCAL defaults (site_url 127.0.0.1:3000,
+# enable_confirmations = false, minimum_password_length = 6, ...). The
+# production sign-in settings are managed in the Supabase dashboard; running
+# `supabase config push` with this file would overwrite them (Site URL,
+# redirect list, "Confirm email") and could make throwaway accounts free.
+# The dashboard checks the founder must keep are listed in docs/DEPLOY.md,
+# "Sign-in settings to check in the Supabase dashboard".
+#
 # For detailed configuration reference documentation, visit:
 # https://supabase.com/docs/guides/local-development/cli/config
 # A string used to distinguish different Supabase projects on the same host. Defaults to the

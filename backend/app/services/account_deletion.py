@@ -25,9 +25,11 @@ a key that can touch everyone's files.
 import logging
 import uuid
 
+from fastapi import HTTPException
 from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models import Claim, Follow, HireCheck, Provider, Review
 from app.services.ratings import recalculate_rating
 
@@ -46,6 +48,19 @@ def delete_account_data(db: Session, user_id: uuid.UUID) -> None:
     reviewed_provider_ids = set(
         db.scalars(select(Review.provider_id).where(Review.user_id == user_id))
     )
+    # Lock those providers before touching their reviews, like every other
+    # review path does (routers/reviews.py). Otherwise a review someone adds
+    # at this very moment could be overwritten by our stale average. Always
+    # in id order, so two transactions locking several providers can never
+    # wait for each other in a circle (a deadlock).
+    locked_providers = list(
+        db.scalars(
+            select(Provider)
+            .where(Provider.id.in_(reviewed_provider_ids))
+            .order_by(Provider.id)
+            .with_for_update()
+        )
+    )
     db.execute(delete(Review).where(Review.user_id == user_id))
 
     db.execute(delete(Follow).where(Follow.user_id == user_id))
@@ -59,8 +74,9 @@ def delete_account_data(db: Session, user_id: uuid.UUID) -> None:
         db.execute(delete(Provider).where(Provider.id == own_provider_id))
         reviewed_provider_ids.discard(own_provider_id)
 
-    for provider in db.scalars(select(Provider).where(Provider.id.in_(reviewed_provider_ids))):
-        recalculate_rating(db, provider)
+    for provider in locked_providers:
+        if provider.id in reviewed_provider_ids:  # not the user's own, deleted above
+            recalculate_rating(db, provider)
 
 
 def delete_sign_in_account(db: Session, user_id: uuid.UUID) -> bool:
@@ -68,11 +84,30 @@ def delete_sign_in_account(db: Session, user_id: uuid.UUID) -> bool:
 
     Returns False when this database has no such function (local development
     and tests), so there is no sign-in account to delete here.
+
+    In production the function must exist: without it the user's email and
+    sign-in account would stay while we answer "deleted" (for example after
+    rebuilding the database and forgetting supabase/delete_auth_user.sql).
+    So production refuses with 503 instead. Nothing is committed yet, so the
+    whole request is rolled back and nothing is deleted; the user can try
+    again once the founder has applied the script.
     """
     exists = db.scalar(
         text("SELECT to_regprocedure(:name) IS NOT NULL"), {"name": DELETE_AUTH_USER_FUNCTION}
     )
     if not exists:
+        if settings.is_production():
+            # Error level: reaches Sentry, so the founder hears about it.
+            logger.error(
+                "No %s in the production database: account deletion refused."
+                " Apply supabase/delete_auth_user.sql (docs/DEPLOY.md, rebuild steps).",
+                DELETE_AUTH_USER_FUNCTION,
+            )
+            raise HTTPException(
+                status_code=503,
+                detail="Account deletion is unavailable right now. Nothing was deleted; "
+                "please try again later.",
+            )
         logger.warning(
             "No %s in this database: sign-in account not deleted", DELETE_AUTH_USER_FUNCTION
         )

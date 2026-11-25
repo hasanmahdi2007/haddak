@@ -38,9 +38,12 @@ def jwks(monkeypatch):
     monkeypatch.setattr(auth, "get_jwks_client", lambda: FakeJwksClient())
 
 
+ISSUER = "https://example.supabase.co/auth/v1"
+
+
 def claims(user_id: uuid.UUID, **extra) -> dict:
     expires = datetime.now(UTC) + timedelta(hours=1)
-    return {"sub": str(user_id), "aud": "authenticated", "exp": expires, **extra}
+    return {"sub": str(user_id), "aud": "authenticated", "exp": expires, "iss": ISSUER, **extra}
 
 
 def es256_token(user_id: uuid.UUID, **extra) -> str:
@@ -123,3 +126,160 @@ def test_supabase_token_works_on_the_api(client, jwks):
     )
     # Signed in, but this new user has no business yet.
     assert response.status_code != 401
+
+
+# ---------- checks added after the security audit ----------
+
+
+def test_token_issued_one_second_in_future_is_accepted(jwks):
+    # Our clock may be a little behind Supabase's: 30 seconds of leeway.
+    user_id = uuid.uuid4()
+    soon = datetime.now(UTC) + timedelta(seconds=1)
+    assert auth.decode_user_id(es256_token(user_id, iat=soon, nbf=soon)) == user_id
+
+
+def test_token_expired_long_ago_is_still_refused(jwks):
+    token = es256_token(uuid.uuid4(), exp=datetime.now(UTC) - timedelta(minutes=5))
+    with pytest.raises(jwt.ExpiredSignatureError):
+        auth.decode_user_id(token)
+
+
+def test_wrong_issuer_is_refused(jwks):
+    token = es256_token(uuid.uuid4(), iss="https://other-project.supabase.co/auth/v1")
+    with pytest.raises(jwt.InvalidIssuerError):
+        auth.decode_user_id(token)
+
+
+def test_token_without_issuer_is_refused(jwks):
+    token = jwt.encode(
+        {
+            "sub": str(uuid.uuid4()),
+            "aud": "authenticated",
+            "exp": datetime.now(UTC) + timedelta(hours=1),
+        },
+        PRIVATE_KEY,
+        algorithm="ES256",
+        headers={"kid": "test"},
+    )
+    with pytest.raises(jwt.MissingRequiredClaimError):
+        auth.decode_user_id(token)
+
+
+def test_anonymous_supabase_user_is_refused(jwks, client):
+    token = es256_token(uuid.uuid4(), is_anonymous=True)
+    with pytest.raises(jwt.InvalidTokenError):
+        auth.decode_user_id(token)
+    response = client.get("/api/v1/me/provider", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 401
+
+
+def test_rejected_token_is_logged_without_the_token(client, jwks, caplog):
+    token = es256_token(uuid.uuid4(), aud="anon")
+    with caplog.at_level("WARNING", logger="haddak.auth"):
+        response = client.get("/api/v1/me/provider", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 401
+    messages = [record.getMessage() for record in caplog.records if record.name == "haddak.auth"]
+    assert messages == ["token rejected: InvalidAudienceError"]
+    assert token not in caplog.text
+
+
+# ---------- the key store (auth.SigningKeys) ----------
+
+
+def public_jwks(key_id: str = "test") -> dict:
+    public_jwk = json.loads(jwt.algorithms.ECAlgorithm.to_jwk(PRIVATE_KEY.public_key()))
+    return {"keys": [{**public_jwk, "kid": key_id, "use": "sig", "alg": "ES256"}]}
+
+
+class FakeFetch:
+    """Stands in for the download: answers with our key, or fails."""
+
+    def __init__(self):
+        self.calls = 0
+        self.failing = False
+
+    def __call__(self) -> dict:
+        self.calls += 1
+        if self.failing:
+            raise jwt.PyJWKClientConnectionError("Fail to fetch data from the url")
+        return public_jwks()
+
+
+@pytest.fixture
+def key_store(clock, monkeypatch):
+    """A real SigningKeys with a fake download and the test clock."""
+    monkeypatch.setattr(settings, "supabase_jwks_url", JWKS_URL)
+    fetch = FakeFetch()
+    store = auth.SigningKeys(fetch, clock=clock)
+    monkeypatch.setattr(auth, "get_jwks_client", lambda: store)
+    return fetch
+
+
+def test_keys_are_downloaded_once_and_kept_for_an_hour(key_store, clock):
+    for _ in range(3):
+        auth.decode_user_id(es256_token(uuid.uuid4()))
+    assert key_store.calls == 1
+
+    clock.advance(auth.SigningKeys.KEYS_LIFESPAN_SECONDS + 1)
+    auth.decode_user_id(es256_token(uuid.uuid4()))
+    assert key_store.calls == 2
+
+
+def test_jwks_outage_keeps_using_cached_keys(key_store, clock, client, caplog):
+    auth.decode_user_id(es256_token(uuid.uuid4()))  # keys downloaded once
+
+    key_store.failing = True
+    clock.advance(auth.SigningKeys.KEYS_LIFESPAN_SECONDS + 1)
+    with caplog.at_level("ERROR", logger="haddak.auth"):
+        response = client.get(
+            "/api/v1/me/provider", headers={"Authorization": f"Bearer {es256_token(uuid.uuid4())}"}
+        )
+
+    # Signed in as usual (404: this new user has no business yet).
+    assert response.status_code == 404
+    assert "could not download Supabase signing keys" in caplog.text
+
+
+def test_jwks_unreachable_without_cache_is_503_not_401(key_store, client, caplog):
+    key_store.failing = True
+    headers = {"Authorization": f"Bearer {es256_token(uuid.uuid4())}"}
+
+    with caplog.at_level("ERROR", logger="haddak.auth"):
+        response = client.get("/api/v1/me/provider", headers=headers)
+
+    # 503, not 401: the app signs the user out on 401, and this is our problem.
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Sign-in check unavailable, try again"}
+    assert any(record.levelname == "ERROR" for record in caplog.records)
+    # Public pages keep working, as for someone not signed in.
+    assert client.get("/api/v1/categories", headers=headers).status_code == 200
+
+
+def test_failed_download_is_not_retried_on_every_request(key_store, clock):
+    key_store.failing = True
+    for _ in range(5):
+        with pytest.raises(auth.SignInCheckUnavailable):
+            auth.decode_user_id(es256_token(uuid.uuid4()))
+    assert key_store.calls == 1
+
+    key_store.failing = False
+    clock.advance(auth.SigningKeys.RETRY_AFTER_FAILURE_SECONDS + 1)
+    auth.decode_user_id(es256_token(uuid.uuid4()))
+    assert key_store.calls == 2
+
+
+def test_unknown_key_id_downloads_again_at_most_every_30_seconds(key_store, clock):
+    auth.decode_user_id(es256_token(uuid.uuid4()))
+    other = ec.generate_private_key(ec.SECP256R1())
+    unknown = jwt.encode(claims(uuid.uuid4()), other, algorithm="ES256", headers={"kid": "new"})
+
+    with pytest.raises(jwt.InvalidTokenError):
+        auth.decode_user_id(unknown)
+    assert key_store.calls == 1  # just downloaded: no second download yet
+
+    clock.advance(auth.SigningKeys.UNKNOWN_KEY_COOLDOWN_SECONDS + 1)
+    for _ in range(3):
+        with pytest.raises(jwt.InvalidTokenError):
+            auth.decode_user_id(unknown)
+    assert key_store.calls == 2

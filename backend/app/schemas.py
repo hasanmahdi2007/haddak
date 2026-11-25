@@ -11,6 +11,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.config import settings
+
 # International format: a plus sign followed by 8 to 15 digits.
 PHONE_PATTERN = re.compile(r"^\+\d{8,15}$")
 
@@ -21,11 +23,62 @@ def check_phone(value: str | None) -> str | None:
     return value
 
 
+# Database ids of categories are 32-bit integers. A bigger number would only
+# give a database error (500), so it is refused here with a 422.
+MAX_INT32 = 2_147_483_647
+CategoryId = Annotated[int, Field(ge=1, le=MAX_INT32)]
+
+
+# ----- Links to uploaded files (docs/API.md, "Photos and proof documents") -----
+# Photos and story images: the public URL of a file in our provider-photos
+# bucket. Proof: a signed URL of a file in our private verification-docs
+# bucket. A link to any other site is refused: it could track everyone who
+# sees the photo, or be swapped for something offensive after review.
+PUBLIC_PHOTO_PATH = "/storage/v1/object/public/provider-photos/"
+PROOF_PATH = "/storage/v1/object/sign/verification-docs/"
+MAX_PHOTO_URL_LENGTH = 500
+# Signed links carry a token in the query string, so they are longer.
+MAX_PROOF_URL_LENGTH = 1000
+
+
+def check_storage_url(url: str, path: str, max_length: int, what: str) -> str:
+    """`url` must start with SUPABASE_URL + `path`.
+
+    When SUPABASE_URL is not set (development and tests), any https:// link
+    is accepted, so the app's mock mode and local testing keep working.
+    Production refuses to start without SUPABASE_URL (see config.py).
+    """
+    if len(url) > max_length:
+        raise ValueError(f"{what} link is too long (at most {max_length} characters)")
+    if any(char.isspace() for char in url) or "\\" in url or "/../" in url:
+        raise ValueError(f"{what} link is not a valid address")
+    project_url = settings.supabase_url.strip().rstrip("/")
+    if not project_url:
+        if not url.startswith("https://"):
+            raise ValueError(f"{what} must be an https:// URL")
+        return url
+    if not url.startswith(project_url + path):
+        raise ValueError(f"{what} must be a file uploaded through the Haddak app")
+    return url
+
+
 def check_photo_urls(urls: list[str] | None) -> list[str] | None:
     for url in urls or []:
-        if not url.startswith(("http://", "https://")):
-            raise ValueError("each photo must be an http(s) URL")
+        check_storage_url(url, PUBLIC_PHOTO_PATH, MAX_PHOTO_URL_LENGTH, "Each photo")
     return urls
+
+
+def check_image_url(url: str | None) -> str | None:
+    """A story image: same rule as a photo."""
+    if url is not None:
+        check_storage_url(url, PUBLIC_PHOTO_PATH, MAX_PHOTO_URL_LENGTH, "The image")
+    return url
+
+
+def check_proof_url(url: str | None) -> str | None:
+    if url is not None:
+        check_storage_url(url, PROOF_PATH, MAX_PROOF_URL_LENGTH, "The proof")
+    return url
 
 
 # ----- Opening hours -----
@@ -77,12 +130,6 @@ def blank_to_none(value: object) -> object:
     Lets the app send an empty text box as it is for optional texts."""
     if isinstance(value, str) and not value.strip():
         return None
-    return value
-
-
-def check_https_url(value: str | None) -> str | None:
-    if value is not None and not value.startswith("https://"):
-        raise ValueError("must be an https:// URL")
     return value
 
 
@@ -277,7 +324,7 @@ class ProviderCreate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     name: str = Field(min_length=1, max_length=100)
-    category_id: int
+    category_id: CategoryId
     description: str = Field(default="", max_length=2000)
     price_text: str | None = Field(default=None, max_length=100)
     phone: str
@@ -297,6 +344,8 @@ class ProviderCreate(BaseModel):
     _blank_hook = field_validator("sponsor_hook", mode="before")(blank_to_none)
     _phones = field_validator("phone", "whatsapp")(check_phone)
     _photos = field_validator("photos")(check_photo_urls)
+    _blank_proof = field_validator("verification_doc_url", mode="before")(blank_to_none)
+    _proof = field_validator("verification_doc_url")(check_proof_url)
     _hours = field_validator("opening_hours")(check_opening_hours)
 
     @model_validator(mode="after")
@@ -311,7 +360,7 @@ class ProviderUpdate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     name: str | None = Field(default=None, min_length=1, max_length=100)
-    category_id: int | None = None
+    category_id: CategoryId | None = None
     description: str | None = Field(default=None, max_length=2000)
     price_text: str | None = Field(default=None, max_length=100)
     phone: str | None = None
@@ -334,6 +383,8 @@ class ProviderUpdate(BaseModel):
     _blank_hook = field_validator("sponsor_hook", mode="before")(blank_to_none)
     _phones = field_validator("phone", "whatsapp")(check_phone)
     _photos = field_validator("photos")(check_photo_urls)
+    _blank_proof = field_validator("verification_doc_url", mode="before")(blank_to_none)
+    _proof = field_validator("verification_doc_url")(check_proof_url)
     _hours = field_validator("opening_hours")(check_opening_hours)
 
     @model_validator(mode="after")
@@ -391,7 +442,7 @@ class StoryCreate(BaseModel):
     image_url: str | None = Field(default=None, max_length=1000)
 
     _blank_image = field_validator("image_url", mode="before")(blank_to_none)
-    _https_image = field_validator("image_url")(check_https_url)
+    _storage_image = field_validator("image_url")(check_image_url)
 
 
 class BannerIn(BaseModel):
@@ -461,7 +512,7 @@ class SuggestionIn(BaseModel):
 
     name: str = Field(min_length=1, max_length=100)
     phone: str | None = None
-    category_id: int | None = None
+    category_id: CategoryId | None = None
     area_name: str | None = Field(default=None, max_length=100)
     note: str | None = Field(default=None, max_length=500)
     # Optional position of the suggested provider: both or neither.
@@ -492,7 +543,7 @@ class SuggestionPublish(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=100)
     phone: str | None = None
-    category_id: int | None = None
+    category_id: CategoryId | None = None
     area_name: str | None = Field(default=None, min_length=1, max_length=100)
     lat: float | None = Field(default=None, ge=-90, le=90)
     lng: float | None = Field(default=None, ge=-180, le=180)
@@ -585,6 +636,8 @@ class ClaimIn(BaseModel):
     def empty_is_none(cls, value: str | None) -> str | None:
         # An empty box in the app means "nothing", not an empty text.
         return value or None
+
+    _proof = field_validator("verification_doc_url")(check_proof_url)
 
 
 class ClaimOut(BaseModel):

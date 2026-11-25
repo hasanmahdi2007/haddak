@@ -46,13 +46,40 @@ drop policy if exists "haddak: owners read their folder" on storage.objects;
 drop policy if exists "haddak: owners update their folder" on storage.objects;
 drop policy if exists "haddak: owners delete from their folder" on storage.objects;
 
--- Upload: signed-in users, into their own folder, in the two Haddak buckets only.
+-- Upload: signed-in users, into their own folder, in the two Haddak buckets only,
+-- and at most a fixed number of files per user and bucket (added 2026-11-25,
+-- security audit M7): without a cap, one throwaway account could fill the
+-- project's storage with 5 MB files and break every other user's uploads.
+--   provider-photos:   100 files per user (up to 10 profile photos, replaced
+--                      now and then, plus story images)
+--   verification-docs:  10 files per user (a proof or two per claim)
+-- 100 x 5 MB is still half of the free plan's 1 GB, so this slows abuse down
+-- rather than making it impossible; deleting a user's old files (for example
+-- images of expired stories) frees their allowance again.
+-- The count reads the user's own folder, which the "read their folder" policy
+-- below already allows; `name like '<uid>/%'` can use Storage's name index.
 create policy "haddak: owners upload to their folder"
   on storage.objects for insert
   to authenticated
   with check (
     bucket_id in ('provider-photos', 'verification-docs')
     and (storage.foldername(name))[1] = (select auth.uid())::text
+    and (
+      bucket_id <> 'provider-photos'
+      or (
+        select count(*) from storage.objects existing
+        where existing.bucket_id = 'provider-photos'
+          and existing.name like (select auth.uid())::text || '/%'
+      ) < 100
+    )
+    and (
+      bucket_id <> 'verification-docs'
+      or (
+        select count(*) from storage.objects existing
+        where existing.bucket_id = 'verification-docs'
+          and existing.name like (select auth.uid())::text || '/%'
+      ) < 10
+    )
   );
 
 -- Read through the API: only your own files. For verification-docs this is the

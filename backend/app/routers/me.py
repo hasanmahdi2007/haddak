@@ -43,8 +43,37 @@ def generate_slug(db: Session) -> str:
             return slug
 
 
+# A new random share code is tried this many times if the first one was
+# taken by someone else in the same instant (very rare).
+SLUG_ATTEMPTS = 3
+# Names Postgres gives the UNIQUE rules on providers (see docs/SCHEMA.md).
+SLUG_UNIQUE = "providers_slug_key"
+OWNER_UNIQUE = "providers_owner_user_id_key"
+
+
+def violated_constraint(error: IntegrityError) -> str | None:
+    """The name of the database rule an INSERT/UPDATE broke, if Postgres says."""
+    diag = getattr(error.orig, "diag", None)
+    return getattr(diag, "constraint_name", None)
+
+
 def find_my_provider(db: Session, user_id: uuid.UUID) -> Provider | None:
     return db.scalar(select(Provider).where(Provider.owner_user_id == user_id))
+
+
+def find_my_provider_for_update(db: Session, user_id: uuid.UUID) -> Provider:
+    """My provider, with its row locked until this request commits (404 if none).
+
+    The lock makes my edit and an admin decision on the same profile take
+    turns, so neither silently overwrites the other (e.g. me removing my
+    proof while the founder approves it).
+    """
+    provider = db.scalar(
+        select(Provider).where(Provider.owner_user_id == user_id).with_for_update(of=Provider)
+    )
+    if provider is None:
+        raise HTTPException(status_code=404, detail="You do not have a provider profile yet")
+    return provider
 
 
 def get_my_provider_or_404(db: Session, user_id: uuid.UUID) -> Provider:
@@ -99,11 +128,10 @@ def create_my_provider(
     # changes those. The status is not taken from the body either: a profile
     # that comes with proof waits for the founder ('pending'), one without
     # proof is 'unverified'. Both are listed publicly, without the badge.
-    provider = Provider(
+    fields = dict(
         owner_user_id=user_id,
         source="owner",
         status="pending" if body.verification_doc_url else "unverified",
-        slug=generate_slug(db),
         name=body.name,
         category_id=body.category_id,
         description=body.description,
@@ -121,14 +149,22 @@ def create_my_provider(
         price_unit=body.price_unit,
         price_currency=body.price_currency,
     )
-    db.add(provider)
-    try:
-        db.commit()
-    except IntegrityError as error:
-        # Two create requests arrived at the same moment; the database's
-        # UNIQUE (owner_user_id) rule stopped the second one.
-        db.rollback()
-        raise already_exists from error
+    for attempt in range(1, SLUG_ATTEMPTS + 1):
+        provider = Provider(slug=generate_slug(db), **fields)
+        db.add(provider)
+        try:
+            db.commit()
+            break
+        except IntegrityError as error:
+            db.rollback()
+            broken_rule = violated_constraint(error)
+            if broken_rule == SLUG_UNIQUE and attempt < SLUG_ATTEMPTS:
+                continue  # someone took the same share code in the same instant
+            if broken_rule == OWNER_UNIQUE:
+                # Two create requests arrived at the same moment; the
+                # database's UNIQUE (owner_user_id) rule stopped this one.
+                raise already_exists from error
+            raise
     db.refresh(provider)
     return to_own(db, provider)
 
@@ -139,7 +175,7 @@ def update_my_provider(
     db: Session = Depends(get_db),
     user_id: uuid.UUID = Depends(get_current_user_id),
 ):
-    provider = get_my_provider_or_404(db, user_id)
+    provider = find_my_provider_for_update(db, user_id)
 
     # Only the fields the app actually sent; everything else stays as it is.
     changes = body.model_dump(exclude_unset=True)

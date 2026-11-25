@@ -3,9 +3,13 @@ name: backend
 on:
   push:
     branches: [main]
-    paths: ["backend/**", ".github/workflows/backend.yml"]
+    paths: ["backend/**", "supabase/role_setup.sql", ".github/workflows/backend.yml"]
   pull_request:
-    paths: ["backend/**", ".github/workflows/backend.yml"]
+    paths: ["backend/**", "supabase/role_setup.sql", ".github/workflows/backend.yml"]
+
+# The jobs only read the code; they cannot push, comment or change settings.
+permissions:
+  contents: read
 
 jobs:
   lint-and-test:
@@ -58,3 +62,35 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql+psycopg://haddak:haddak@localhost:5433/haddak_test
         run: pytest
+
+      # The tests run as the superuser `haddak`, with the extensions in
+      # `public`. Production is different: the migrations run as the
+      # non-superuser role `haddak_api`, with postgis and pg_trgm in an
+      # `extensions` schema. A migration that needs superuser rights or a
+      # schema-qualified name would pass the tests and fail at deploy, so
+      # here the migrations run once more, the production way, on a fresh
+      # database, with the role made by supabase/role_setup.sql.
+      - name: Migrations as a production-like role
+        env:
+          PGHOST: localhost
+          PGPORT: "5433"
+          PGUSER: haddak
+          PGPASSWORD: haddak
+        run: |
+          psql -v ON_ERROR_STOP=1 -d haddak -c "CREATE DATABASE haddak_prodlike"
+          psql -v ON_ERROR_STOP=1 -d haddak_prodlike -f ../supabase/role_setup.sql
+          psql -v ON_ERROR_STOP=1 -d haddak_prodlike -c "ALTER ROLE haddak_api PASSWORD 'ci-only-not-secret'"
+          DATABASE_URL=postgresql+psycopg://haddak_api:ci-only-not-secret@localhost:5433/haddak_prodlike \
+            alembic upgrade head
+          # The tables belong to haddak_api, as on Supabase.
+          psql -v ON_ERROR_STOP=1 -d haddak_prodlike -tAc \
+            "SELECT tableowner FROM pg_tables WHERE tablename = 'providers'" | grep -qx haddak_api
+
+  # Render builds this image on every deploy. Building it here first means a
+  # broken Dockerfile or dependency shows red on GitHub, not as a failed deploy.
+  docker-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the API image
+        run: docker build -t haddak-api:ci backend

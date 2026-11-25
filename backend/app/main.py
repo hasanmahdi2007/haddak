@@ -5,22 +5,25 @@ Docs at:   http://localhost:8000/docs
 Admin at:  http://localhost:8000/admin
 """
 
+import logging
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
+from sqlalchemy.exc import TimeoutError as PoolTimeoutError
 from sqlalchemy.orm import Session
 
+from app.auth_open import auth_open_response
 from app.config import Settings, check_startup_settings, settings
 from app.db import get_db
 from app.error_tracking import init_error_tracking
 from app.legal_pages import router as legal_pages_router
 from app.request_limits import BodySizeLimit
-from app.request_logging import configure_logging, log_requests
+from app.request_logging import REQUEST_ID_HEADER, configure_logging, log_requests
 from app.routers import (
     admin,
     assist,
@@ -101,6 +104,58 @@ def validation_error_handler(request: Request, error: RequestValidationError) ->
     return JSONResponse(status_code=422, content={"detail": "; ".join(messages)})
 
 
+# ---------- errors nobody caught ----------
+# Without these, a database outage or a bug answers with Starlette's plain
+# text "Internal Server Error", which breaks the {"detail": ...} promise in
+# docs/API.md. Both are still reported: logger.error with the traceback
+# reaches the Render logs and Sentry (Sentry records error-level log lines).
+
+errors_logger = logging.getLogger("haddak.errors")
+
+DATABASE_BUSY = "The database is busy or unreachable. Try again in a moment."
+UNEXPECTED_ERROR = "Something went wrong on our side. Try again in a moment."
+
+# SQLSTATE for "cannot execute ... in a read-only transaction". Supabase
+# switches a free project that is over its size limit to read-only.
+READ_ONLY_SQLSTATE = "25006"
+
+
+def database_unavailable(error: Exception) -> bool:
+    """True for errors that mean "the database cannot serve us right now",
+    as opposed to a bug in our query:
+    - OperationalError: connection refused or dropped, statement timeout;
+    - TimeoutError: every pooled connection is in use (pool_timeout passed);
+    - a read-only database (writes refused)."""
+    if isinstance(error, OperationalError | PoolTimeoutError):
+        return True
+    return getattr(getattr(error, "orig", None), "sqlstate", None) == READ_ONLY_SQLSTATE
+
+
+def error_response(request: Request, status_code: int, detail: str) -> JSONResponse:
+    response = JSONResponse(status_code=status_code, content={"detail": detail})
+    request_id = getattr(request.state, "request_id", None)
+    if request_id:
+        response.headers[REQUEST_ID_HEADER] = request_id
+    return response
+
+
+@app.exception_handler(SQLAlchemyError)
+def database_error_handler(request: Request, error: SQLAlchemyError) -> JSONResponse:
+    """Any database error a route did not handle itself: 503 when the
+    database is unavailable (the app may retry), 500 otherwise."""
+    errors_logger.error("database error on %s %s", request.method, request.url.path, exc_info=error)
+    if database_unavailable(error):
+        return error_response(request, 503, DATABASE_BUSY)
+    return error_response(request, 500, UNEXPECTED_ERROR)
+
+
+@app.exception_handler(Exception)
+def unexpected_error_handler(request: Request, error: Exception) -> JSONResponse:
+    """Any other crash. Starlette still re-raises the error after this answer
+    is sent, so uvicorn logs the traceback and Sentry records it."""
+    return error_response(request, 500, UNEXPECTED_ERROR)
+
+
 # ---------- admin page (outside /api/v1) ----------
 
 ADMIN_PAGE = Path(__file__).parent / "static" / "admin.html"
@@ -130,25 +185,13 @@ def admin_page() -> FileResponse:
 # ---------- sign-in email bridge (outside /api/v1) ----------
 
 # The link in the sign-in email opens in a browser. A browser cannot show an
-# app link (haddak:// or exp://) directly, so the email points here instead and
-# this page hands the code on to the app. See docs/API.md "Sign-in link".
-AUTH_OPEN_PAGE = Path(__file__).parent / "static" / "auth-open.html"
-AUTH_OPEN_HEADERS = {
-    "Content-Security-Policy": (
-        "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "
-        "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
-    ),
-    "X-Frame-Options": "DENY",
-    # The address holds a one-time sign-in code: never send it to other sites.
-    "Referrer-Policy": "no-referrer",
-    "X-Content-Type-Options": "nosniff",
-    "Cache-Control": "no-store",
-}
+# app link (haddak://) directly, so the email points here instead and this
+# page hands the code on to the app. The rules are in app/auth_open.py.
 
 
 @app.get("/auth/open", include_in_schema=False)
-def auth_open_page() -> FileResponse:
-    return FileResponse(AUTH_OPEN_PAGE, media_type="text/html", headers=AUTH_OPEN_HEADERS)
+def auth_open_page(request: Request) -> HTMLResponse:
+    return auth_open_response(request)
 
 
 # ---------- privacy policy, terms, account deletion (outside /api/v1) ----------
@@ -161,10 +204,21 @@ app.include_router(legal_pages_router)
 api = APIRouter(prefix="/api/v1")
 
 
+@api.get("/live", tags=["health"])
+def live() -> dict[str, str]:
+    """Liveness: the process is up and answering. Touches nothing else.
+
+    This is Render's healthCheckPath. If it checked the database, a
+    database outage or a full connection pool would make Render restart a
+    perfectly healthy process (and wipe its in-memory rate limits) without
+    fixing anything."""
+    return {"status": "ok"}
+
+
 @api.get("/health", tags=["health"])
 def health(db: Session = Depends(get_db)) -> dict[str, str]:
-    """Used by the hosting platform to decide whether the server is healthy.
-    Runs a trivial query so a broken database connection is noticed."""
+    """Deep check for the uptime monitor: also runs a trivial query, so a
+    broken database connection is noticed. (Render uses /live instead.)"""
     try:
         db.execute(text("SELECT 1"))
     except SQLAlchemyError as error:

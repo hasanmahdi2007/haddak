@@ -22,7 +22,7 @@
 </style>
 </head>
 <body>
-<main class="card">
+<main class="card" id="card" data-app="__APP_LINK__">
   <h1>حدّك · Haddak</h1>
   <p>عم نرجّعك عالتطبيق…</p>
   <p class="en">Taking you back to the app…</p>
@@ -34,17 +34,24 @@
 </main>
 <script>
   // The sign-in email lands here (a normal web page every browser can show),
-  // then we pass the sign-in code on to the app. `app` is the app's own link,
-  // e.g. exp://192.168.1.20:8081/--/auth-callback in Expo Go or
-  // haddak://auth-callback in a real build. Only those two kinds are allowed,
-  // so this page cannot be used to send people to other websites.
+  // then we pass the sign-in code on to the app. The server has already
+  // checked which app link to open (backend/app/auth_open.py) and written it
+  // into data-app: haddak://auth-callback in a real build, or an Expo Go
+  // link during development only. Empty means "not allowed": stay here.
+  // Only the sign-in code and error fields are passed on; never the rest of
+  // the address or its #fragment, so no one can slip login tokens through.
   (function () {
-    var params = new URLSearchParams(location.search);
-    var app = params.get('app') || '';
+    var app = document.getElementById('card').getAttribute('data-app') || '';
     if (!/^(exp|haddak):\/\//.test(app)) return;
-    params.delete('app');
-    var rest = params.toString();
-    var target = app + (rest ? (app.indexOf('?') === -1 ? '?' : '&') + rest : '') + location.hash;
+    var query = new URLSearchParams(location.search);
+    var fragment = new URLSearchParams(location.hash.replace(/^#/, ''));
+    var forwarded = new URLSearchParams();
+    ['code', 'error', 'error_code', 'error_description'].forEach(function (name) {
+      var value = query.has(name) ? query.get(name) : fragment.get(name);
+      if (value !== null) forwarded.set(name, value);
+    });
+    var rest = forwarded.toString();
+    var target = app + (rest ? (app.indexOf('?') === -1 ? '?' : '&') + rest : '');
     var button = document.getElementById('open');
     button.href = target;
     button.hidden = false;

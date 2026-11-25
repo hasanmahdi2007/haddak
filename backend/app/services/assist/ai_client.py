@@ -9,7 +9,11 @@ value afterwards (service.py), because "fits the schema" does not mean
 Tests never reach the network: they replace get_client() with a fake.
 """
 
+import functools
 import logging
+import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Literal
 
@@ -26,10 +30,20 @@ logger = logging.getLogger("haddak.assist")
 # "unavailable" rather than guess.
 MAX_TOKENS = 1024
 # Seconds to wait for the API. The user is waiting too; a slow answer is
-# worse than falling back to a normal search.
-TIMEOUT_SECONDS = 8.0
-# The SDK retries a failed request (network error, 429, 5xx) this many times.
-MAX_RETRIES = 1
+# worse than falling back to a normal search. The whole chain (AI call, then
+# the keyword fallback and the search) must finish well inside the app's own
+# timeout for /assist, or the user sees "offline" instead of the fallback.
+TIMEOUT_SECONDS = 6.0
+# Opening the connection to the API; normally well under a second.
+CONNECT_TIMEOUT_SECONDS = 2.0
+# No automatic retry: one retry could double the wait (2 x 6 s), longer
+# than the user waits. A failed request falls back to keywords at once.
+MAX_RETRIES = 0
+# At most this many AI requests at the same moment. Each one holds a server
+# thread while it waits; on a slow-API day, more would leave no threads for
+# searches. When all slots are busy, the keyword fallback answers at once.
+MAX_CONCURRENT_AI_CALLS = 8
+_ai_slots = threading.BoundedSemaphore(MAX_CONCURRENT_AI_CALLS)
 
 
 # ---------- the shape the AI must return ----------
@@ -136,16 +150,39 @@ class AIUnavailable(Exception):
         self.usage = usage or Usage()
 
 
+@functools.cache
 def get_client() -> anthropic.Anthropic:
     """The Claude API client. The key comes from settings (environment / .env).
+
+    Made once per process and shared (@functools.cache): the client keeps its
+    connections open, so later requests skip the connection and TLS set-up.
+    It is safe to use from several threads at once. A changed key needs a
+    restart, which a change of environment variables on Render does anyway.
 
     A separate function so tests can replace it with a fake.
     """
     return anthropic.Anthropic(
         api_key=settings.anthropic_api_key,
-        timeout=TIMEOUT_SECONDS,
+        timeout=anthropic.Timeout(TIMEOUT_SECONDS, connect=CONNECT_TIMEOUT_SECONDS),
         max_retries=MAX_RETRIES,
     )
+
+
+@contextmanager
+def ai_slot() -> Iterator[bool]:
+    """Yields True when this request may call the AI now, False when
+    MAX_CONCURRENT_AI_CALLS requests are already waiting for it. Never waits.
+
+        with ai_slot() as allowed:
+            if not allowed:
+                ...answer with the keyword fallback...
+    """
+    allowed = _ai_slots.acquire(blocking=False)
+    try:
+        yield allowed
+    finally:
+        if allowed:
+            _ai_slots.release()
 
 
 def usage_from(response) -> Usage:

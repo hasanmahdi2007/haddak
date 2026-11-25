@@ -44,6 +44,7 @@ from app.main import app  # noqa: E402
 from app.models import Category, Provider  # noqa: E402
 from app.rate_limit import limiter  # noqa: E402
 from app.services.geo import point_for_storage, project_point  # noqa: E402
+from app.services.search import clear_category_cache  # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 
@@ -85,7 +86,8 @@ def migrated_database():
                 "DROP TABLE IF EXISTS claims, hire_checks, assist_quota, assist_log, assist_cache, "
                 "places, "
                 "follows, banners, stories, "
-                "provider_reports, provider_suggestions, contact_events, "
+                "provider_reports, provider_suggestions, contact_events, contact_event_months, "
+                "contact_event_dedup, "
                 "reviews, providers, categories, alembic_version CASCADE"
             )
         )
@@ -116,10 +118,13 @@ def empty_tables(migrated_database):
                 "TRUNCATE claims, assist_quota, assist_log, assist_cache, hire_checks, follows, "
                 "banners, "
                 "stories, "
-                "provider_reports, provider_suggestions, contact_events, reviews, "
-                "providers, categories RESTART IDENTITY CASCADE"
+                "provider_reports, provider_suggestions, contact_events, contact_event_months, "
+                "contact_event_dedup, "
+                "reviews, providers, categories RESTART IDENTITY CASCADE"
             )
         )
+    # The search keeps the category tree in memory; the rows just went.
+    clear_category_cache()
 
 
 class FakeClock:
@@ -136,16 +141,22 @@ class FakeClock:
 
 
 @pytest.fixture(autouse=True)
-def clock():
+def clock(monkeypatch):
     """Before every test: empty the rate limiter and give it a fake clock.
 
     Emptying it means one test's requests never count against another test.
     A test that needs time to pass (e.g. "ten minutes later") asks for this
-    fixture and calls clock.advance(seconds).
+    fixture and calls clock.advance(seconds). The contact-event "same tap
+    twice" rule (kept in the database) follows the same fake clock.
     """
     fake_clock = FakeClock()
     limiter.reset()
     limiter.clock = fake_clock
+    started = datetime.now(UTC)
+    monkeypatch.setattr(
+        "app.services.contact_stats.utc_now",
+        lambda: started + timedelta(seconds=fake_clock.now - 1000.0),
+    )
     return fake_clock
 
 

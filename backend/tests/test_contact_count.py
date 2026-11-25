@@ -18,9 +18,15 @@ ME_URL = "/api/v1/me/provider"
 
 
 def add_events(db, provider, event_types: list[str], created_at: datetime | None = None) -> None:
-    """Insert contact events directly (skips the API's 10-minute de-duplication)."""
+    """Insert contact events directly (skips the API's 10-minute de-duplication).
+
+    WhatsApp and call taps are stored as signed-in taps that count publicly."""
     for event_type in event_types:
-        event = ContactEvent(provider_id=provider.id, type=event_type)
+        event = ContactEvent(
+            provider_id=provider.id,
+            type=event_type,
+            counts_publicly=event_type in ("whatsapp", "call"),
+        )
         if created_at is not None:
             event.created_at = created_at
         db.add(event)

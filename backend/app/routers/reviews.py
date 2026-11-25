@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_user_id, get_optional_user_id
 from app.db import get_db
 from app.models import PUBLIC_STATUSES, Provider, Review
-from app.rate_limit import limit_writes
-from app.routers.providers import get_public_provider
+from app.rate_limit import limit_reads, limit_writes
+from app.routers.providers import MAX_OFFSET, get_public_provider
 from app.schemas import ReviewIn, ReviewList, ReviewOut
 from app.services.hire_checks import hired_user_ids
 from app.services.ratings import recalculate_rating
@@ -62,11 +62,15 @@ def find_my_review(db: Session, provider_id: uuid.UUID, user_id: uuid.UUID) -> R
     )
 
 
-@router.get("/providers/{provider_id}/reviews", response_model=ReviewList)
+@router.get(
+    "/providers/{provider_id}/reviews",
+    response_model=ReviewList,
+    dependencies=[Depends(limit_reads)],
+)
 def list_reviews(
     provider_id: uuid.UUID,
     limit: int = Query(default=20, ge=1, le=50),
-    offset: int = Query(default=0, ge=0),
+    offset: int = Query(default=0, ge=0, le=MAX_OFFSET),
     db: Session = Depends(get_db),
     current_user_id: uuid.UUID | None = Depends(get_optional_user_id),
 ):

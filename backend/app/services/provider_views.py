@@ -7,13 +7,14 @@ Three levels, each adding fields to the one before:
 import uuid
 from datetime import UTC, date, datetime
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import Banner, Provider
+from app.models import Banner, Follow, Provider
 from app.schemas import BannerOut, CategoryBrief, OwnProvider, ProviderDetail, ProviderSummary
-from app.services.contact_stats import public_contact_count
+from app.services.contact_stats import public_contact_count, public_contact_counts
 from app.services.follows import follower_count, is_following
-from app.services.hire_checks import confirmed_hires
+from app.services.hire_checks import confirmed_hires, confirmed_hires_counts
 from app.services.opening_hours import is_open_now
 from app.services.posts import PostInfo, load_post_info
 
@@ -142,8 +143,8 @@ def to_detail(
     return ProviderDetail(**detail_fields(db, provider, distance_m, viewer_id))
 
 
-def to_own(db: Session, provider: Provider) -> OwnProvider:
-    fields = detail_fields(db, provider, None)
+def own_from_fields(provider: Provider, fields: dict) -> OwnProvider:
+    """OwnProvider = the detail fields plus what only the owner and admin see."""
     # The owner (and the admin) always see the stored hook, sponsored or not.
     fields["sponsor_hook"] = provider.sponsor_hook
     return OwnProvider(
@@ -155,3 +156,55 @@ def to_own(db: Session, provider: Provider) -> OwnProvider:
         show_contact_count=provider.show_contact_count,
         available_until=provider.available_until,
     )
+
+
+def to_own(db: Session, provider: Provider) -> OwnProvider:
+    return own_from_fields(provider, detail_fields(db, provider, None))
+
+
+def follower_counts(db: Session, provider_ids: list[uuid.UUID]) -> dict[uuid.UUID, int]:
+    """Followers of many providers in one query; providers with none are missing."""
+    if not provider_ids:
+        return {}
+    rows = db.execute(
+        select(Follow.provider_id, func.count())
+        .where(Follow.provider_id.in_(provider_ids))
+        .group_by(Follow.provider_id)
+    )
+    return {provider_id: count for provider_id, count in rows}
+
+
+def to_own_list(db: Session, providers: list[Provider]) -> list[OwnProvider]:
+    """to_own() for a whole page (the admin lists).
+
+    Every count is loaded for all providers at once (one GROUP BY query
+    each), so a page of 50 costs the same handful of queries as a page of 1,
+    instead of five queries per provider.
+    """
+    provider_ids = [provider.id for provider in providers]
+    posts = load_post_info(db, provider_ids, current_time())
+    followers = follower_counts(db, provider_ids)
+    hires = confirmed_hires_counts(db, provider_ids)
+    contacts = public_contact_counts(db, [p.id for p in providers if p.show_contact_count])
+
+    result = []
+    for provider in providers:
+        banner = visible_banner(provider, posts)
+        fields = summary_fields(provider, None, posts)
+        fields.update(
+            description=provider.description,
+            phone=provider.phone,
+            whatsapp=provider.whatsapp or provider.phone,
+            photos=provider.photos,
+            created_at=provider.created_at,
+            opening_hours=provider.opening_hours,
+            contacts_this_month=(
+                contacts.get(provider.id, 0) if provider.show_contact_count else None
+            ),
+            active_banner=BannerOut.model_validate(banner) if banner else None,
+            follower_count=followers.get(provider.id, 0),
+            is_following=False,  # the admin is not a user
+            confirmed_hires=hires.get(provider.id, 0),
+        )
+        result.append(own_from_fields(provider, fields))
+    return result

@@ -12,6 +12,7 @@ from app.config import settings
 from app.db import get_db
 from app.models import AssistLog, Banner, Provider, ProviderReport, ProviderSuggestion, Story
 from app.routers.me import generate_slug, require_category, require_price_pair
+from app.routers.providers import MAX_OFFSET
 from app.schemas import (
     AdminBannerList,
     AdminProvider,
@@ -28,7 +29,7 @@ from app.schemas import (
 from app.services.assist.budget import month_spend_usd, month_start
 from app.services.geo import point_for_storage
 from app.services.hire_checks import no_answer_counts
-from app.services.provider_views import to_own
+from app.services.provider_views import to_own, to_own_list
 
 # dependencies=[...] applies the admin-key check to all routes in this file.
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
@@ -52,21 +53,28 @@ BANNER_FIELDS = [
 @router.get("/providers", response_model=AdminProviderList)
 def list_providers_by_status(
     status: ProviderStatus = "pending",
+    # Paged: "unverified" holds thousands of imported listings.
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0, le=MAX_OFFSET),
     db: Session = Depends(get_db),
 ):
     """Profiles with the given status, oldest first (a review queue)."""
     query = (
-        select(Provider).where(Provider.status == status).order_by(Provider.created_at, Provider.id)
+        select(Provider)
+        .where(Provider.status == status)
+        .order_by(Provider.created_at, Provider.id)
+        .limit(limit)
+        .offset(offset)
     )
     providers = list(db.scalars(query))
-    # "They didn't answer" counts for the whole list in one query (founder only).
+    # Counts for the whole page in a few queries, not a few per provider.
     no_answers = no_answer_counts(db, [provider.id for provider in providers])
     items = [
         AdminProvider(
-            **to_own(db, provider).model_dump(),
+            **own.model_dump(),
             no_answer_count_90d=no_answers.get(provider.id, 0),
         )
-        for provider in providers
+        for provider, own in zip(providers, to_own_list(db, providers), strict=True)
     ]
     total = db.scalar(select(func.count()).select_from(Provider).where(Provider.status == status))
     return AdminProviderList(items=items, total=total or 0)
@@ -84,7 +92,12 @@ def update_provider(
       Reject        -> status "rejected"   (hidden everywhere public)
       Restore       -> status "unverified" (from rejected)
     """
-    provider = db.get(Provider, provider_id)
+    # FOR UPDATE: if the owner edits the profile at the same moment (e.g.
+    # removes the proof), the two changes take turns instead of one silently
+    # overwriting the other.
+    provider = db.scalar(
+        select(Provider).where(Provider.id == provider_id).with_for_update(of=Provider)
+    )
     if provider is None:
         raise HTTPException(status_code=404, detail="Provider not found")
 
@@ -101,7 +114,7 @@ def update_provider(
 @router.get("/suggestions", response_model=SuggestionList)
 def list_suggestions(
     limit: int = Query(default=50, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
+    offset: int = Query(default=0, ge=0, le=MAX_OFFSET),
     db: Session = Depends(get_db),
 ):
     """Suggested providers, newest first."""
@@ -194,7 +207,7 @@ def publish_suggestion(
 @router.get("/reports", response_model=ReportList)
 def list_reports(
     limit: int = Query(default=50, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
+    offset: int = Query(default=0, ge=0, le=MAX_OFFSET),
     db: Session = Depends(get_db),
 ):
     """Reported listings, newest first."""

@@ -152,6 +152,9 @@ class ContactEvent(Base):
     provider_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("providers.id", ondelete="CASCADE"))
     type: Mapped[str] = mapped_column(Text)  # 'view', 'whatsapp' or 'call'
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # True only for a signed-in user's first WhatsApp/call tap on this
+    # provider that day: the public "contacts this month" counts these only.
+    counts_publicly: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
 
 
 class ProviderSuggestion(Base):

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_user_id
 from app.db import get_db
 from app.models import Banner, Provider, Story
-from app.rate_limit import limit_writes
+from app.rate_limit import limit_reads, limit_searches, limit_writes
 from app.routers.me import get_my_provider_or_404
 from app.routers.providers import get_public_provider
 from app.schemas import BannerIn, BannerOut, StoryCreate, StoryGroupList, StoryList, StoryOut
@@ -146,7 +146,11 @@ def delete_my_banner(
 # ---------- public ----------
 
 
-@router.get("/providers/{provider_id}/stories", response_model=StoryList)
+@router.get(
+    "/providers/{provider_id}/stories",
+    response_model=StoryList,
+    dependencies=[Depends(limit_reads)],
+)
 def list_provider_stories(provider_id: uuid.UUID, db: Session = Depends(get_db)):
     """A provider's active stories, newest first."""
     provider = get_public_provider(db, provider_id)
@@ -157,7 +161,9 @@ def list_provider_stories(provider_id: uuid.UUID, db: Session = Depends(get_db))
     return StoryList(items=active_stories(db, [provider.id], current_time()))
 
 
-@router.get("/stories/nearby", response_model=StoryGroupList)
+@router.get(
+    "/stories/nearby", response_model=StoryGroupList, dependencies=[Depends(limit_searches)]
+)
 def stories_nearby(
     lat: float = Query(ge=-90, le=90),
     lng: float = Query(ge=-180, le=180),

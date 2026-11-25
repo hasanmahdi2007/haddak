@@ -2,16 +2,22 @@ name: database backup
 
 # Supabase's free plan keeps no backups you can download, so once a week this
 # saves Haddak's tables (schema `public`) as an encrypted file kept for 30
-# days under this workflow's run ("Artifacts").
+# days under this workflow's run ("Artifacts"). Optionally it also saves the
+# sign-in accounts (Supabase's `auth` schema, data only).
 #
-# The repository is public: the dump is encrypted (AES-256, gpg) with
-# BACKUP_PASSPHRASE before it is uploaded, so the file alone is useless.
+# The repository is public: the dumps are encrypted (AES-256, gpg) with
+# BACKUP_PASSPHRASE before they are uploaded, so the files alone are useless.
 # Keep the passphrase somewhere safe outside GitHub: without it the backups
-# cannot be restored. How to restore: docs/DEPLOY.md, "Backups".
+# cannot be restored. How to restore, and what is NOT in these backups
+# (photos in Storage): docs/DEPLOY.md, "Backups".
 #
 # Secrets (Settings → Secrets and variables → Actions):
-#   BACKUP_DATABASE_URL  postgresql://... (no "+psycopg"), the session pooler
-#   BACKUP_PASSPHRASE    long random string
+#   BACKUP_DATABASE_URL       postgresql://... (no "+psycopg"), the session pooler
+#   BACKUP_PASSPHRASE         long random string
+#   BACKUP_AUTH_DATABASE_URL  optional: the same address for the `postgres`
+#                             user (haddak_api cannot read `auth`). When it is
+#                             not set, that step is skipped and everything
+#                             else works as before.
 
 on:
   schedule:
@@ -28,6 +34,7 @@ jobs:
     env:
       BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
       BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      BACKUP_AUTH_DATABASE_URL: ${{ secrets.BACKUP_AUTH_DATABASE_URL }}
 
     steps:
       - name: Check the secrets are set
@@ -35,6 +42,9 @@ jobs:
           if [ -z "$BACKUP_DATABASE_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
             echo "::error::BACKUP_DATABASE_URL and BACKUP_PASSPHRASE must be set"
             exit 1
+          fi
+          if [ -z "$BACKUP_AUTH_DATABASE_URL" ]; then
+            echo "::notice::BACKUP_AUTH_DATABASE_URL is not set: sign-in accounts are not backed up (docs/DEPLOY.md, Backups)"
           fi
 
       - name: Dump the database
@@ -46,17 +56,32 @@ jobs:
                    --format=custom --file=/out/haddak.dump'
           ls -l haddak.dump
 
+      - name: Dump the sign-in accounts (optional)
+        # Data only: a new Supabase project already has the `auth` tables,
+        # and restoring the rows keeps every user's id (docs/DEPLOY.md,
+        # "Rebuilding everything").
+        if: ${{ env.BACKUP_AUTH_DATABASE_URL != '' }}
+        run: |
+          docker run --rm -v "$PWD:/out" -e BACKUP_AUTH_DATABASE_URL postgres:17 \
+            sh -c 'pg_dump "$BACKUP_AUTH_DATABASE_URL" --schema=auth --data-only --no-owner \
+                   --no-privileges --format=custom --file=/out/haddak-auth.dump'
+          ls -l haddak-auth.dump
+
       - name: Encrypt
         run: |
           stamp=$(date -u +%Y-%m-%d)
-          gpg --batch --yes --symmetric --cipher-algo AES256 \
-              --passphrase-fd 0 --output "haddak-$stamp.dump.gpg" haddak.dump <<< "$BACKUP_PASSPHRASE"
-          rm haddak.dump
+          for name in haddak haddak-auth; do
+            if [ -f "$name.dump" ]; then
+              gpg --batch --yes --symmetric --cipher-algo AES256 \
+                  --passphrase-fd 0 --output "$name-$stamp.dump.gpg" "$name.dump" <<< "$BACKUP_PASSPHRASE"
+              rm "$name.dump"
+            fi
+          done
           echo "STAMP=$stamp" >> "$GITHUB_ENV"
 
       - uses: actions/upload-artifact@v4
         with:
           name: haddak-db-${{ env.STAMP }}
-          path: haddak-${{ env.STAMP }}.dump.gpg
+          path: haddak*-${{ env.STAMP }}.dump.gpg
           retention-days: 30
           if-no-files-found: error

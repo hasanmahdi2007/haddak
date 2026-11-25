@@ -104,9 +104,12 @@ def test_message_too_long_is_422(client, db):
 
 
 def test_claims_are_rate_limited(client, db):
-    provider = unclaimed(db)
-    codes = [send_claim(client, provider, uuid.uuid4()).status_code for _ in range(6)]
+    # 5 per hour per signed-in user (each claim on another listing).
+    user_id = uuid.uuid4()
+    codes = [send_claim(client, unclaimed(db), user_id).status_code for _ in range(6)]
     assert codes == [201] * 5 + [429]
+    # Another person behind the same address still has their own allowance.
+    assert send_claim(client, unclaimed(db), uuid.uuid4()).status_code == 201
 
 
 # ---------- admin ----------

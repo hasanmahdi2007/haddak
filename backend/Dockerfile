@@ -29,9 +29,17 @@ USER haddak
 ENV PORT=8000
 EXPOSE 8000
 
-# 1. Apply any new database migrations.  2. Start the server.
+# Apply new migrations when the container starts (RUN_MIGRATIONS=true, the
+# default, which the free Render plan needs: it has no pre-deploy step).
+# On a paid plan, set RUN_MIGRATIONS=false and let Render's preDeployCommand
+# run `alembic upgrade head` once per deploy instead, so a wake-up or a
+# restart does not migrate and an unreachable database does not stop the
+# API from starting (docs/DEPLOY.md, "Migrations").
+ENV RUN_MIGRATIONS=true
+
+# 1. Apply any new database migrations (unless switched off).  2. Start the server.
 # --no-access-log: uvicorn's own access log prints full query strings
 #   (users' lat/lng); app/request_logging.py logs each request without them.
 # `exec` makes uvicorn the main process, so it receives the stop signal and
 #   shuts down cleanly.
-CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --no-access-log"]
+CMD ["sh", "-c", "if [ \"$RUN_MIGRATIONS\" = true ] || [ \"$RUN_MIGRATIONS\" = 1 ]; then alembic upgrade head || exit 1; fi; exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --no-access-log"]

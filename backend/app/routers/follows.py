@@ -11,7 +11,7 @@ from app.auth import get_current_user_id
 from app.db import get_db
 from app.models import PUBLIC_STATUSES, Follow, Provider
 from app.rate_limit import limit_writes
-from app.routers.providers import get_public_provider
+from app.routers.providers import MAX_OFFSET, get_public_provider
 from app.schemas import ProviderSearchResult, StoryGroupList
 from app.services.provider_views import to_summaries
 from app.services.story_feed import load_story_groups
@@ -60,7 +60,7 @@ def unfollow_provider(
 @router.get("/me/following", response_model=ProviderSearchResult)
 def list_following(
     limit: int = Query(default=50, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
+    offset: int = Query(default=0, ge=0, le=MAX_OFFSET),
     db: Session = Depends(get_db),
     user_id: uuid.UUID = Depends(get_current_user_id),
 ):

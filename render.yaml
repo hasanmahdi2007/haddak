@@ -20,8 +20,16 @@ services:
     rootDir: backend
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    # Render calls this; it also checks the database connection.
-    healthCheckPath: /api/v1/health
+    # Render calls this to decide whether the process is alive. It does NOT
+    # touch the database: a database outage must not make Render restart a
+    # healthy API. The deep check (/api/v1/health, with the database) is for
+    # the uptime monitor (docs/DEPLOY.md, step 5).
+    healthCheckPath: /api/v1/live
+    # Migrations: on the free plan the container runs them when it starts
+    # (RUN_MIGRATIONS, default true, see backend/Dockerfile). On a paid plan,
+    # uncomment the next line and add RUN_MIGRATIONS=false below, so they run
+    # once per deploy instead of at every start (docs/DEPLOY.md, "Migrations").
+    # preDeployCommand: alembic upgrade head
     # Deploy every push to main, but only after the GitHub checks pass.
     autoDeployTrigger: checksPass
     envVars:
@@ -35,6 +43,14 @@ services:
         value: "1"
       - key: SUPABASE_JWKS_URL
         value: https://wamwmhanxqvftrwqlyfh.supabase.co/auth/v1/.well-known/jwks.json
+      # Photo, story and proof links must point into this project's Storage.
+      # Required in production (the API refuses to start without it).
+      - key: SUPABASE_URL
+        value: https://wamwmhanxqvftrwqlyfh.supabase.co
+      # No browser origins: the phone app and the /admin page need no CORS.
+      # Production refuses "*".
+      - key: CORS_ORIGINS
+        value: ""
       # Random values made by Render on the first deploy.
       - key: ADMIN_API_KEY
         generateValue: true
