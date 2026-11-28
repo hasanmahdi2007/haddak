@@ -1,10 +1,10 @@
 # Runtime dependencies (exact versions so every machine installs the same thing).
-fastapi==0.163.0
+fastapi==0.165.0
 uvicorn[standard]==0.54.0
-SQLAlchemy==2.1.8
+SQLAlchemy==2.1.9
 psycopg[binary]==3.3.9
 GeoAlchemy2==0.21.0
-pydantic==2.14.3
+pydantic==2.14.4
 pydantic-settings==2.16.3
 alembic==1.20.1
 PyJWT[crypto]==2.15.1
@@ -15,6 +15,6 @@ tzdata==2026.6
 # name picks one (app/services/assist/ai_client.py).
 openai==3.59.0
 google-genai==3.6.1
-anthropic==2.8.0
+anthropic==2.14.0
 # Crash reports (app/error_tracking.py); off unless SENTRY_DSN is set.
-sentry-sdk==2.75.0
+sentry-sdk==2.76.0
